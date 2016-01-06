@@ -2,29 +2,28 @@
 var
   hsl $ require :hsl
   React $ require :react
+  Immutable $ require :immutable
 
 var
   ({}~ div) React.DOM
 
+var
+  NewComer $ React.createFactory $ require :./new-comer
+  NotFound $ React.createFactory $ require :./not-found
+
 = module.exports $ React.createClass $ {}
   :displayName :app-page
 
+  :propTypes $ {}
+    :store
+      . (React.PropTypes.instanceOf Immutable.Map) :isRequired
+    :dispatch React.PropTypes.func.isRequired
+
   :render $ \ ()
-    div ({} :style @styleRoot)
-      div ({} :style @styleBody)
-        div ({} :style @styleHeader)
-        div ({} :style @styleContent)
+    var
+      router $ @props.store.get :router
+      dispatch @props.dispatch
 
-  :styleRoot $ {}
-    :position :absolute
-    :width :100%
-    :height :100%
-    :display :flex
-    :flexDirection :row
-    :alignItems :stretch
-
-  :styleBody $ {}
-
-  :styleHeader $ {}
-
-  :styleContent $ {}
+    case (router.get :name)
+      :new-comer $ NewComer $ {} :dispatch dispatch
+      else $ NotFound

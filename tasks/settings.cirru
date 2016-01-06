@@ -3,7 +3,7 @@
   case env
     :dev $ {}
       :env :dev
-      :host :http://localhost
+      :host :http://repo
       :port 8080
     :build $ {}
       :env :build

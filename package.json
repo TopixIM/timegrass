@@ -25,8 +25,10 @@
     "hsl": "^0.1.1",
     "immutablepatch": "^0.2.2",
     "json-loader": "^0.5.3",
+    "object-assign": "^4.0.1",
     "react": "^0.14.5",
     "react-dom": "^0.14.5",
+    "react-lite-space": "^1.0.0",
     "rsyncwrapper": "^0.4.3",
     "run-sequence": "^1.1.2",
     "stir-template": "^0.1.5",
@@ -36,7 +38,7 @@
     "webpack-dev-server": "^1.10.1"
   },
   "dependencies": {
-    "actions-recorder": "^1.6.3",
+    "actions-recorder": "^1.6.4-alpha1",
     "immutable": "^3.7.6",
     "immutablediff": "^0.4.2",
     "shortid": "^2.2.4",
