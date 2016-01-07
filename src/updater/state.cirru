@@ -4,7 +4,8 @@ var
 
 = exports.connect $ \ (db data meta)
   db.setIn
-    [] :states (meta.get :stateId) schema.state
+    [] :states (meta.get :stateId)
+    , schema.state
 
 = exports.disconnect $ \ (db data meta)
   db.deleteIn

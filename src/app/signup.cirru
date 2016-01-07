@@ -30,6 +30,9 @@ var
   :onConfirmChange $ \ (event)
     @setState $ {} :confirm event.target.value
 
+  :onSubmit $ \ (event)
+    @props.dispatch :user/signup $ {} :name @state.name :password @state.password
+
   :render $ \ ()
     div ({} :className :app-signup :style @styleRoot)
       div ({} :style widget.guideTitle) ":Sign up"
@@ -37,11 +40,9 @@ var
       input $ {} :type :text :value @state.name :onChange @onNameChange :style widget.textbox :placeholder :Name
       Space $ {} :height 10
       input $ {} :type :password :value @state.password :onChange @onPasswordChange :style widget.textbox :placeholder :Password
-      Space $ {} :height 10
-      input $ {} :type :confirm :value @state.confirm :onChange @onConfirmChange :style widget.textbox :placeholder :Confirm
       Space $ {} :height 20
       div ({} :style widget.barFromRight)
-        button ({} :style widget.button) :Submit
+        button ({} :style widget.button :onClick @onSubmit) :Submit
 
   :styleRoot $ {}
     :display :flex

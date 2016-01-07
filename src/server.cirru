@@ -50,6 +50,7 @@ wss.on :connection $ \ (socket)
         :id $ shortid.generate
         :time $ now.valueOf
     recorder.dispatch actionType actionData actionMeta
+    console.log actionType (JSON.stringify actionData) (JSON.stringify actionMeta)
 
   socket.on :close $ \ ()
     var

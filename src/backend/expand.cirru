@@ -13,9 +13,9 @@ var bind $ \ (v k) (k v)
     state $ store.getIn $ [] :states stateId
 
   cond
-    ? $ state.get :user
-    bind (state.get :user) $ \ (user)
-      return schema.store
+    ? $ state.get :userId
+    bind (state.get :userId) $ \ (userId)
+      return store
     schema.store.set :router $ {}
       :name :new-comer
       :data $ {}

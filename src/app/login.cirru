@@ -28,6 +28,9 @@ var
   :onPasswordChange $ \ (event)
     @setState $ {} :password event.target.value
 
+  :onSubmit $ \ (event)
+    @props.dispatch :user/login $ {} :name @state.name :password @state.password
+
   :render $ \ ()
     div ({} :className :app-login :style @styleRoot)
       div ({} :style widget.guideTitle) ":Log in"
@@ -37,7 +40,7 @@ var
       input $ {} :type :password :onChange @onPasswordChange :value @state.password :style widget.textbox :placeholder :Password
       Space $ {} :height 20
       div ({} :style widget.barFromRight)
-        button ({} :style widget.button) :Submit
+        button ({} :style widget.button :onClick @onSubmit) :Submit
 
   :styleRoot $ {}
     :display :flex
