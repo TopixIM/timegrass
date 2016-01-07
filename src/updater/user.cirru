@@ -26,9 +26,26 @@ var
     [] :states (meta.get :stateId) :user
 
 = exports.signup $ \ (db data meta)
-  db.setIn
-    [] :users (meta.get :id)
-    ... schema.user
-      set :id (meta.get :id)
-      set :name $ data.get :name
-      set :password $ data.get :password
+  var
+    maybeUser $ ... db
+      get :users
+      find $ \ (user userId)
+        is (user.get :name) (data.get :name)
+  cond (? maybeUser)
+    db.updateIn
+      [] :states (meta.get :stateId) :notifications
+      \ (notifications)
+        notifications.push $ ... schema.notification
+          set :id (meta.get :id)
+          set :type :error
+          set :text ":name is taken"
+    ... db
+      setIn
+        [] :users (meta.get :id)
+        ... schema.user
+          set :id (meta.get :id)
+          set :name $ data.get :name
+          set :password $ data.get :password
+      setIn
+        [] :states (meta.get :stateId) :userId
+        meta.get :id

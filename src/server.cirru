@@ -49,8 +49,8 @@ wss.on :connection $ \ (socket)
         :stateId stateId
         :id $ shortid.generate
         :time $ now.valueOf
+    console.log :=> actionType (JSON.stringify actionData) (JSON.stringify actionMeta)
     recorder.dispatch actionType actionData actionMeta
-    console.log actionType (JSON.stringify actionData) (JSON.stringify actionMeta)
 
   socket.on :close $ \ ()
     var
@@ -65,9 +65,11 @@ recorder.subscribe $ \ (core)
   var
     stateIdList $ Object.keys wsCaches
     db $ core.get :store
+
   stateIdList.forEach $ \ (stateId)
     var
       reference $ . wsCaches stateId
       store $ expand core stateId
       changes $ diff reference.cache store
     reference.socket.send $ JSON.stringify changes
+    = reference.cache store

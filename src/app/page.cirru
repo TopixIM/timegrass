@@ -10,6 +10,7 @@ var
 var
   NewComer $ React.createFactory $ require :./new-comer
   NotFound $ React.createFactory $ require :./not-found
+  NotificationCenter $ React.createFactory $ require :./notification-center
 
 = module.exports $ React.createClass $ {}
   :displayName :app-page
@@ -21,9 +22,14 @@ var
 
   :render $ \ ()
     var
-      router $ @props.store.get :router
+      router $ @props.store.getIn $ [] :state :router
+      notifications $ @props.store.getIn $ [] :state :notifications
       dispatch @props.dispatch
 
-    case (router.get :name)
-      :new-comer $ NewComer $ {} :dispatch dispatch
-      else $ NotFound
+    div ({} :style @styleRoot)
+      case (router.get :name)
+        :new-comer $ NewComer $ {} :dispatch dispatch
+        else $ NotFound
+      NotificationCenter $ {} :dispatch dispatch :notifications notifications
+
+  :styleRoot $ {}

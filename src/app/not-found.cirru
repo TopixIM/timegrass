@@ -2,6 +2,9 @@
 var
   React $ require :react
 
+var
+  ({}~ div) React.DOM
+
 = module.exports $ React.createClass $ {}
   :displayName :not-found
 

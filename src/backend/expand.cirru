@@ -9,13 +9,17 @@ var bind $ \ (v k) (k v)
 
 = module.exports $ \ (core stateId)
   var
-    store $ core.get :store
-    state $ store.getIn $ [] :states stateId
+    db $ core.get :store
+    state $ db.getIn $ [] :states stateId
+
+  console.log :state (JSON.stringify state)
 
   cond
     ? $ state.get :userId
-    bind (state.get :userId) $ \ (userId)
-      return store
-    schema.store.set :router $ {}
-      :name :new-comer
-      :data $ {}
+    ... schema.store
+      set :state state
+    ... schema.store
+      set :state state
+      setIn
+        [] :state :router
+        {} :name :new-comer :data $ {}
