@@ -13,7 +13,9 @@ var identity $ \ (x) x
     :state/connect state.connect
     :state/disconnect state.disconnect
 
-    :router/view router.view
+    :router/workspace router.workspace
+    :router/members router.members
+    :router/settings router.settings
 
     :user/login user.login
     :user/logout user.logout

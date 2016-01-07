@@ -30,12 +30,26 @@ var
   :fontFamily ":Helvetica Neue Light, Century Gothic"
   :fontWeight 100
 
+= exports.entryTitle $ {}
+  :fontSize :24px
+  :fontFamily ":Helvetica Neue Light, Century Gothic"
+  :fontWeight 100
+
 = exports.horizontalRule $ {}
   :height 1
   :backgroundColor (hsl 0 0 90)
+  :width :40%
+  :alignSelf :center
 
 = exports.verticalRule $ {}
   :width 1
   :backgroundColor (hsl 0 0 90)
   :height :40%
   :alignSelf :center
+
+= exports.cardOnWhite $ {}
+  :backgroundColor $ hsl 0 0 90
+  :color $ hsl 0 0 20
+  :fontFamily ":Verdana"
+  :padding :20px
+  :margin ":20px 20px"

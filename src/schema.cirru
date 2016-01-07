@@ -38,3 +38,7 @@ var
   :id null
   :type :info
   :text null
+
+= exports.router $ Immutable.fromJS $ {}
+  :name null
+  :data $ {}
