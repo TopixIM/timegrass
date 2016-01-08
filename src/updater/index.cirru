@@ -13,6 +13,7 @@ var identity $ \ (x) x
     :state/connect state.connect
     :state/disconnect state.disconnect
 
+    :router/home router.home
     :router/workspace router.workspace
     :router/members router.members
     :router/settings router.settings

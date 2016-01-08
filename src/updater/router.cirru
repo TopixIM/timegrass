@@ -2,6 +2,11 @@
 var
   schema $ require :../schema
 
+= exports.home $ \ (db data meta)
+  db.setIn
+    [] :states (meta.get :stateId) :router
+    schema.router.set :name :home
+
 = exports.workspace $ \ (db data meta)
   db.setIn
     [] :states (meta.get :stateId) :router

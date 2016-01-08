@@ -19,9 +19,11 @@ var
   socket $ new WebSocket $ + :ws://repo:4005
   dispatch $ \ (type data)
     if isSocketAlive $ do
-      socket.send $ JSON.stringify $ {}
+      var msg $ JSON.stringify $ {}
         :type type
         :data data
+      console.info :<= msg
+      socket.send msg
     , undefined
   render $ \ ()
     ReactDOM.render

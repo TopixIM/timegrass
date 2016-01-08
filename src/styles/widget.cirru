@@ -15,6 +15,7 @@ var
   :backgroundColor (hsl 200 60 40)
   :border :none
   :padding ":0 20px"
+  :cursor :pointer
 
 = exports.bar $ {}
   :display :flex
@@ -34,6 +35,7 @@ var
   :fontSize :24px
   :fontFamily ":Helvetica Neue Light, Century Gothic"
   :fontWeight 100
+  :cursor :pointer
 
 = exports.horizontalRule $ {}
   :height 1

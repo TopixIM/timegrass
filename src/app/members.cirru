@@ -5,6 +5,7 @@ var
 
 var
   layout $ require :../styles/layout
+  widget $ require :../styles/widget
 
 var
   ({}~ div) React.DOM
@@ -12,7 +13,18 @@ var
 = module.exports $ React.createClass $ {}
   :displayName :app-members
 
-  :render $ \ ()
-    div ({} :style @styleRoot) :Members
+  :propTypes $ {}
+    :dispatch React.PropTypes.func.isRequired
 
-  :styleRoot layout.fullscreen
+  :onNavHome $ \ ()
+    @props.dispatch :router/home
+
+  :render $ \ ()
+    div ({} :style @styleRoot)
+      div ({} :style layout.sideBar)
+        div ({} :style widget.entryTitle :onClick @onNavHome) :Home
+
+  :styleRoot $ assign ({}) layout.fullscreen
+    {}
+      :display :flex
+      :flexDirection :row
