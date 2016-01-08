@@ -28,11 +28,11 @@ var
 
   :render $ \ ()
     div ({} :className :app-home :style @styleRoot)
-      div ({} :style @styleNavBar)
+      div ({} :style layout.sideBar)
         div ({} :style widget.entryTitle :onClick @onNavWorkspace) :Workspace
-        div ({} :style @styleEntryHr)
+        div ({} :style widget.entryHr)
         div ({} :style widget.entryTitle :onClick @onNavMembers) :Members
-        div ({} :style @styleEntryHr)
+        div ({} :style widget.entryHr)
         div ({} :style widget.entryTitle :onClick @onNavSettings) :Settings
       div ({} :style @styleMore)
         div ({} :style widget.cardOnWhite) ":This is a tickets tracker~"
@@ -43,21 +43,6 @@ var
       :display :flex
       :flexDirection :row
       :alignItems :strech
-
-  :styleNavBar $ {}
-    :width :300px
-    :backgroundColor $ hsl 0 0 90
-    :padding ":100px 40px"
-    :display :flex
-    :flexDirection :column
-    :alignItems :flex-end
-
-  :styleEntryHr $ assign ({}) widget.horizontalRule
-    {}
-      :backgroundColor (hsl 0 0 80)
-      :alignSelf :flex-end
-      :margin ":20px 0"
-      :flexShrink 0
 
   :styleMore $ {}
     :padding ":20px"

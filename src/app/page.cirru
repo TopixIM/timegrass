@@ -13,6 +13,7 @@ var
   Settings $ React.createFactory $ require :./settings
   NewComer $ React.createFactory $ require :./new-comer
   NotFound $ React.createFactory $ require :./not-found
+  AddTicket $ React.createFactory $ require :./add-ticket
   Workspace $ React.createFactory $ require :./workspace
   NotificationCenter $ React.createFactory $ require :./notification-center
 
@@ -37,6 +38,7 @@ var
         :settings $ Settings $ {} :dispatch dispatch
         :new-comer $ NewComer $ {} :dispatch dispatch
         :workspace $ Workspace $ {} :dispatch dispatch
+        :add-ticket $ AddTicket $ {} :dispatch dispatch
         else $ NotFound
       NotificationCenter $ {} :dispatch dispatch :notifications notifications
 

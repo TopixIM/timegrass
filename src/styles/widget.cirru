@@ -1,6 +1,7 @@
 
 var
   hsl $ require :hsl
+  assign $ require :object-assign
 
 = exports.textbox $ {}
   :fontSize 14
@@ -16,6 +17,7 @@ var
   :border :none
   :padding ":0 20px"
   :cursor :pointer
+  :fontFamily ":Verdana"
 
 = exports.bar $ {}
   :display :flex
@@ -55,3 +57,10 @@ var
   :fontFamily ":Verdana"
   :padding :20px
   :margin ":20px 20px"
+
+= exports.entryHr $ assign ({}) exports.horizontalRule
+  {}
+    :backgroundColor (hsl 0 0 80)
+    :alignSelf :flex-end
+    :margin ":20px 0"
+    :flexShrink 0

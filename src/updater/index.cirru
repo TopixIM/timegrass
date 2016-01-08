@@ -17,6 +17,7 @@ var identity $ \ (x) x
     :router/workspace router.workspace
     :router/members router.members
     :router/settings router.settings
+    :router/add-ticket router.addTicket
 
     :user/login user.login
     :user/logout user.logout

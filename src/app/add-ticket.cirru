@@ -1,6 +1,5 @@
 
 var
-  hsl $ require :hsl
   React $ require :react
   assign $ require :object-assign
 
@@ -9,13 +8,10 @@ var
   widget $ require :../styles/widget
 
 var
-  Space $ React.createFactory $ require :react-lite-space
-
-var
   ({}~ div) React.DOM
 
 = module.exports $ React.createClass $ {}
-  :displayName :app-workspace
+  :displayName :ad-ticket
 
   :propTypes $ {}
     :dispatch React.PropTypes.func.isRequired
@@ -23,19 +19,15 @@ var
   :onNavHome $ \ ()
     @props.dispatch :router/home
 
-  :onAddTicket $ \ ()
-    @props.dispatch :router/add-ticket
+  :onNavWorkspace $ \ ()
+    @props.dispatch :router/workspace
 
   :render $ \ ()
     div ({} :style @styleRoot)
       div ({} :style layout.sideBar)
-        div ({} :style widget.entryTitle :onClick @onNavHome) ":Home"
+        div ({} :style widget.entryTitle :onClick @onNavHome) :Home
         div ({} :style widget.entryHr)
-        div ({} :style widget.entryTitle :onClick @onAddTicket) ":+ ticket"
-        div ({} :style widget.entryHr)
-        div ({} :style widget.entryTitle) ":Sort by due date"
-        div ({} :style widget.entryHr)
-        div ({} :style widget.entryTitle) ":Sort by urgency"
+        div ({} :style widget.entryTitle :onClick @onNavWorkspace) :Workspace
 
   :styleRoot $ assign ({}) layout.fullscreen
     {}

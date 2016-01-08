@@ -15,4 +15,4 @@ var
   :display :flex
   :flexDirection :column
   :alignItems :flex-end
-  :padding ":40px 20px"
+  :padding ":100px 20px"

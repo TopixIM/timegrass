@@ -37,7 +37,7 @@ var
   var
     data $ JSON.parse event.data
   = store $ patch store (Immutable.fromJS data)
-  console.log :store: (JSON.stringify store)
+  console.info :=> (JSON.stringify store)
   render
 
 = socket.onclose $ \ ()
