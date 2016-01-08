@@ -31,12 +31,13 @@ var
       router $ store.getIn $ [] :state :router
       notifications $ store.getIn $ [] :state :notifications
       dispatch @props.dispatch
+      users $ store.get :users
       user $ store.getIn $ [] :users (store.getIn $ [] :state :userId)
 
     div ({} :style @styleRoot)
       case (router.get :name)
         :home $ Home $ {} :dispatch dispatch
-        :members $ Members $ {} :dispatch dispatch
+        :members $ Members $ {} :dispatch dispatch :users users
         :settings $ Settings $ {} :dispatch dispatch :user user
         :new-comer $ NewComer $ {} :dispatch dispatch
         :workspace $ Workspace $ {} :dispatch dispatch
