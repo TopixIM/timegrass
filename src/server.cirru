@@ -12,6 +12,7 @@ var
 
 var
   wsCaches $ {}
+  wsCacheDb schema.database
 
 recorder.setup $ {}
   :initial schema.database
@@ -49,7 +50,7 @@ wss.on :connection $ \ (socket)
         :stateId stateId
         :id $ shortid.generate
         :time $ now.valueOf
-    console.log :=> actionType (JSON.stringify actionData) (JSON.stringify actionMeta)
+    console.info :=> actionType (JSON.stringify actionData) (JSON.stringify actionMeta)
     recorder.dispatch actionType actionData actionMeta
 
   socket.on :close $ \ ()
@@ -66,10 +67,14 @@ recorder.subscribe $ \ (core)
     stateIdList $ Object.keys wsCaches
     db $ core.get :store
 
+  console.info :=>db (JSON.stringify (diff wsCacheDb db))
+  = wsCacheDb db
+
   stateIdList.forEach $ \ (stateId)
     var
       reference $ . wsCaches stateId
       store $ expand core stateId
       changes $ diff reference.cache store
     reference.socket.send $ JSON.stringify changes
+    console.info :=>ws stateId (JSON.stringify changes)
     = reference.cache store

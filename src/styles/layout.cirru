@@ -16,3 +16,15 @@ var
   :flexDirection :column
   :alignItems :flex-end
   :padding ":100px 20px"
+
+= exports.formEntry $ {}
+  :display :flex
+  :flexDirection :row
+  :marginBottom :10px
+  :alignItems :center
+
+= exports.formProperty $ {}
+  :width :200px
+
+= exports.formValue $ {}
+  :flex 1

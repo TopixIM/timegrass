@@ -22,6 +22,8 @@ var identity $ \ (x) x
     :user/login user.login
     :user/logout user.logout
     :user/signup user.signup
+    :user/name user.name
+    :user/avatar user.avatar
 
     :notification/read notification.read
 

@@ -12,12 +12,12 @@ var bind $ \ (v k) (k v)
     db $ core.get :store
     state $ db.getIn $ [] :states stateId
 
-  console.log :state (JSON.stringify state)
-
   cond
     ? $ state.get :userId
     ... schema.store
       set :state state
+      set :users $ db.get :users
+      set :tickets $ db.get :tickets
     ... schema.store
       set :state state
       setIn

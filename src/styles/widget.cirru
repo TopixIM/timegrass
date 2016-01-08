@@ -39,6 +39,12 @@ var
   :fontWeight 100
   :cursor :pointer
 
+= exports.cardTitle $ {}
+  :fontSize :18px
+  :fontFamily ":Helvetica Neue Light, Century Gothic"
+  :fontWeight 100
+  :marginBottom :36px
+
 = exports.horizontalRule $ {}
   :height 1
   :backgroundColor (hsl 0 0 90)

@@ -49,3 +49,17 @@ var
       setIn
         [] :states (meta.get :stateId) :userId
         meta.get :id
+
+= exports.name $ \ (db data meta)
+  var
+    userId $ db.getIn $ [] :states (meta.get :stateId) :userId
+  db.setIn
+    [] :users userId :name
+    , data
+
+= exports.avatar $ \ (db data meta)
+  var
+    userId $ db.getIn $ [] :states (meta.get :stateId) :userId
+  db.setIn
+    [] :users userId :avatar
+    , data

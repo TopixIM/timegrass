@@ -4,12 +4,12 @@ var
 
 = exports.database $ Immutable.fromJS $ {}
   :users $ {}
-  :tickets $ []
+  :tickets $ {}
   :states $ {}
 
 = exports.store $ Immutable.fromJS $ {}
   :users $ {}
-  :tickets $ []
+  :tickets $ {}
 
 = exports.user $ Immutable.fromJS $ {}
   :id null

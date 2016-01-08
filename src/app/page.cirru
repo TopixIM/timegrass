@@ -27,15 +27,17 @@ var
 
   :render $ \ ()
     var
-      router $ @props.store.getIn $ [] :state :router
-      notifications $ @props.store.getIn $ [] :state :notifications
+      store @props.store
+      router $ store.getIn $ [] :state :router
+      notifications $ store.getIn $ [] :state :notifications
       dispatch @props.dispatch
+      user $ store.getIn $ [] :users (store.getIn $ [] :state :userId)
 
     div ({} :style @styleRoot)
       case (router.get :name)
         :home $ Home $ {} :dispatch dispatch
         :members $ Members $ {} :dispatch dispatch
-        :settings $ Settings $ {} :dispatch dispatch
+        :settings $ Settings $ {} :dispatch dispatch :user user
         :new-comer $ NewComer $ {} :dispatch dispatch
         :workspace $ Workspace $ {} :dispatch dispatch
         :add-ticket $ AddTicket $ {} :dispatch dispatch
