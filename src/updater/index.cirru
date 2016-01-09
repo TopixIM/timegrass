@@ -1,6 +1,7 @@
 
 var methods $ {}
   :user $ require :./user
+  :stage $ require :./stage
   :state $ require :./state
   :router $ require :./router
   :notification $ require :./notification

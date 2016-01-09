@@ -17,6 +17,7 @@ var bind $ \ (v k) (k v)
     ... schema.store
       set :state state
       set :users $ db.get :users
+      set :stages $ db.get :stages
       set :tickets $ db.get :tickets
     ... schema.store
       set :state state

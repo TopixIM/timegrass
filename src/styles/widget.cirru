@@ -19,10 +19,6 @@ var
   :cursor :pointer
   :fontFamily ":Verdana"
 
-= exports.bar $ {}
-  :display :flex
-  :flexDirection :row
-
 = exports.guideTitle $ {}
   :fontSize :30px
   :fontFamily ":Helvetica Neue Light, Century Gothic"

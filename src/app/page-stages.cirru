@@ -9,7 +9,10 @@ var
   widget $ require :../styles/widget
 
 var
-  ({}~ div) React.DOM
+  Space $ React.createFactory $ require :react-lite-space
+
+var
+  ({}~ div input) React.DOM
 
 = module.exports $ React.createClass $ {}
   :displayName :app-stages
@@ -19,17 +22,44 @@ var
     :store
       . (React.PropTypes.instanceOf Immutable.Map) :isRequired
 
+  :getInitialState $ \ ()
+    {}
+      :name :
+
   :onNavHome $ \ ()
     @props.dispatch :router/view :home
 
   :onNavAddStage $ \ ()
     @props.dispatch :router/view :addStage
 
+  :onNameChange $ \ (event)
+    @setState $ {} :name event.target.value
+
+  :onAddStage $ \ ()
+    var name $ @state.name.trim
+    if (> name.length 0) $ do
+      @props.dispatch :stage/add @state.name
+      @setState $ {} :name :
+    , undefined
+
+  :renderStages $ \ ()
+    ... @props.store
+      get :stages
+      toList
+      map $ \ (stage)
+        div ({} :style layout.rowCard) (stage.get :name)
+
+  :renderEmptyStage $ \ ()
+    div ({} :style layout.rowCard)
+      input $ {} :style widget.textbox :value @state.name :onChange @onNameChange :placeholder :Name
+      Space $ {} :width 20
+      div ({} :style widget.button :onClick @onAddStage) :Add
+
   :render $ \ ()
     div ({} :style layout.mainLayout)
       div ({} :style layout.sideBar)
         div ({} :style widget.entryTitle :onClick @onNavHome) :Home
-        div ({} :style widget.entryHr)
-        div ({} :style widget.entryTitle :onClick @onNavAddStage) ":+ stage"
       div ({} :style layout.pageContainer)
         div ({} :style widget.cardOnWhite)
+          @renderStages
+          @renderEmptyStage

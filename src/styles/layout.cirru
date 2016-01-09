@@ -35,6 +35,16 @@ var
   :flexDirection :row
   :justifyContent :flex-end
 
+= exports.rowCard $ {}
+  :display :flex
+  :flexDirection :row
+  :padding ":20px"
+
+= exports.columnCard $ {}
+  :display :flex
+  :flexDirection :column
+  :padding ":20px"
+
 = exports.mainLayout $ assign ({}) exports.fullscreen
   {}
     :display :flex
