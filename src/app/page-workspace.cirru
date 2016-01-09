@@ -21,10 +21,10 @@ var
     :dispatch React.PropTypes.func.isRequired
 
   :onNavHome $ \ ()
-    @props.dispatch :router/home
+    @props.dispatch :router/view :home
 
   :onAddTicket $ \ ()
-    @props.dispatch :router/add-ticket
+    @props.dispatch :router/view :addTicket
 
   :render $ \ ()
     div ({} :style @styleRoot)

@@ -17,14 +17,15 @@ var
 
   :propTypes $ {}
     :dispatch React.PropTypes.func.isRequired
-    :users
+    :store
       . (React.PropTypes.instanceOf Immutable.Map) :isRequired
 
   :onNavHome $ \ ()
-    @props.dispatch :router/home
+    @props.dispatch :router/view :home
 
   :renderMemberList $ \ ()
-    ... @props.users
+    ... @props.store
+      get :users
       toList
       map $ \\ (user)
         div ({} :style @styleMember :key (user.get :id))

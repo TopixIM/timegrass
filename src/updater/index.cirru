@@ -1,32 +1,16 @@
 
-var
-  user $ require :./user
-  state $ require :./state
-  router $ require :./router
-  notification $ require :./notification
+var methods $ {}
+  :user $ require :./user
+  :state $ require :./state
+  :router $ require :./router
+  :notification $ require :./notification
 
 var identity $ \ (x) x
 
 = module.exports $ \ (db type data meta)
-  var handler $ case type
-
-    :state/connect state.connect
-    :state/disconnect state.disconnect
-
-    :router/home router.home
-    :router/workspace router.workspace
-    :router/members router.members
-    :router/settings router.settings
-    :router/add-ticket router.addTicket
-
-    :user/login user.login
-    :user/logout user.logout
-    :user/signup user.signup
-    :user/name user.name
-    :user/avatar user.avatar
-
-    :notification/read notification.read
-
-    else identity
+  var
+    ([]~ catetory label) (type.split :/)
+    collection $ or (. methods catetory) ({})
+    handler $ or (. collection label) identity
 
   handler db data meta

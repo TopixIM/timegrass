@@ -18,31 +18,30 @@ var
     :dispatch React.PropTypes.func.isRequired
 
   :onNavWorkspace $ \ ()
-    @props.dispatch :router/workspace
+    @props.dispatch :router/view :workspace
 
   :onNavMembers $ \ ()
-    @props.dispatch :router/members
+    @props.dispatch :router/view :members
 
   :onNavSettings $ \ ()
-    @props.dispatch :router/settings
+    @props.dispatch :router/view :settings
+
+  :onNavStages $ \ ()
+    @props.dispatch :router/view :stages
 
   :render $ \ ()
-    div ({} :className :app-home :style @styleRoot)
+    div ({} :className :app-home :style layout.mainLayout)
       div ({} :style layout.sideBar)
         div ({} :style widget.entryTitle :onClick @onNavWorkspace) :Workspace
         div ({} :style widget.entryHr)
         div ({} :style widget.entryTitle :onClick @onNavMembers) :Members
         div ({} :style widget.entryHr)
+        div ({} :style widget.entryTitle :onClick @onNavStages) :Stages
+        div ({} :style widget.entryHr)
         div ({} :style widget.entryTitle :onClick @onNavSettings) :Settings
       div ({} :style @styleMore)
         div ({} :style widget.cardOnWhite) ":This is a tickets tracker~"
         div ({} :style widget.cardOnWhite) ":Try click at left to navigate!"
-
-  :styleRoot $ assign ({}) layout.fullscreen
-    {}
-      :display :flex
-      :flexDirection :row
-      :alignItems :strech
 
   :styleMore $ {}
     :padding ":20px"

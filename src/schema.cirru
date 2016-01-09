@@ -6,10 +6,12 @@ var
   :users $ {}
   :tickets $ {}
   :states $ {}
+  :stages $ {}
 
 = exports.store $ Immutable.fromJS $ {}
   :users $ {}
   :tickets $ {}
+  :stages $ {}
 
 = exports.user $ Immutable.fromJS $ {}
   :id null
@@ -19,10 +21,8 @@ var
 
 = exports.ticket $ Immutable.fromJS $ {}
   :name null
-  :worker null
-  :members $ []
+  :memberIds $ []
   :events $ []
-  :stage :open
 
 = exports.trasferEvent $ Immutable.fromJS $ {}
   :time null
@@ -42,3 +42,7 @@ var
 = exports.router $ Immutable.fromJS $ {}
   :name null
   :data $ {}
+
+= exports.stage $ Immutable.fromJS $ {}
+  :name null
+  :id null

@@ -16,11 +16,11 @@ var
 
   :propTypes $ {}
     :dispatch React.PropTypes.func.isRequired
-    :user
+    :store
       . (React.PropTypes.instanceOf Immutable.Map) :isRequired
 
   :onNavHome $ \ ()
-    @props.dispatch :router/home
+    @props.dispatch :router/view :home
 
   :onNameChange $ \ (event)
     @props.dispatch :user/name event.target.value
@@ -29,22 +29,26 @@ var
     @props.dispatch :user/avatar event.target.value
 
   :renderSettings $ \ ()
+    var
+      user $ @props.store.get :user
     div ({} :style widget.cardOnWhite)
       div ({} :style widget.cardTitle) :Settings
       div ({} :style layout.formEntry)
         div ({} :style layout.formProperty) :Name:
         div ({} :style layout.formValue)
-          input $ {} :style widget.textbox :value (@props.user.get :name) :onChange @onNameChange
+          input $ {} :style widget.textbox :value (user.get :name) :onChange @onNameChange
       div ({} :style layout.formEntry)
         div ({} :style layout.formProperty) :Avatar:
         div ({} :style layout.formValue)
-          input $ {} :style widget.textbox :value (@props.user.get :avatar) :onChange @onAvatarChange
+          input $ {} :style widget.textbox :value (user.get :avatar) :onChange @onAvatarChange
 
   :renderPreview $ \ ()
+    var
+      user $ @props.store.get :user
     div ({} :style widget.cardOnWhite)
       div ({} :style widget.cardTitle) :Preview
       div ({} :style @styleAvatarContainer)
-        img $ {} :src (@props.user.get :avatar) :style @styleAvatar
+        img $ {} :src (user.get :avatar) :style @styleAvatar
 
   :render $ \ ()
     div ({} :style @styleRoot)

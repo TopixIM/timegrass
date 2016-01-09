@@ -23,11 +23,6 @@ var
   :display :flex
   :flexDirection :row
 
-= exports.barFromRight $ {}
-  :display :flex
-  :flexDirection :row
-  :justifyContent :flex-end
-
 = exports.guideTitle $ {}
   :fontSize :30px
   :fontFamily ":Helvetica Neue Light, Century Gothic"

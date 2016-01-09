@@ -1,6 +1,7 @@
 
 var
   hsl $ require :hsl
+  assign $ require :object-assign
 
 = exports.fullscreen $ {}
   :position :absolute
@@ -28,3 +29,18 @@ var
 
 = exports.formValue $ {}
   :flex 1
+
+= exports.barFromRight $ {}
+  :display :flex
+  :flexDirection :row
+  :justifyContent :flex-end
+
+= exports.mainLayout $ assign ({}) exports.fullscreen
+  {}
+    :display :flex
+    :flexDirection :row
+    :alignItems :strech
+
+= exports.pageContainer $ {}
+  :flex 1
+  :padding :20px

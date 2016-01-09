@@ -4,6 +4,7 @@ var
 
 var
   widget $ require :../styles/widget
+  layout $ require :../styles/layout
 
 var
   Space $ React.createFactory $ require :react-lite-space
@@ -41,7 +42,7 @@ var
       Space $ {} :height 10
       input $ {} :type :password :value @state.password :onChange @onPasswordChange :style widget.textbox :placeholder :Password
       Space $ {} :height 20
-      div ({} :style widget.barFromRight)
+      div ({} :style layout.barFromRight)
         button ({} :style widget.button :onClick @onSubmit) :Submit
 
   :styleRoot $ {}

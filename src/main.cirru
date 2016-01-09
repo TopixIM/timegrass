@@ -9,7 +9,7 @@ var
   schema $ require :./schema
 
 var
-  Page $ React.createFactory $ require :./app/page
+  Container $ React.createFactory $ require :./app/container
 
 var
   store schema.store
@@ -27,7 +27,7 @@ var
     , undefined
   render $ \ ()
     ReactDOM.render
-      Page $ {} (:store store) (:dispatch dispatch)
+      Container $ {} (:store store) (:dispatch dispatch)
       document.querySelector :#app
 
 = socket.onopen $ \ ()
@@ -36,10 +36,12 @@ var
 = socket.onmessage $ \ (event)
   var
     data $ JSON.parse event.data
-  = store $ patch store (Immutable.fromJS data)
   console.info :=>changes (JSON.stringify data)
-  console.info :=>store (JSON.stringify store)
-  render
+  if (> data.length 0) $ do
+    = store $ patch store (Immutable.fromJS data)
+    console.info :=>store (JSON.stringify store)
+    render
+  , undefined
 
 = socket.onclose $ \ ()
   = isSocketAlive false
@@ -49,6 +51,6 @@ var
 
 if module.hot $ do
   module.hot.accept :./schema $ \ ()
-  module.hot.accept :./app/page $ \ ()
-    = Page $ React.createFactory $ require :./app/page
+  module.hot.accept :./app/container $ \ ()
+    = Container $ React.createFactory $ require :./app/container
     render

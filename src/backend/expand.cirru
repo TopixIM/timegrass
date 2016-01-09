@@ -22,4 +22,4 @@ var bind $ \ (v k) (k v)
       set :state state
       setIn
         [] :state :router
-        {} :name :new-comer :data $ {}
+        {} :name :newComer :data $ {}
