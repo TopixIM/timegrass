@@ -90,3 +90,4 @@ var
   :lineHeight :40px
   :marginBottom :10px
   :cursor :pointer
+  :height :40px

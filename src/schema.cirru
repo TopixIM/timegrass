@@ -33,6 +33,8 @@ var
     :name :home
   :userId null
   :notifications $ []
+  :shortTermSlot null
+  :longTermSlot null
 
 = exports.notification $ Immutable.fromJS $ {}
   :id null

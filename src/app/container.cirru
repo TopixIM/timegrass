@@ -13,7 +13,6 @@ var routePages $ {}
   :members $ React.createFactory $ require :./page-members
   :settings $ React.createFactory $ require :./page-settings
   :newComer $ React.createFactory $ require :./page-new-comer
-  :addTicket $ React.createFactory $ require :./page-add-ticket
   :workspace $ React.createFactory $ require :./page-workspace
 
 var

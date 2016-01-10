@@ -10,6 +10,7 @@ var
 
 var
   Space $ React.createFactory $ require :react-lite-space
+  Ticket $ React.createFactory $ require :./ticket
 
 var
   ({}~ div input) React.DOM
@@ -43,12 +44,19 @@ var
     ... @props.store
       get :tickets
       toList
-      map $ \ (ticket)
-        div ({} :style widget.ticket) (ticket.get :name)
+      map $ \\ (ticket)
+        var onClick $ \\ ()
+          @props.dispatch :state/shortTermSlot (ticket.get :id)
+        div ({} :style widget.ticket :onClick onClick :key (ticket.get :id)) (ticket.get :name)
 
   :render $ \ ()
     var
+      dispatch @props.dispatch
       styleRoot $ polyfill.merge layout.fullscreen layout.column
+      shortTermSlot $ @props.store.getIn $ [] :state :shortTermSlot
+      longTermSlot $ @props.store.getIn $ [] :state :longTermSlot
+      tickets $ @props.store.get :tickets
+      tallCard $ polyfill.merge layout.tallDivision layout.smallPadding
 
     div ({} :style styleRoot)
       div ({} :style layout.topBar)
@@ -60,5 +68,9 @@ var
           Space $ {} :height 20
           @renderAddTicket
           @renderTickets
-        div ({} :style layout.tallDivision)
-        div ({} :style layout.tallDivision)
+        div ({} :style tallCard)
+          cond (? shortTermSlot)
+            Ticket $ {} :dispatch dispatch :ticket (tickets.get shortTermSlot)
+        div ({} :style tallCard)
+          cond (? longTermSlot)
+            Ticket $ {} :dispatch dispatch :ticket (tickets.get longTermSlot)

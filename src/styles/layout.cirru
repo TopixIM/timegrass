@@ -78,3 +78,6 @@ var
   :padding ":0 10px"
   :display :flex
   :flexDirection :row
+
+= exports.smallPadding $ {}
+  :padding :10px

@@ -53,7 +53,7 @@ var
           onClick $ \\ (event)
             @props.dispatch :stage/delete (stage.get :id)
 
-        div ({} :style layout.rowCard)
+        div ({} :style layout.rowCard :key (stage.get :id))
           input $ {} :style widget.textbox :value (stage.get :name) :onChange onChange :placeholder ":Name"
           Space $ {} :width 20
           div ({} :style widget.minorButton :onClick onClick) :Delete
