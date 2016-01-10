@@ -53,10 +53,13 @@ var
           onClick $ \\ (event)
             @props.dispatch :stage/delete (stage.get :id)
 
-        div ({} :style layout.rowCard :key (stage.get :id))
-          input $ {} :style widget.textbox :value (stage.get :name) :onChange onChange :placeholder ":Name"
-          Space $ {} :width 20
-          div ({} :style widget.minorButton :onClick onClick) :Delete
+        cond (in ([] :open :closed) (stage.get :id))
+          div ({} :style layout.rowCard :key (stage.get :id))
+            stage.get :name
+          div ({} :style layout.rowCard :key (stage.get :id))
+            input $ {} :style widget.textbox :value (stage.get :name) :onChange onChange :placeholder ":Name"
+            Space $ {} :width 20
+            div ({} :style widget.minorButton :onClick onClick) :Delete
 
   :renderEmptyStage $ \ ()
     div ({} :style layout.rowCard)
@@ -70,7 +73,5 @@ var
         div ({} :style widget.entryTitle :onClick @onNavHome) :Home
       div ({} :style layout.pageContainer)
         div ({} :style widget.cardOnWhite)
-          div ({} :style layout.rowCard) :Open
-          div ({} :style layout.rowCard) :Closed
           @renderStages
           @renderEmptyStage

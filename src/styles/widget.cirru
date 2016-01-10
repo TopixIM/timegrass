@@ -91,3 +91,13 @@ var
   :marginBottom :10px
   :cursor :pointer
   :height :40px
+
+= exports.tag $ {}
+  :backgroundColor $ hsl 200 30 80
+  :color $ hsl 0 0 100
+  :minWidth :100px
+  :textAlign :center
+  :lineHeight :30px
+  :borderRadius :5px
+  :cursor :pointer
+  :margin :2px

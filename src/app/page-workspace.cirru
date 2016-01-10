@@ -57,6 +57,8 @@ var
       longTermSlot $ @props.store.getIn $ [] :state :longTermSlot
       tickets $ @props.store.get :tickets
       tallCard $ polyfill.merge layout.tallDivision layout.smallPadding
+      users $ @props.store.get :users
+      stages $ @props.store.get :stages
 
     div ({} :style styleRoot)
       div ({} :style layout.topBar)
@@ -70,7 +72,7 @@ var
           @renderTickets
         div ({} :style tallCard)
           cond (? shortTermSlot)
-            Ticket $ {} :dispatch dispatch :ticket (tickets.get shortTermSlot)
+            Ticket $ {} :dispatch dispatch :ticket (tickets.get shortTermSlot) :users users :stages stages
         div ({} :style tallCard)
           cond (? longTermSlot)
-            Ticket $ {} :dispatch dispatch :ticket (tickets.get longTermSlot)
+            Ticket $ {} :dispatch dispatch :ticket (tickets.get longTermSlot) :users users :stages stages
