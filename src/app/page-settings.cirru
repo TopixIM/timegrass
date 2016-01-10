@@ -28,9 +28,13 @@ var
   :onAvatarChange $ \ (event)
     @props.dispatch :user/avatar event.target.value
 
+  :onLogout $ \ ()
+    @props.dispatch :user/logout
+
   :renderSettings $ \ ()
     var
-      user $ @props.store.get :user
+      userId $ @props.store.getIn $ [] :state :userId
+      user $ @props.store.getIn $ [] :users userId
     div ({} :style widget.cardOnWhite)
       div ({} :style widget.cardTitle) :Settings
       div ({} :style layout.formEntry)
@@ -44,11 +48,17 @@ var
 
   :renderPreview $ \ ()
     var
-      user $ @props.store.get :user
+      userId $ @props.store.getIn $ [] :state :userId
+      user $ @props.store.getIn $ [] :users userId
     div ({} :style widget.cardOnWhite)
       div ({} :style widget.cardTitle) :Preview
       div ({} :style @styleAvatarContainer)
         img $ {} :src (user.get :avatar) :style @styleAvatar
+
+  :renderLogout $ \ ()
+    div ({} :style widget.cardOnWhite)
+      div ({} :style layout.rowCard)
+        div ({} :style widget.button :onClick @onLogout) ":Log out"
 
   :render $ \ ()
     div ({} :style @styleRoot)
@@ -57,6 +67,7 @@ var
       div ({} :style @styleContainer)
         @renderSettings
         @renderPreview
+        @renderLogout
 
   :styleRoot $ assign ({}) layout.fullscreen
     {}

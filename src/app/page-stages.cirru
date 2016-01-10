@@ -46,8 +46,17 @@ var
     ... @props.store
       get :stages
       toList
-      map $ \ (stage)
-        div ({} :style layout.rowCard) (stage.get :name)
+      map $ \\ (stage)
+        var
+          onChange $ \\ (event)
+            @props.dispatch :stage/update $ {} :id (stage.get :id) :name event.target.value
+          onClick $ \\ (event)
+            @props.dispatch :stage/delete (stage.get :id)
+
+        div ({} :style layout.rowCard)
+          input $ {} :style widget.textbox :value (stage.get :name) :onChange onChange :placeholder ":Name"
+          Space $ {} :width 20
+          div ({} :style widget.minorButton :onClick onClick) :Delete
 
   :renderEmptyStage $ \ ()
     div ({} :style layout.rowCard)
@@ -61,5 +70,7 @@ var
         div ({} :style widget.entryTitle :onClick @onNavHome) :Home
       div ({} :style layout.pageContainer)
         div ({} :style widget.cardOnWhite)
+          div ({} :style layout.rowCard) :Open
+          div ({} :style layout.rowCard) :Closed
           @renderStages
           @renderEmptyStage

@@ -39,7 +39,7 @@ var
   console.info :=>changes (JSON.stringify data)
   if (> data.length 0) $ do
     = store $ patch store (Immutable.fromJS data)
-    console.info :=>store (JSON.stringify store)
+    -- console.info :=>store (JSON.stringify store)
     render
   , undefined
 

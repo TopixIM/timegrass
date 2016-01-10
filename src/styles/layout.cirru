@@ -54,3 +54,27 @@ var
 = exports.pageContainer $ {}
   :flex 1
   :padding :20px
+  :overflowY :auto
+
+= exports.thriftyContainer $ {}
+  :flex 1
+  :overflow :auto
+  :display :flex
+  :alignItems :strech
+
+= exports.tallDivision $ {}
+  :flex 1
+  :border $ + ":1px solid " (hsl 0 0 80)
+
+= exports.column $ {}
+  :display :flex
+  :flexDirection :column
+
+= exports.row $ {}
+  :display :flex
+  :flexDirection :row
+
+= exports.topBar $ {}
+  :padding ":0 10px"
+  :display :flex
+  :flexDirection :row

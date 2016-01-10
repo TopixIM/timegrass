@@ -4,6 +4,7 @@ var methods $ {}
   :stage $ require :./stage
   :state $ require :./state
   :router $ require :./router
+  :ticket $ require :./ticket
   :notification $ require :./notification
 
 var identity $ \ (x) x

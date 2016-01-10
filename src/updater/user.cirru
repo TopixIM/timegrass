@@ -10,9 +10,13 @@ var
         is (user.get :name) (data.get :name)
         is (user.get :password) (data.get :password)
   cond (? maybeUser)
-    db.setIn
-      [] :states (meta.get :stateId) :userId
-      maybeUser.get :id
+    ... db
+      setIn
+        [] :states (meta.get :stateId) :userId
+        maybeUser.get :id
+      setIn
+        [] :states (meta.get :stateId) :router
+        schema.router.set :name :home
     db.updateIn
       [] :states (meta.get :stateId) :notifications
       \ (notifications)
@@ -23,7 +27,7 @@ var
 
 = exports.logout $ \ (db data meta)
   db.deleteIn
-    [] :states (meta.get :stateId) :user
+    [] :states (meta.get :stateId) :userId
 
 = exports.signup $ \ (db data meta)
   var
@@ -49,6 +53,9 @@ var
       setIn
         [] :states (meta.get :stateId) :userId
         meta.get :id
+      setIn
+        [] :states (meta.get :stateId) :router
+        schema.router.set :name :home
 
 = exports.name $ \ (db data meta)
   var
