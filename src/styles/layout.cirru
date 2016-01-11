@@ -65,6 +65,7 @@ var
 = exports.tallDivision $ {}
   :flex 1
   :border $ + ":1px solid " (hsl 0 0 80)
+  :overflowY :auto
 
 = exports.column $ {}
   :display :flex

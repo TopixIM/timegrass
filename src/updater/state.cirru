@@ -15,3 +15,8 @@ var
   db.setIn
     [] :states (meta.get :stateId) :shortTermSlot
     , data
+
+= exports.longTermSlot $ \ (db data meta)
+  db.setIn
+    [] :states (meta.get :stateId) :longTermSlot
+    , data

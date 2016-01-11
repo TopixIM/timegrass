@@ -11,6 +11,7 @@ var
     ... schema.ticket
       set :id (meta.get :id)
       set :name data
+      set :accessTime (meta.get :time)
       update :events $ \ (events)
         events.push $ ... schema.transferEvent
           set :time (meta.get :time)
@@ -23,12 +24,17 @@ var
     \ (ticket)
       ... ticket
         set :name (data.get :name)
+        set :accessTime (meta.get :time)
 
 = exports.transfer $ \ (db data meta)
-  db.updateIn
-    [] :tickets (data.get :id) :events
-    \ (events)
-      events.push $ ... schema.transferEvent
-        set :time (meta.get :time)
-        set :stageId (data.get :stageId)
-        set :workerId (data.get :workerId)
+  ... db
+    updateIn
+      [] :tickets (data.get :id) :events
+      \ (events)
+        events.push $ ... schema.transferEvent
+          set :time (meta.get :time)
+          set :stageId (data.get :stageId)
+          set :workerId (data.get :workerId)
+    setIn
+      [] :tickets (data.get :id) :accessTime
+      meta.get :time

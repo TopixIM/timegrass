@@ -29,6 +29,7 @@ var
   :name null
   :memberIds $ []
   :events $ []
+  :accessTime null
 
 = exports.transferEvent $ Immutable.fromJS $ {}
   :time null

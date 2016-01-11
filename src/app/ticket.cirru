@@ -11,9 +11,10 @@ var
 
 var
   Space $ React.createFactory $ require :react-lite-space
+  TimedInput $ React.createFactory $ require :react-timed-input
 
 var
-  ({}~ div input) React.DOM
+  ({}~ div) React.DOM
 
 = module.exports $ React.createClass $ {}
   :displayName :app-ticket
@@ -32,8 +33,8 @@ var
       :selectedStageId (latestEvent.get :stageId)
       :selectedUserId (latestEvent.get :workerId)
 
-  :onNameChange $ \ (event)
-    @props.dispatch :ticket/name $ {} :id (@props.ticket.get :id) :name event.target.value
+  :onNameChange $ \ (value)
+    @props.dispatch :ticket/name $ {} :id (@props.ticket.get :id) :name value
 
   :onEdit $ \ ()
     @setState $ {} :isEditing true
@@ -61,6 +62,9 @@ var
 
   :onUserSelect $ \ (userId)
     @setState $ {} :selectedUserId userId
+
+  :onPin $ \ ()
+    @props.dispatch :state/longTermSlot (@props.ticket.get :id)
 
   :renderSelector $ \ ()
     var
@@ -117,6 +121,8 @@ var
 
     div ({})
       div ({} :style layout.rowCard)
-        input $ {} :style widget.textbox :value (ticket.get :name) :onChange @onNameChange
+        TimedInput $ {} :time (ticket.get :accessTime) :style widget.textbox :value (ticket.get :name) :onChange @onNameChange
       @renderSelector
       @renderEvents
+      div ({} :style layout.barFromRight)
+        div ({} :style widget.button :onClick @onPin) :Pin
