@@ -6,7 +6,7 @@ Tickets of tasks.
 
 ### Project Template
 
-https://github.com/mvc-works/webpack-workflow
+https://github.com/mvc-works/boot-workflow
 
 ### License
 
