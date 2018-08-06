@@ -1,7 +1,9 @@
 
 (ns app.schema )
 
-(def database {:sessions {}, :users {}})
+(def complain {:id nil, :text "", :time nil})
+
+(def database {:sessions {}, :users {}, :today "2018-08-07"})
 
 (def notification {:id nil, :kind nil, :text nil})
 
@@ -14,4 +16,13 @@
    :router {:name :home, :data nil, :router nil},
    :messages {}})
 
-(def user {:name nil, :id nil, :nickname nil, :avatar nil, :password nil})
+(def task {:id nil, :text "", :details "", :created-time nil, :finisihed-time nil})
+
+(def user
+  {:name nil,
+   :id nil,
+   :nickname nil,
+   :avatar nil,
+   :password nil,
+   :tasks {:working {}, :pending {}, :finished {}},
+   :complains {}})
