@@ -5,8 +5,6 @@
 
 (def notification {:id nil, :kind nil, :text nil})
 
-(def page {:id nil, :title "", :time nil})
-
 (def router {:name nil, :title nil, :data {}, :router nil})
 
 (def session
