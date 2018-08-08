@@ -52,7 +52,7 @@
       (comp-navigation (:logged-in? store) (:count store))
       (if (:logged-in? store)
         (case (:name router)
-          :home (cursor-> :overview comp-overview states (:today store))
+          :home (cursor-> :overview comp-overview states (:today store) (:tasks store))
           :profile (comp-profile (:user store) (:data router))
           (<> router))
         (comp-login states))
