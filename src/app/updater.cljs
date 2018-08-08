@@ -6,8 +6,11 @@
             [app.schema :as schema]
             [respo-message.updater :refer [update-messages]]))
 
+(defn set-today [db op-data sid op-id op-time] (assoc db :today op-data))
+
 (defn updater [db op op-data sid op-id op-time]
   (let [f (case op
+            :today set-today
             :session/connect session/connect
             :session/disconnect session/disconnect
             :session/remove-message session/remove-message

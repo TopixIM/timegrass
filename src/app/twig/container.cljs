@@ -29,5 +29,6 @@
                   :profile (twig-members (:sessions db) (:users db))
                   {})),
        :count (count (:sessions db)),
-       :color (color/randomColor)}
+       :color (color/randomColor),
+       :today (:today db)}
       nil))))

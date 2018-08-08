@@ -23,14 +23,15 @@
   (<> span (str "Length:" count) nil)
   (=< 8 nil)
   (span
-   {:inner-text "Reset",
-    :style style-click,
-    :on {:click (fn [e d! m!] (d! :reel/reset nil))}})
+   {:inner-text "Reset", :style style-click, :on-click (fn [e d! m!] (d! :reel/reset nil))})
   (=< 8 nil)
   (span
-   {:inner-text "Merge",
-    :style style-click,
-    :on {:click (fn [e d! m!] (d! :reel/merge nil))}})
+   {:inner-text "Merge", :style style-click, :on-click (fn [e d! m!] (d! :reel/merge nil))})
   (=< 8 nil)
   (span
-   {:inner-text "Persist", :style style-click, :on {:click (action-> :effect/persist nil)}})))
+   {:inner-text "Persist", :style style-click, :on-click (action-> :effect/persist nil)})
+  (=< 8 nil)
+  (span
+   {:inner-text "Reload",
+    :style style-click,
+    :on-click (fn [e d! m!] (.reload (.-location js/window)))})))
