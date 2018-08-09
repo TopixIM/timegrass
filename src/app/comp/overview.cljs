@@ -6,13 +6,14 @@
             [respo.macros :refer [defcomp list-> cursor-> list-> <> span div button]]
             [respo.comp.space :refer [=<]]
             [app.config :as config]
+            [app.style :as style]
             [respo-alerts.comp.alerts :refer [comp-prompt]]
             [respo.util.list :refer [map-val]]))
 
 (defcomp
  comp-overview
  (states today tasks)
- (let [working-tasks (:working tasks)]
+ (let [working-tasks (:working tasks), finished-tasks (:finished tasks)]
    (div
     {:style {:padding 16}}
     (div
@@ -25,14 +26,15 @@
        :create
        comp-prompt
        states
-       {:trigger (button {:style ui/button, :inner-text "Create"}),
+       {:trigger (button {:style style/button, :inner-text "Create"}),
         :text "Create new task:"}
        (fn [result d! m!] (d! :task/create-working result)))))
+    (=< nil 16)
     (div
      {}
      (list->
       {}
-      (->> working-tasks
+      (->> (or working-tasks {})
            (map-val
             (fn [task]
               (div
@@ -40,6 +42,17 @@
                (<> (:text task))
                (=< 8 nil)
                (button
-                {:style ui/button,
+                {:style style/button,
                  :on-click (fn [e d! m!] (d! :task/remove-working (:id task))),
-                 :inner-text "Remove"}))))))))))
+                 :inner-text "Remove"})
+               (=< 8 nil)
+               (button
+                {:style style/button,
+                 :on-click (fn [e d! m!] (d! :task/finish-working (:id task))),
+                 :inner-text "Done"})))))))
+    (=< nil 16)
+    (div
+     {}
+     (list->
+      {}
+      (->> (or finished-tasks {}) (map-val (fn [task] (div {} (<> (:text task)))))))))))

@@ -25,5 +25,5 @@
      ws.onmessage
      (fn [event]
        (let [changes (reader/read-string event.data)]
-         (.log js/console "Changes" (clj->js changes))
+         (comment .log js/console "Changes" (clj->js changes))
          (reset! *store (patch-twig @*store changes)))))))
