@@ -11,7 +11,8 @@
             ["path" :as path]
             [app.node-config :as node-config]
             [app.config :refer [dev?]]
-            [app.config :as config]))
+            [app.config :as config]
+            ["dayjs" :as dayjs]))
 
 (def initial-db
   (let [filepath (:storage-path node-config/env)]
@@ -60,11 +61,17 @@
     (do (reset! *reader-reel @*reel) (sync-clients! @*reader-reel)))
   (js/setTimeout render-loop! 200))
 
+(defn set-today! []
+  (let [today (.format (dayjs) "YYYY-MM-DD"), old-today (:today (:db @*reel))]
+    (when (not= today old-today) (dispatch! :today today "system"))))
+
 (defn main! []
   (run-server! #(dispatch! %1 %2 %3) (:port config/site))
   (render-loop!)
   (.on js/process "SIGINT" on-exit!)
   (js/setInterval #(persist-db!) (* 60 1000 10))
+  (set-today!)
+  (js/setInterval #(set-today!) (* 1000 60))
   (println "Server started."))
 
 (defn reload! []
