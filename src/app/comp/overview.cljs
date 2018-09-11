@@ -8,7 +8,33 @@
             [app.config :as config]
             [app.style :as style]
             [respo-alerts.comp.alerts :refer [comp-prompt]]
-            [respo.util.list :refer [map-val]]))
+            [respo.util.list :refer [map-val]]
+            [respo-ui.comp.icon :refer [comp-icon]]
+            [inflow-popup.comp.dialog :refer [comp-menu-dialog]]))
+
+(defcomp
+ comp-active-task
+ (states task)
+ (let [state (or (:data states) {:menu? false})]
+   (div
+    {:style (merge
+             ui/row-center
+             {:border-bottom (str "1px solid " (hsl 0 0 90)), :line-height "32px"})}
+    (div {:style ui/flex} (<> (:text task)))
+    (=< 8 nil)
+    (span
+     {:on-click (fn [e d! m!] (m! (assoc state :menu? true)))}
+     (comp-icon :android-more-vertical))
+    (when (:menu? state)
+      (comp-menu-dialog
+       (fn [result d! m!]
+         (println "result" result)
+         (case result
+           :done (d! :task/finish-working (:id task))
+           :remove (d! :task/remove-working (:id task))
+           :else))
+       (fn [m!] (m! %cursor (assoc state :menu? false)))
+       {:done "Done", :remove "Remove"})))))
 
 (defcomp
  comp-overview
@@ -35,21 +61,7 @@
      (list->
       {}
       (->> (or working-tasks {})
-           (map-val
-            (fn [task]
-              (div
-               {}
-               (<> (:text task))
-               (=< 8 nil)
-               (button
-                {:style style/button,
-                 :on-click (fn [e d! m!] (d! :task/remove-working (:id task))),
-                 :inner-text "Remove"})
-               (=< 8 nil)
-               (button
-                {:style style/button,
-                 :on-click (fn [e d! m!] (d! :task/finish-working (:id task))),
-                 :inner-text "Done"})))))))
+           (map-val (fn [task] (cursor-> (:id task) comp-active-task states task))))))
     (=< nil 16)
     (div
      {}
