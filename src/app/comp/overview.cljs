@@ -10,7 +10,8 @@
             [respo-alerts.comp.alerts :refer [comp-prompt]]
             [respo.util.list :refer [map-val]]
             [respo-ui.comp.icon :refer [comp-icon]]
-            [inflow-popup.comp.dialog :refer [comp-menu-dialog]]))
+            [inflow-popup.comp.dialog :refer [comp-menu-dialog]]
+            ["dayjs" :as dayjs]))
 
 (defcomp
  comp-active-task
@@ -19,11 +20,12 @@
    (div
     {:style (merge
              ui/row-center
-             {:border-bottom (str "1px solid " (hsl 0 0 90)), :line-height "32px"})}
-    (div {:style ui/flex} (<> (:text task)))
+             {:border-bottom (str "1px solid " (hsl 0 0 90)), :line-height "40px"})}
+    (div {:style ui/flex} (<> (:text task) {:white-space :nowrap}))
     (=< 8 nil)
     (span
-     {:on-click (fn [e d! m!] (m! (assoc state :menu? true)))}
+     {:on-click (fn [e d! m!] (m! (assoc state :menu? true))),
+      :style (merge ui/center {:width 16})}
      (comp-icon :android-more-vertical))
     (when (:menu? state)
       (comp-menu-dialog
@@ -37,11 +39,21 @@
        {:done "Done", :remove "Remove"})))))
 
 (defcomp
+ comp-done-task
+ (task)
+ (div
+  {:style ui/row}
+  (div
+   {:style {:width 80, :color (hsl 0 0 80), :font-size 12}}
+   (<> (.format (dayjs (:finished-time task)) "MM-DD HH:mm")))
+  (div {:style ui/flex} (<> (:text task)))))
+
+(defcomp
  comp-overview
  (states today tasks)
  (let [working-tasks (:working tasks), finished-tasks (:finished tasks)]
    (div
-    {:style {:padding 16}}
+    {:style (merge ui/flex {:padding 16, :overflow :auto})}
     (div
      {:style ui/row}
      (<> today)
@@ -56,15 +68,31 @@
         :text "Create new task:"}
        (fn [result d! m!] (d! :task/create-working result)))))
     (=< nil 16)
-    (div
+    (list->
      {}
-     (list->
-      {}
-      (->> (or working-tasks {})
-           (map-val (fn [task] (cursor-> (:id task) comp-active-task states task))))))
+     (->> (or working-tasks {})
+          (sort-by (fn [[k task]] (unchecked-negate (:created-time task))))
+          (map-val (fn [task] (cursor-> (:id task) comp-active-task states task)))))
     (=< nil 16)
-    (div
-     {}
-     (list->
-      {}
-      (->> (or finished-tasks {}) (map-val (fn [task] (div {} (<> (:text task)))))))))))
+    (let [grouped-tasks (->> (vals finished-tasks)
+                             (group-by
+                              (fn [task]
+                                (.format (dayjs (:created-time task)) "YYYY-MM-DD"))))]
+      (div
+       {}
+       (list->
+        {}
+        (->> grouped-tasks
+             (sort (fn [x y] (compare (first y) (first x))))
+             (map
+              (fn [[date-string task-list]]
+                [date-string
+                 (div
+                  {:style (merge ui/column {:margin-top 24})}
+                  (<> date-string {:font-family ui/font-fancy})
+                  (=< nil 4)
+                  (list->
+                   {}
+                   (->> task-list
+                        (sort-by (fn [task] (unchecked-negate (:finished-time task))))
+                        (map (fn [task] [(:id task) (comp-done-task task)])))))])))))))))

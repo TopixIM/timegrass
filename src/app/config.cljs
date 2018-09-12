@@ -18,4 +18,5 @@
    :cdn-url "http://cdn.tiye.me/timegrass/",
    :cdn-folder "tiye.me:cdn/timegrass",
    :upload-folder "tiye.me:repo/TopixIM/timegrass/",
-   :server-folder "tiye.me:servers/timegrass"})
+   :server-folder "tiye.me:servers/timegrass",
+   :theme "#51C766"})
