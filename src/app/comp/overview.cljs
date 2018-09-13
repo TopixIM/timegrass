@@ -20,22 +20,17 @@
    (div
     {:style (merge
              ui/row-center
-             {:border-bottom (str "1px solid " (hsl 0 0 90)), :line-height "40px"})}
+             {:border-bottom (str "1px solid " (hsl 0 0 90)), :line-height "40px"}),
+     :on-click (fn [e d! m!] (m! (assoc state :menu? true)))}
     (div {:style ui/flex} (<> (:text task) {:white-space :nowrap}))
-    (=< 8 nil)
-    (span
-     {:on-click (fn [e d! m!] (m! (assoc state :menu? true))),
-      :style (merge ui/center {:width 16})}
-     (comp-icon :android-more-vertical))
     (when (:menu? state)
       (comp-menu-dialog
        (fn [result d! m!]
-         (println "result" result)
          (case result
            :done (d! :task/finish-working (:id task))
            :remove (d! :task/remove-working (:id task))
-           :else))
-       (fn [m!] (m! %cursor (assoc state :menu? false)))
+           :else)
+         (m! (assoc state :menu? false)))
        {:done "Done", :remove "Remove"})))))
 
 (defcomp
