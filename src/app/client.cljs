@@ -6,7 +6,9 @@
             [cljs.reader :refer [read-string]]
             [app.connection :refer [send! setup-socket!]]
             [app.schema :as schema]
-            [app.config :as config]))
+            [app.config :as config]
+            ["dayjs" :as dayjs]
+            ["dayjs/plugin/weekOfYear" :as week-of-year]))
 
 (declare dispatch!)
 
@@ -46,6 +48,7 @@
 (def ssr? (some? (.querySelector js/document "meta.respo-ssr")))
 
 (defn main! []
+  (.extend dayjs week-of-year)
   (if ssr? (render-app! realize-ssr!))
   (render-app! render!)
   (connect!)

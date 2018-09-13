@@ -50,18 +50,10 @@
    (div
     {:style (merge ui/flex {:padding 16, :overflow :auto})}
     (div
-     {:style ui/row}
+     {:style (merge ui/row {:font-family ui/font-fancy, :color (hsl 0 0 60)})}
      (<> today)
-     (=< 8 nil)
-     (div
-      {}
-      (cursor->
-       :create
-       comp-prompt
-       states
-       {:trigger (button {:style style/button, :inner-text "Create"}),
-        :text "Create new task:"}
-       (fn [result d! m!] (d! :task/create-working result)))))
+     (=< 16 nil)
+     (<> (str (.week (dayjs today)) "th week")))
     (=< nil 16)
     (list->
      {}
