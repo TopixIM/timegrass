@@ -12,13 +12,14 @@
             [app.comp.reel :refer [comp-reel]]
             [app.config :refer [dev?]]
             [app.schema :as schema]
-            [app.comp.overview :refer [comp-overview]]))
+            [app.comp.overview :refer [comp-overview]]
+            [app.config :as config]))
 
 (defcomp
  comp-offline
  ()
  (div
-  {:style (merge ui/global ui/fullscreen ui/center)}
+  {:style (merge ui/global ui/fullscreen ui/center {:background-color (:theme config/site)})}
   (span
    {:style {:cursor :pointer}, :on-click (action-> :effect/connect nil)}
    (<>

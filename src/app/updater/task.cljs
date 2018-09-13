@@ -18,7 +18,7 @@
          (if (some? task)
            (-> tasks
                (update :working (fn [tasks] (dissoc tasks op-data)))
-               (assoc-in [:finished op-data] task))
+               (assoc-in [:finished op-data] (assoc task :finished-time op-time)))
            tasks))))))
 
 (defn remove-working [db op-data sid op-id op-time]
