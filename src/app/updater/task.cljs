@@ -24,3 +24,10 @@
 (defn remove-working [db op-data sid op-id op-time]
   (let [user-id (get-in db [:sessions sid :user-id])]
     (update-in db [:users user-id :tasks :working] (fn [tasks] (dissoc tasks op-data)))))
+
+(defn update-working [db op-data sid op-id op-time]
+  (let [user-id (get-in db [:sessions sid :user-id])]
+    (update-in
+     db
+     [:users user-id :tasks :working (:id op-data)]
+     (fn [task] (if (some? task) (assoc task :text (:text op-data)) nil)))))
