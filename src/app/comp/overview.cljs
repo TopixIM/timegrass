@@ -103,7 +103,7 @@
     (let [grouped-tasks (->> (vals finished-tasks)
                              (group-by
                               (fn [task]
-                                (.format (dayjs (:created-time task)) "YYYY-MM-DD"))))]
+                                (.format (dayjs (:finished-time task)) "YYYY-MM-DD"))))]
       (div
        {}
        (list->

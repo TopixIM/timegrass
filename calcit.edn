@@ -4214,7 +4214,7 @@
                            "j" {
                             :type :expr, :by "B1y7Rc-Zz", :at 1536732641866, :id "Frxk4ctLU"
                             :data {
-                             "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1536732646163, :text ":created-time", :id "-8IF0DFwPz"}
+                             "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1536918964416, :text ":finished-time", :id "-8IF0DFwPz"}
                              "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1536732648463, :text "task", :id "4mQTyOmnZ3"}
                             }
                            }
