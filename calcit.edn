@@ -448,6 +448,57 @@
          }
         }
        }
+       "yn" {
+        :type :expr, :by "B1y7Rc-Zz", :at 1536920279265, :id "k2-kZ2DLA1"
+        :data {
+         "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920285861, :text ".addEventListener", :id "k2-kZ2DLA1leaf"}
+         "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920288441, :text "js/window", :id "oDWxSKqcU"}
+         "r" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920293691, :text "\"visibilitychange", :id "4jcHvPaCy"}
+         "v" {
+          :type :expr, :by "B1y7Rc-Zz", :at 1536920566547, :id "8IVvgaDPr"
+          :data {
+           "D" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920567165, :text "fn", :id "UgN2GlEGUg"}
+           "L" {
+            :type :expr, :by "B1y7Rc-Zz", :at 1536920567475, :id "C4UIrDaLwx"
+            :data {}
+           }
+           "T" {
+            :type :expr, :by "B1y7Rc-Zz", :at 1536920559108, :id "dfizhOQjpy"
+            :data {
+             "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920419801, :text "when", :id "J7FGzpdHA2"}
+             "r" {
+              :type :expr, :by "B1y7Rc-Zz", :at 1536920394244, :id "RKXPHgsNGO"
+              :data {
+               "D" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920394923, :text "and", :id "ZtdUa4oo6"}
+               "T" {
+                :type :expr, :by "B1y7Rc-Zz", :at 1536920387768, :id "FW4N7yyst"
+                :data {
+                 "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920388704, :text "=", :id "9mQFIXnj9V"}
+                 "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920494626, :text "js/document.visibilityState", :id "aHHNRwNSGc"}
+                 "r" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920391957, :text "\"visible", :id "NhGCWEQ9_b"}
+                }
+               }
+               "j" {
+                :type :expr, :by "B1y7Rc-Zz", :at 1536920397496, :id "xlwJalIhlx"
+                :data {
+                 "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920399367, :text "nil?", :id "fEW0n8gAp"}
+                 "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920416636, :text "@*store", :id "wS7oSM9UJ"}
+                }
+               }
+              }
+             }
+             "v" {
+              :type :expr, :by "B1y7Rc-Zz", :at 1536920420387, :id "LAV2VkU6yD"
+              :data {
+               "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1536920426378, :text "connect!", :id "LAV2VkU6yDleaf"}
+              }
+             }
+            }
+           }
+          }
+         }
+        }
+       }
        "yr" {
         :type :expr, :id "rJ8FQc8xx0S-", :by nil, :at 1500541010211
         :data {
