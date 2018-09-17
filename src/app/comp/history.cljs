@@ -13,11 +13,11 @@
  comp-done-task
  (task)
  (div
-  {:style ui/row}
+  {:style (merge ui/row {:padding "4px 0"})}
   (div
    {:style {:width 80, :color (hsl 0 0 80), :font-size 12}}
    (<> (.format (dayjs (:finished-time task)) "MM-DD HH:mm")))
-  (div {:style ui/flex} (<> (:text task)))))
+  (div {:style (merge ui/flex {:line-height "24px"})} (<> (:text task)))))
 
 (defcomp
  comp-history
