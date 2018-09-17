@@ -5,7 +5,7 @@
             [respo-ui.core :as ui]
             [respo.macros
              :refer
-             [defcomp list-> cursor-> list-> <> span div button textarea]]
+             [defcomp list-> cursor-> list-> <> span div button textarea a]]
             [respo.comp.space :refer [=<]]
             [app.config :as config]
             [app.style :as style]
@@ -78,16 +78,6 @@
              (m! (assoc state :show-confirm? false)))}))))))))
 
 (defcomp
- comp-done-task
- (task)
- (div
-  {:style ui/row}
-  (div
-   {:style {:width 80, :color (hsl 0 0 80), :font-size 12}}
-   (<> (.format (dayjs (:finished-time task)) "MM-DD HH:mm")))
-  (div {:style ui/flex} (<> (:text task)))))
-
-(defcomp
  comp-overview
  (states today tasks)
  (let [working-tasks (:working tasks), finished-tasks (:finished tasks)]
@@ -105,25 +95,9 @@
           (sort-by (fn [[k task]] (unchecked-negate (:created-time task))))
           (map-val (fn [task] (cursor-> (:id task) comp-active-task states task)))))
     (=< nil 16)
-    (let [grouped-tasks (->> (vals finished-tasks)
-                             (group-by
-                              (fn [task]
-                                (.format (dayjs (:finished-time task)) "YYYY-MM-DD"))))]
-      (div
-       {}
-       (list->
-        {}
-        (->> grouped-tasks
-             (sort (fn [x y] (compare (first y) (first x))))
-             (map
-              (fn [[date-string task-list]]
-                [date-string
-                 (div
-                  {:style (merge ui/column {:margin-top 24})}
-                  (<> date-string {:font-family ui/font-fancy})
-                  (=< nil 4)
-                  (list->
-                   {}
-                   (->> task-list
-                        (sort-by (fn [task] (unchecked-negate (:finished-time task))))
-                        (map (fn [task] [(:id task) (comp-done-task task)])))))])))))))))
+    (div
+     {:style ui/center}
+     (a
+      {:style {:color (hsl 200 80 60), :font-family ui/font-fancy},
+       :on-click (fn [e d! m!] (d! :router/change {:name :history}))}
+      (<> "View older"))))))

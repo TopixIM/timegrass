@@ -20,7 +20,7 @@
             :font-size 12,
             :color (hsl 0 0 60)}
            addional-styles)}
-  (<> span (str "Length:" count) nil)
+  (<> (str count))
   (=< 8 nil)
   (span
    {:inner-text "Reset", :style style-click, :on-click (fn [e d! m!] (d! :reel/reset nil))})
@@ -29,9 +29,4 @@
    {:inner-text "Merge", :style style-click, :on-click (fn [e d! m!] (d! :reel/merge nil))})
   (=< 8 nil)
   (span
-   {:inner-text "Persist", :style style-click, :on-click (action-> :effect/persist nil)})
-  (=< 8 nil)
-  (span
-   {:inner-text "Reload",
-    :style style-click,
-    :on-click (fn [e d! m!] (.reload (.-location js/window)))})))
+   {:inner-text "Persist", :style style-click, :on-click (action-> :effect/persist nil)})))

@@ -27,6 +27,7 @@
                 :data
                 (case (:name router)
                   :home {}
+                  :history {}
                   :profile (twig-members (:sessions db) (:users db))
                   {})),
        :count (count (:sessions db)),
