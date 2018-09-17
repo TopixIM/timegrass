@@ -50,7 +50,7 @@
      (comp-offline)
      (div
       {:style (merge ui/global ui/fullscreen ui/column)}
-      (comp-navigation (:logged-in? store) (:count store))
+      (comp-navigation states (:logged-in? store) (:count store))
       (if (:logged-in? store)
         (case (:name router)
           :home (cursor-> :overview comp-overview states (:today store) (:tasks store))

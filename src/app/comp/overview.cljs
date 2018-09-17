@@ -3,35 +3,79 @@
   (:require [hsl.core :refer [hsl]]
             [app.schema :as schema]
             [respo-ui.core :as ui]
-            [respo.macros :refer [defcomp list-> cursor-> list-> <> span div button]]
+            [respo.macros
+             :refer
+             [defcomp list-> cursor-> list-> <> span div button textarea]]
             [respo.comp.space :refer [=<]]
             [app.config :as config]
             [app.style :as style]
             [respo-alerts.comp.alerts :refer [comp-prompt]]
             [respo.util.list :refer [map-val]]
             [respo-ui.comp.icon :refer [comp-icon]]
-            [inflow-popup.comp.dialog :refer [comp-menu-dialog]]
+            [inflow-popup.comp.dialog :refer [comp-menu-dialog comp-dialog]]
             ["dayjs" :as dayjs]))
 
 (defcomp
  comp-active-task
  (states task)
- (let [state (or (:data states) {:menu? false})]
+ (let [state (or (:data states)
+                 {:menu? false, :show-editor? false, :draft "", :show-confirm? false})]
    (div
     {:style (merge
              ui/row-center
-             {:border-bottom (str "1px solid " (hsl 0 0 90)), :line-height "40px"}),
+             {:border-bottom (str "1px solid " (hsl 0 0 90)),
+              :line-height "40px",
+              :padding "0 8px",
+              :overflow :auto}
+             (when (or (:menu? state) (:show-editor? state) (:show-confirm? state))
+               {:background-color (hsl 0 0 94)})),
      :on-click (fn [e d! m!] (m! (assoc state :menu? true)))}
     (div {:style ui/flex} (<> (:text task) {:white-space :nowrap}))
     (when (:menu? state)
       (comp-menu-dialog
        (fn [result d! m!]
-         (case result
-           :done (d! :task/finish-working (:id task))
-           :remove (d! :task/remove-working (:id task))
-           :else)
-         (m! (assoc state :menu? false)))
-       {:done "Done", :remove "Remove"})))))
+         (let [new-state (assoc state :menu? false)]
+           (case result
+             :done (d! :task/finish-working (:id task))
+             :edit (m! (assoc new-state :show-editor? true :draft (:text task)))
+             :remove (m! (assoc new-state :show-confirm? true))
+             (m! new-state))))
+       {:done "Done", :edit "Edit", :remove "Remove"}))
+    (when (:show-editor? state)
+      (comp-dialog
+       (fn [m!] (m! (assoc state :show-editor? false)))
+       (div
+        {:style ui/column}
+        (textarea
+         {:style (merge ui/textarea {:width 320}),
+          :value (:draft state),
+          :on-input (fn [e d! m!] (m! (assoc state :draft (:value e))))})
+        (=< nil 8)
+        (div
+         {:style ui/row-parted}
+         (span {})
+         (button
+          {:style ui/button,
+           :inner-text "Edit",
+           :on-click (fn [e d! m!]
+             (d! :task/update-working {:id (:id task), :text (:draft state)})
+             (m! (assoc state :show-editor? false :draft "")))})))))
+    (when (:show-confirm? state)
+      (comp-dialog
+       (fn [m!] (m! (assoc state :show-confirm? false)))
+       (div
+        {:style (merge ui/column {:width 320})}
+        (div {} (<> "Sure to delete?"))
+        (=< nil 8)
+        (div
+         {:style ui/row-parted}
+         (span {})
+         (button
+          {:style ui/button,
+           :inner-text "Confirm",
+           :on-click (fn [e d! m!]
+             (d! :task/remove-working (:id task))
+             (m! (assoc state :show-confirm? false)))}))))))))
 
 (defcomp
  comp-done-task
@@ -50,18 +94,10 @@
    (div
     {:style (merge ui/flex {:padding 16, :overflow :auto})}
     (div
-     {:style ui/row}
+     {:style (merge ui/row {:font-family ui/font-fancy, :color (hsl 0 0 60)})}
      (<> today)
-     (=< 8 nil)
-     (div
-      {}
-      (cursor->
-       :create
-       comp-prompt
-       states
-       {:trigger (button {:style style/button, :inner-text "Create"}),
-        :text "Create new task:"}
-       (fn [result d! m!] (d! :task/create-working result)))))
+     (=< 16 nil)
+     (<> (str (.week (dayjs today)) "th week")))
     (=< nil 16)
     (list->
      {}
@@ -72,7 +108,7 @@
     (let [grouped-tasks (->> (vals finished-tasks)
                              (group-by
                               (fn [task]
-                                (.format (dayjs (:created-time task)) "YYYY-MM-DD"))))]
+                                (.format (dayjs (:finished-time task)) "YYYY-MM-DD"))))]
       (div
        {}
        (list->
