@@ -23,7 +23,7 @@
  comp-history
  (finished-tasks)
  (div
-  {:style {:padding "8px 16px"}}
+  {:style (merge ui/flex {:padding "8px 16px", :overflow :auto})}
   (let [grouped-tasks (->> (vals finished-tasks)
                            (group-by
                             (fn [task] (.format (dayjs (:finished-time task)) "YYYY-MM-DD"))))]
