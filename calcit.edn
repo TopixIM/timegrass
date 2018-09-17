@@ -2999,6 +2999,13 @@
                      "j" {:type :leaf, :by "root", :at 1536946916034, :text "\"0 8px", :id "qOMpb_WXL"}
                     }
                    }
+                   "x" {
+                    :type :expr, :by "B1y7Rc-Zz", :at 1537166913705, :id "dfW8IYPgM"
+                    :data {
+                     "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1537166915786, :text ":overflow", :id "dfW8IYPgMleaf"}
+                     "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1537166917006, :text ":auto", :id "FgNR1NXgMj"}
+                    }
+                   }
                   }
                  }
                  "r" {

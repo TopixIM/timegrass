@@ -25,7 +25,8 @@
              ui/row-center
              {:border-bottom (str "1px solid " (hsl 0 0 90)),
               :line-height "40px",
-              :padding "0 8px"}
+              :padding "0 8px",
+              :overflow :auto}
              (when (or (:menu? state) (:show-editor? state) (:show-confirm? state))
                {:background-color (hsl 0 0 94)})),
      :on-click (fn [e d! m!] (m! (assoc state :menu? true)))}
