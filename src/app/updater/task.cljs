@@ -21,6 +21,10 @@
                (assoc-in [:finished op-data] (assoc task :finished-time op-time)))
            tasks))))))
 
+(defn pend [db op-data sid op-id op-time]
+  (let [user-id (get-in db [:sessions sid :user-id])]
+    (update-in db [:users user-id :tasks :working op-data :pending?] not)))
+
 (defn remove-working [db op-data sid op-id op-time]
   (let [user-id (get-in db [:sessions sid :user-id])]
     (update-in db [:users user-id :tasks :working] (fn [tasks] (dissoc tasks op-data)))))

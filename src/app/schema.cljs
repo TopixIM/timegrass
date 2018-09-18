@@ -17,7 +17,13 @@
    :messages {}})
 
 (def task
-  {:id nil, :text "", :detail "", :created-time nil, :touched-time nil, :finished-time nil})
+  {:id nil,
+   :text "",
+   :detail "",
+   :pending? false,
+   :created-time nil,
+   :touched-time nil,
+   :finished-time nil})
 
 (def user
   {:name nil,
