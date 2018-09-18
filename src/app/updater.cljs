@@ -22,5 +22,6 @@
             :task/remove-working task/remove-working
             :task/finish-working task/finish-working
             :task/update-working task/update-working
+            :task/touch-working task/touch-working
             (do (println "Unknown op:" op) identity))]
     (f db op-data sid op-id op-time)))

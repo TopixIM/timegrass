@@ -16,7 +16,8 @@
    :router {:name :home, :data nil, :router nil},
    :messages {}})
 
-(def task {:id nil, :text "", :detail "", :created-time nil, :finished-time nil})
+(def task
+  {:id nil, :text "", :detail "", :created-time nil, :touched-time nil, :finished-time nil})
 
 (def user
   {:name nil,

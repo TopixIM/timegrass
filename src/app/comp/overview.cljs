@@ -38,8 +38,9 @@
              :done (d! :task/finish-working (:id task))
              :edit (m! (assoc new-state :show-editor? true :draft (:text task)))
              :remove (m! (assoc new-state :show-confirm? true))
+             :touch (do (d! :task/touch-working (:id task)) (m! new-state))
              (m! new-state))))
-       {:done "Done", :edit "Edit", :remove "Remove"}))
+       {:done "Done", :touch "Touch", :edit "Edit", :remove "Remove"}))
     (when (:show-editor? state)
       (comp-dialog
        (fn [m!] (m! (assoc state :show-editor? false)))
@@ -91,7 +92,8 @@
     (list->
      {}
      (->> (or working-tasks {})
-          (sort-by (fn [[k task]] (unchecked-negate (:created-time task))))
+          (sort-by
+           (fn [[k task]] (unchecked-negate (or (:touched-time task) (:created-time task)))))
           (map-val (fn [task] (cursor-> (:id task) comp-active-task states task)))))
     (=< nil 16)
     (div
