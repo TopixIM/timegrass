@@ -15,8 +15,8 @@
  (div
   {:style (merge ui/row {:padding "4px 0"})}
   (div
-   {:style {:width 80, :color (hsl 0 0 80), :font-size 12}}
-   (<> (.format (dayjs (:finished-time task)) "MM-DD HH:mm")))
+   {:style {:min-width 40, :color (hsl 0 0 80), :font-size 12}}
+   (<> (.format (dayjs (:finished-time task)) "HH:mm")))
   (div {:style (merge ui/flex {:line-height "24px"})} (<> (:text task)))))
 
 (defcomp
