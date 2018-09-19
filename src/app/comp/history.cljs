@@ -22,6 +22,7 @@
 (defcomp
  comp-history
  (finished-tasks)
+ (println "finished tasks")
  (div
   {:style (merge ui/flex {:padding "8px 16px", :overflow :auto})}
   (let [grouped-tasks (->> (vals finished-tasks)
