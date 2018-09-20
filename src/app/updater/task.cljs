@@ -21,9 +21,20 @@
                (assoc-in [:finished op-data] (assoc task :finished-time op-time)))
            tasks))))))
 
+(defn pend [db op-data sid op-id op-time]
+  (let [user-id (get-in db [:sessions sid :user-id])]
+    (update-in db [:users user-id :tasks :working op-data :pending?] not)))
+
 (defn remove-working [db op-data sid op-id op-time]
   (let [user-id (get-in db [:sessions sid :user-id])]
     (update-in db [:users user-id :tasks :working] (fn [tasks] (dissoc tasks op-data)))))
+
+(defn touch-working [db op-data sid op-id op-time]
+  (let [user-id (get-in db [:sessions sid :user-id])]
+    (update-in
+     db
+     [:users user-id :tasks :working op-data]
+     (fn [task] (if (some? task) (assoc task :touched-time op-time) nil)))))
 
 (defn update-working [db op-data sid op-id op-time]
   (let [user-id (get-in db [:sessions sid :user-id])]

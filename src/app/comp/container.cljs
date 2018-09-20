@@ -13,7 +13,8 @@
             [app.config :refer [dev?]]
             [app.schema :as schema]
             [app.comp.overview :refer [comp-overview]]
-            [app.config :as config]))
+            [app.config :as config]
+            [app.comp.history :refer [comp-history]]))
 
 (defcomp
  comp-offline
@@ -54,11 +55,12 @@
       (if (:logged-in? store)
         (case (:name router)
           :home (cursor-> :overview comp-overview states (:today store) (:tasks store))
+          :history (comp-history (:finished (:tasks store)))
           :profile (comp-profile (:user store) (:data router))
-          (<> router))
+          (<> (str "404 page:" router)))
         (comp-login states))
       (comp-status-color (:color store))
-      (when dev? (comp-inspect "Store" store {:bottom 0, :left 0, :max-width "100%"}))
+      (when dev? (comp-inspect "Store" store {:bottom 0, :left 0, :z-index 9999}))
       (comp-messages
        (get-in store [:session :messages])
        {}

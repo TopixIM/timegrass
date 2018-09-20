@@ -5,7 +5,7 @@
             [respo-ui.core :as ui]
             [respo.macros
              :refer
-             [defcomp list-> cursor-> list-> <> span div button textarea]]
+             [defcomp list-> cursor-> list-> <> span div button textarea a]]
             [respo.comp.space :refer [=<]]
             [app.config :as config]
             [app.style :as style]
@@ -16,21 +16,27 @@
             ["dayjs" :as dayjs]))
 
 (defcomp
- comp-active-task
+ comp-no-tasks
+ ()
+ (div
+  {:style (merge ui/center {:color (hsl 0 0 80), :font-family ui/font-fancy})}
+  (<> "No tasks")))
+
+(defcomp
+ comp-task
  (states task)
  (let [state (or (:data states)
                  {:menu? false, :show-editor? false, :draft "", :show-confirm? false})]
    (div
     {:style (merge
-             ui/row-center
              {:border-bottom (str "1px solid " (hsl 0 0 90)),
-              :line-height "40px",
-              :padding "0 8px",
+              :line-height "24px",
+              :padding "8px 8px",
               :overflow :auto}
              (when (or (:menu? state) (:show-editor? state) (:show-confirm? state))
                {:background-color (hsl 0 0 94)})),
      :on-click (fn [e d! m!] (m! (assoc state :menu? true)))}
-    (div {:style ui/flex} (<> (:text task) {:white-space :nowrap}))
+    (div {:style ui/flex} (<> (:text task) {}))
     (when (:menu? state)
       (comp-menu-dialog
        (fn [result d! m!]
@@ -39,8 +45,10 @@
              :done (d! :task/finish-working (:id task))
              :edit (m! (assoc new-state :show-editor? true :draft (:text task)))
              :remove (m! (assoc new-state :show-confirm? true))
+             :pend (do (d! :task/pend (:id task)) (m! new-state))
+             :touch (do (d! :task/touch-working (:id task)) (m! new-state))
              (m! new-state))))
-       {:done "Done", :edit "Edit", :remove "Remove"}))
+       {:done "Done", :touch "Touch", :pend "Pend", :edit "Edit", :remove "Remove"}))
     (when (:show-editor? state)
       (comp-dialog
        (fn [m!] (m! (assoc state :show-editor? false)))
@@ -78,52 +86,58 @@
              (m! (assoc state :show-confirm? false)))}))))))))
 
 (defcomp
- comp-done-task
- (task)
+ comp-title
+ (title)
  (div
-  {:style ui/row}
-  (div
-   {:style {:width 80, :color (hsl 0 0 80), :font-size 12}}
-   (<> (.format (dayjs (:finished-time task)) "MM-DD HH:mm")))
-  (div {:style ui/flex} (<> (:text task)))))
+  {:style {:margin "16px 0",
+           :font-family ui/font-fancy,
+           :color (hsl 0 0 50),
+           :font-size 16,
+           :font-weight 300}}
+  (<> title)))
 
 (defcomp
  comp-overview
  (states today tasks)
- (let [working-tasks (:working tasks), finished-tasks (:finished tasks)]
+ (let [working-tasks (->> (:working tasks)
+                          (filter (fn [[k task]] (not (:pending? task))))
+                          (into {}))
+       pending-tasks (->> (:working tasks)
+                          (filter (fn [[k task]] (:pending? task)))
+                          (into {}))]
    (div
     {:style (merge ui/flex {:padding 16, :overflow :auto})}
     (div
-     {:style (merge ui/row {:font-family ui/font-fancy, :color (hsl 0 0 60)})}
+     {:style (merge
+              ui/row
+              {:font-family ui/font-fancy, :color (hsl 0 0 60), :justify-content :flex-end})}
      (<> today)
      (=< 16 nil)
      (<> (str (.week (dayjs today)) "th week")))
-    (=< nil 16)
-    (list->
-     {}
-     (->> (or working-tasks {})
-          (sort-by (fn [[k task]] (unchecked-negate (:created-time task))))
-          (map-val (fn [task] (cursor-> (:id task) comp-active-task states task)))))
-    (=< nil 16)
-    (let [grouped-tasks (->> (vals finished-tasks)
-                             (group-by
-                              (fn [task]
-                                (.format (dayjs (:finished-time task)) "YYYY-MM-DD"))))]
-      (div
+    (comp-title "Doing")
+    (if (empty? working-tasks)
+      (comp-no-tasks)
+      (list->
        {}
-       (list->
-        {}
-        (->> grouped-tasks
-             (sort (fn [x y] (compare (first y) (first x))))
-             (map
-              (fn [[date-string task-list]]
-                [date-string
-                 (div
-                  {:style (merge ui/column {:margin-top 24})}
-                  (<> date-string {:font-family ui/font-fancy})
-                  (=< nil 4)
-                  (list->
-                   {}
-                   (->> task-list
-                        (sort-by (fn [task] (unchecked-negate (:finished-time task))))
-                        (map (fn [task] [(:id task) (comp-done-task task)])))))])))))))))
+       (->> working-tasks
+            (sort-by
+             (fn [[k task]]
+               (unchecked-negate (or (:touched-time task) (:created-time task)))))
+            (map-val (fn [task] (cursor-> (:id task) comp-task states task))))))
+    (comp-title "Later")
+    (if (empty? pending-tasks)
+      (comp-no-tasks)
+      (list->
+       {}
+       (->> pending-tasks
+            (sort-by
+             (fn [[k task]]
+               (unchecked-negate (or (:touched-time task) (:created-time task)))))
+            (map-val (fn [task] (cursor-> (:id task) comp-task states task))))))
+    (=< nil 32)
+    (div
+     {:style ui/center}
+     (a
+      {:style {:color (hsl 200 80 60), :font-family ui/font-fancy},
+       :on-click (fn [e d! m!] (d! :router/change {:name :history}))}
+      (<> "View finished"))))))
