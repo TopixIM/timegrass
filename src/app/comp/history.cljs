@@ -39,7 +39,12 @@
               [date-string
                (div
                 {:style (merge ui/column {:margin-top 24})}
-                (<> date-string {:font-family ui/font-fancy})
+                (let [the-day (dayjs date-string)]
+                  (span
+                   {:style {:font-family ui/font-fancy}}
+                   (<> (.format the-day "ddd"))
+                   (=< 12 nil)
+                   (<> (.format the-day "MM-DD"))))
                 (=< nil 4)
                 (list->
                  {}
