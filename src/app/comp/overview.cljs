@@ -24,7 +24,7 @@
 
 (defcomp
  comp-task
- (states task)
+ (states task mode)
  (let [state (or (:data states)
                  {:menu? false, :show-editor? false, :draft "", :show-confirm? false})]
    (div
@@ -48,7 +48,11 @@
              :pend (do (d! :task/pend (:id task)) (m! new-state))
              :touch (do (d! :task/touch-working (:id task)) (m! new-state))
              (m! new-state))))
-       {:done "Done", :touch "Touch", :pend "Pend", :edit "Edit", :remove "Remove"}))
+       {:done "Done",
+        :pend (if (= mode :pending) "Do it now" "Pend"),
+        :touch "Touch",
+        :edit "Edit",
+        :remove "Remove"}))
     (when (:show-editor? state)
       (comp-dialog
        (fn [m!] (m! (assoc state :show-editor? false)))
@@ -136,7 +140,7 @@
             (sort-by
              (fn [[k task]]
                (unchecked-negate (or (:touched-time task) (:created-time task)))))
-            (map-val (fn [task] (cursor-> (:id task) comp-task states task))))))
+            (map-val (fn [task] (cursor-> (:id task) comp-task states task :working))))))
     (when (not (empty? pending-tasks))
       (div
        {}
@@ -147,7 +151,7 @@
              (sort-by
               (fn [[k task]]
                 (unchecked-negate (or (:touched-time task) (:created-time task)))))
-             (map-val (fn [task] (cursor-> (:id task) comp-task states task)))))))
+             (map-val (fn [task] (cursor-> (:id task) comp-task states task :pending)))))))
     (=< nil 32)
     (div
      {:style ui/center}
