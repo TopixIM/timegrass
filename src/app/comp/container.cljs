@@ -34,7 +34,7 @@
   {:style {:width 16,
            :height 16,
            :position :absolute,
-           :top 60,
+           :bottom 16,
            :right 8,
            :background-color color,
            :border-radius "8px",

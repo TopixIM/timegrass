@@ -24,14 +24,7 @@
             :color :white})}
   (div
    {:style (merge ui/row-center {:cursor :pointer})}
-   (div {:on-click (action-> :router/change {:name :home})} (<> "Timegrass"))
-   (=< 16 nil)
-   (cursor->
-    :creater
-    comp-prompt
-    states
-    {:trigger (comp-icon :plus), :text "Create new task:"}
-    (fn [result d! m!] (d! :task/create-working result))))
+   (div {:on-click (action-> :router/change {:name :home})} (<> "Timegrass")))
   (div
    {:style {:cursor "pointer"}, :on-click (action-> :router/change {:name :profile})}
    (<> (if logged-in? "Me" "Guest"))
