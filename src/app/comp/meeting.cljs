@@ -10,6 +10,15 @@
             ["dayjs" :as dayjs]))
 
 (defcomp
+ comp-empty
+ ()
+ (div
+  {:style (merge
+           ui/center
+           {:font-family ui/font-fancy, :border-bottom (str "1px solid " (hsl 0 0 93))})}
+  (<> "No tasks")))
+
+(defcomp
  comp-task
  (task)
  (div
@@ -32,11 +41,15 @@
        yesterday-tasks (->> (:finished all-tasks)
                             (filter
                              (fn [[k task]]
-                               (.isAfter yesterday (dayjs (:finished-time task)))))
+                               (.isBefore yesterday (dayjs (:finished-time task)))))
                             (into {}))]
    (div
     {:style {:padding 16}}
     (comp-title "Todo")
-    (list-> {} (->> working-tasks (map (fn [[k task]] [k (comp-task task)]))))
+    (if (empty? working-tasks)
+      (comp-empty)
+      (list-> {} (->> working-tasks (map (fn [[k task]] [k (comp-task task)])))))
     (comp-title "Yesterday")
-    (list-> {} (->> yesterday-tasks (map (fn [[k task]] [k (comp-task task)])))))))
+    (if (empty? yesterday-tasks)
+      (comp-empty)
+      (list-> {} (->> yesterday-tasks (map (fn [[k task]] [k (comp-task task)]))))))))
