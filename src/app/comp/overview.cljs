@@ -108,7 +108,7 @@
    {:position :fixed,
     :bottom 16,
     :right 16,
-    :background-color "hsl(115,33%,53%)",
+    :background-color "hsl(115,33%,73%)",
     :color :white,
     :width 40,
     :height 40,

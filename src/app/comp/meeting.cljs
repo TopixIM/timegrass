@@ -45,6 +45,12 @@
                             (into {}))]
    (div
     {:style {:padding 16}}
+    (div
+     {:style {:font-family ui/font-fancy,
+              :font-size 24,
+              :line-height "24px",
+              :color (hsl 0 0 80)}}
+     (<> "Meeting Mode"))
     (comp-title "Todo")
     (if (empty? working-tasks)
       (comp-empty)
