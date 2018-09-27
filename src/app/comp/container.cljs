@@ -14,7 +14,8 @@
             [app.schema :as schema]
             [app.comp.overview :refer [comp-overview]]
             [app.config :as config]
-            [app.comp.history :refer [comp-history]]))
+            [app.comp.history :refer [comp-history]]
+            [app.comp.meeting :refer [comp-meeting]]))
 
 (defcomp
  comp-offline
@@ -57,6 +58,7 @@
           :home (cursor-> :overview comp-overview states (:today store) (:tasks store))
           :history (comp-history (:finished (:tasks store)))
           :profile (comp-profile (:user store) (:data router))
+          :meeting (comp-meeting (:today store) (:tasks store))
           (<> (str "404 page:" router)))
         (comp-login states))
       (comp-status-color (:color store))
