@@ -115,7 +115,7 @@
     :border-radius "50%",
     :font-family ui/font-fancy,
     :font-size 20,
-    :z-index 999}))
+    :z-index 20}))
 
 (defcomp
  comp-overview

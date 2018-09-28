@@ -25,6 +25,19 @@
   (let [user-id (get-in db [:sessions sid :user-id])]
     (update-in db [:users user-id :tasks :working op-data :pending?] not)))
 
+(defn put-back [db op-data sid op-id op-time]
+  (let [user-id (get-in db [:sessions sid :user-id])]
+    (update-in
+     db
+     [:users user-id :tasks]
+     (fn [tasks]
+       (let [task (get-in tasks [:finished op-data])]
+         (if (some? task)
+           (-> tasks
+               (update :finished (fn [tasks] (dissoc tasks op-data)))
+               (assoc-in [:working op-data] (assoc task :touched-time op-time)))
+           tasks))))))
+
 (defn remove-working [db op-data sid op-id op-time]
   (let [user-id (get-in db [:sessions sid :user-id])]
     (update-in db [:users user-id :tasks :working] (fn [tasks] (dissoc tasks op-data)))))

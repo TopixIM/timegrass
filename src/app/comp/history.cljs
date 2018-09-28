@@ -7,22 +7,30 @@
             [app.config :as config]
             [respo-ui.comp.icon :refer [comp-icon]]
             [respo-alerts.comp.alerts :refer [comp-prompt]]
-            ["dayjs" :as dayjs]))
+            ["dayjs" :as dayjs]
+            [inflow-popup.comp.dialog :refer [comp-menu-dialog]]))
 
 (defcomp
  comp-done-task
- (task)
- (div
-  {:style (merge ui/row {:padding "4px 0"})}
-  (div
-   {:style {:min-width 40, :color (hsl 0 0 80), :font-size 12}}
-   (<> (.format (dayjs (:finished-time task)) "HH:mm")))
-  (div {:style (merge ui/flex {:line-height "24px"})} (<> (:text task)))))
+ (states task)
+ (let [state (or (:data states) {:show-menu? false})]
+   (div
+    {:style (merge ui/row {:padding "4px 0"}),
+     :on-click (fn [e d! m!] (m! (assoc state :show-menu? true)))}
+    (div
+     {:style {:min-width 40, :color (hsl 0 0 80), :font-size 12}}
+     (<> (.format (dayjs (:finished-time task)) "HH:mm")))
+    (div {:style (merge ui/flex {:line-height "24px"})} (<> (:text task)))
+    (when (:show-menu? state)
+      (comp-menu-dialog
+       (fn [result d! m!]
+         (m! (assoc state :show-menu? false))
+         (when (= :put-back result) (d! :task/put-back (:id task))))
+       {:put-back (<> "Put back")})))))
 
 (defcomp
  comp-history
- (finished-tasks)
- (println "finished tasks")
+ (states finished-tasks)
  (div
   {:style (merge ui/flex {:padding "8px 16px", :overflow :auto})}
   (let [grouped-tasks (->> (vals finished-tasks)
@@ -50,4 +58,6 @@
                  {}
                  (->> task-list
                       (sort-by (fn [task] (unchecked-negate (:finished-time task))))
-                      (map (fn [task] [(:id task) (comp-done-task task)])))))]))))))))
+                      (map
+                       (fn [task]
+                         [(:id task) (cursor-> (:id task) comp-done-task states task)])))))]))))))))

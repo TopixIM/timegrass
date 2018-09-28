@@ -51,11 +51,11 @@
               :line-height "24px",
               :color (hsl 0 0 80)}}
      (<> "Meeting Mode"))
-    (comp-title "Yesterday")
+    (comp-title "Just did:")
     (if (empty? yesterday-tasks)
       (comp-empty)
       (list-> {} (->> yesterday-tasks (map (fn [[k task]] [k (comp-task task)])))))
-    (comp-title "Todo")
+    (comp-title "Todo today:")
     (if (empty? working-tasks)
       (comp-empty)
       (list-> {} (->> working-tasks (map (fn [[k task]] [k (comp-task task)]))))))))

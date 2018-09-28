@@ -56,7 +56,7 @@
       (if (:logged-in? store)
         (case (:name router)
           :home (cursor-> :overview comp-overview states (:today store) (:tasks store))
-          :history (comp-history (:finished (:tasks store)))
+          :history (cursor-> :history comp-history states (:finished (:tasks store)))
           :profile (comp-profile (:user store) (:data router))
           :meeting (comp-meeting (:today store) (:tasks store))
           (<> (str "404 page:" router)))
