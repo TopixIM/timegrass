@@ -12,7 +12,7 @@
   {:storage-key "timegrass",
    :port 11009,
    :title "Timegrass",
-   :icon "http://cdn.tiye.me/logo/cumulo.png",
+   :icon "http://cdn.tiye.me/logo/timegrass.png",
    :dev-ui "http://localhost:8100/main.css",
    :release-ui "http://cdn.tiye.me/favored-fonts/main.css",
    :cdn-url "http://cdn.tiye.me/timegrass/",
