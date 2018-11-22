@@ -3,9 +3,9 @@
   (:require [hsl.core :refer [hsl]]
             [app.schema :as schema]
             [respo-ui.core :as ui]
-            [respo.macros
+            [respo.core
              :refer
-             [defcomp list-> cursor-> list-> <> span div button textarea a]]
+             [defcomp list-> cursor-> list-> <> span div button textarea input a]]
             [respo.comp.space :refer [=<]]
             [app.config :as config]
             [app.style :as style]
@@ -58,8 +58,8 @@
        (fn [m!] (m! (assoc state :show-editor? false)))
        (div
         {:style ui/column}
-        (textarea
-         {:style (merge ui/textarea {:width 320}),
+        (input
+         {:style (merge ui/input {:width 320}),
           :value (:draft state),
           :on-input (fn [e d! m!] (m! (assoc state :draft (:value e))))})
         (=< nil 8)
