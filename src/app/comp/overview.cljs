@@ -56,22 +56,22 @@
     (when (:show-editor? state)
       (comp-dialog
        (fn [m!] (m! (assoc state :show-editor? false)))
-       (div
-        {:style ui/column}
-        (input
-         {:style (merge ui/input {:width 320}),
-          :value (:draft state),
-          :on-input (fn [e d! m!] (m! (assoc state :draft (:value e))))})
-        (=< nil 8)
-        (div
-         {:style ui/row-parted}
-         (span {})
-         (button
-          {:style ui/button,
-           :inner-text "Edit",
-           :on-click (fn [e d! m!]
-             (d! :task/update-working {:id (:id task), :text (:draft state)})
-             (m! (assoc state :show-editor? false :draft "")))})))))
+       (let [edit! (fn [e d! m!]
+                     (d! :task/update-working {:id (:id task), :text (:draft state)})
+                     (m! (assoc state :show-editor? false :draft "")))]
+         (div
+          {:style ui/column}
+          (input
+           {:style (merge ui/input {:width 320}),
+            :value (:draft state),
+            :autofocus true,
+            :on-input (fn [e d! m!] (m! (assoc state :draft (:value e)))),
+            :on-keydown (fn [e d! m!] (when (= 13 (.-keyCode (:event e))) (edit! e d! m!)))})
+          (=< nil 8)
+          (div
+           {:style ui/row-parted}
+           (span {})
+           (button {:style ui/button, :inner-text "Edit", :on-click edit!}))))))
     (when (:show-confirm? state)
       (comp-dialog
        (fn [m!] (m! (assoc state :show-confirm? false)))
