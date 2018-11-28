@@ -5,12 +5,14 @@
  :dependencies [[mvc-works/hsl          "0.1.2"]
                 [mvc-works/shell-page   "0.1.9"]
                 [cumulo/recollect       "0.5.0"]
+                [cumulo/reel            "0.1.0"]
                 [respo                  "0.10.2"]
                 [respo/ui               "0.3.10"]
                 [respo/alerts           "0.3.10"]
                 [respo/message          "0.3.4"]
                 [respo/inflow-popup     "0.2.6"]
-                [cirru/bisection-key    "0.1.5"]]
+                [cirru/bisection-key    "0.1.5"]
+                [org.clojure/core.incubator "0.1.4"]]
  :open-file-command ["subl" ["%s:%s:%s" :file :line :column]]
  :builds {:client {:output-dir "target/"
                    :asset-path "./"
