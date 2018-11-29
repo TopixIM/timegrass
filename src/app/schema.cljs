@@ -23,7 +23,8 @@
    :pending? false,
    :created-time nil,
    :touched-time nil,
-   :finished-time nil})
+   :finished-time nil,
+   :archived-time nil})
 
 (def user
   {:name nil,
