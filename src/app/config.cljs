@@ -1,16 +1,21 @@
 
-(ns app.config (:require [app.util :refer [get-env!]]))
+(ns app.config (:require [cumulo-util.core :refer [get-env!]]))
 
-(def bundle-builds #{"release" "local-bundle"})
+(def cdn?
+  (cond
+    (exists? js/window) false
+    (exists? js/process) (= "true" js/process.env.cdn)
+    :else false))
 
 (def dev?
-  (if (exists? js/window)
-    (do ^boolean js/goog.DEBUG)
-    (not (contains? bundle-builds (get-env! "mode")))))
+  (let [debug? (do ^boolean js/goog.DEBUG)]
+    (cond
+      (exists? js/window) debug?
+      (exists? js/process) (not= "true" js/process.env.release)
+      :else true)))
 
 (def site
-  {:storage-key "timegrass",
-   :port 11009,
+  {:port 11009,
    :title "Timegrass",
    :icon "http://cdn.tiye.me/logo/timegrass.png",
    :dev-ui "http://localhost:8100/main.css",
@@ -19,4 +24,6 @@
    :cdn-folder "tiye.me:cdn/timegrass",
    :upload-folder "tiye.me:repo/TopixIM/timegrass/",
    :server-folder "tiye.me:servers/timegrass",
-   :theme "#51C766"})
+   :theme "#51C766",
+   :storage-key "timegrass",
+   :storage-file "storage.edn"})
