@@ -9,7 +9,8 @@
             [ws-edn.client :refer [ws-connect! ws-send!]]
             [recollect.patch :refer [patch-twig]]
             ["dayjs" :as dayjs]
-            ["dayjs/plugin/weekOfYear" :as week-of-year])
+            ["dayjs/plugin/weekOfYear" :as week-of-year]
+            [cumulo-util.core :refer [on-page-touch]])
   (:require-macros [clojure.core.strint :refer [<<]]))
 
 (declare dispatch!)
@@ -63,10 +64,7 @@
   (connect!)
   (add-watch *store :changes #(render-app! render!))
   (add-watch *states :changes #(render-app! render!))
-  (.addEventListener
-   js/window
-   "visibilitychange"
-   (fn [] (when (and (nil? @*store) (= "visible" js/document.visibilityState)) (connect!))))
+  (on-page-touch (fn [] (when (nil? @*store) (connect!))))
   (println "App started!"))
 
 (defn reload! [] (clear-cache!) (render-app! render!) (println "Code updated."))

@@ -13,7 +13,8 @@
             [respo.util.list :refer [map-val]]
             [respo-ui.comp.icon :refer [comp-icon]]
             [inflow-popup.comp.dialog :refer [comp-menu-dialog comp-dialog]]
-            ["dayjs" :as dayjs]))
+            ["dayjs" :as dayjs]
+            ["copy-text-to-clipboard" :as copy!]))
 
 (defcomp
  comp-no-tasks
@@ -44,14 +45,16 @@
            (case result
              :done (d! :task/finish-working (:id task))
              :edit (m! (assoc new-state :show-editor? true :draft (:text task)))
+             :copy (do (copy! (:text task)) (m! new-state))
              :remove (m! (assoc new-state :show-confirm? true))
              :pend (do (d! :task/pend (:id task)) (m! new-state))
              :touch (do (d! :task/touch-working (:id task)) (m! new-state))
              (m! new-state))))
        {:done "Done",
-        :pend (if (= mode :pending) "Do it now" "Pend"),
-        :touch "Touch",
+        :touch "Move to top",
+        :copy "Copy",
         :edit "Edit",
+        :pend (if (= mode :pending) "Do it now" "Do it later"),
         :remove "Remove"}))
     (when (:show-editor? state)
       (comp-dialog
