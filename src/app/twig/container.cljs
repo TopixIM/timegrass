@@ -2,13 +2,21 @@
 (ns app.twig.container
   (:require [recollect.twig :refer [deftwig]]
             [app.twig.user :refer [twig-user]]
-            ["randomcolor" :as color]))
+            ["randomcolor" :as color]
+            ["dayjs" :as dayjs]))
 
 (deftwig
  twig-members
  (sessions users)
  (->> sessions
       (map (fn [[k session]] [k (get-in users [(:user-id session) :name])]))
+      (into {})))
+
+(deftwig
+ twig-tasks-by-week
+ (week tasks)
+ (->> tasks
+      (filter (fn [[k task]] (= week (.week (dayjs (:finished-time task))))))
       (into {})))
 
 (deftwig
@@ -26,12 +34,15 @@
                 router
                 :data
                 (case (:name router)
-                  :home {}
-                  :history {}
+                  :home {:tasks (get-in user [:tasks :working])}
+                  :history
+                    {:week (:data router),
+                     :tasks (twig-tasks-by-week
+                             (:data router)
+                             (get-in user [:tasks :finished]))}
                   :profile (twig-members (:sessions db) (:users db))
                   {})),
        :count (count (:sessions db)),
        :color (color/randomColor),
-       :today (:today db),
-       :tasks (:tasks user)}
+       :today (:today db)}
       nil))))

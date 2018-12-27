@@ -123,12 +123,8 @@
 (defcomp
  comp-overview
  (states today tasks)
- (let [working-tasks (->> (:working tasks)
-                          (filter (fn [[k task]] (not (:pending? task))))
-                          (into {}))
-       pending-tasks (->> (:working tasks)
-                          (filter (fn [[k task]] (:pending? task)))
-                          (into {}))]
+ (let [working-tasks (->> tasks (filter (fn [[k task]] (not (:pending? task)))) (into {}))
+       pending-tasks (->> tasks (filter (fn [[k task]] (:pending? task))) (into {}))]
    (div
     {:style (merge ui/flex {:padding 16, :overflow :auto})}
     (div
@@ -175,7 +171,7 @@
      {:style ui/center}
      (a
       {:style {:color (hsl 200 80 60), :font-family ui/font-fancy},
-       :on-click (fn [e d! m!] (d! :router/change {:name :history}))}
+       :on-click (fn [e d! m!] (d! :router/change {:name :history, :data (.week (dayjs))}))}
       (<> "View finished")))
     (div
      {:style style-meeting-icon,

@@ -13,7 +13,8 @@
             [recollect.diff :refer [diff-twig]]
             [recollect.twig :refer [render-twig]]
             [ws-edn.server :refer [wss-serve! wss-send! wss-each!]]
-            ["dayjs" :as dayjs]))
+            ["dayjs" :as dayjs]
+            ["dayjs/plugin/weekOfYear" :as week-of-year]))
 
 (defonce *client-caches (atom {}))
 
@@ -59,7 +60,7 @@
            old-store (or (get @*client-caches sid) nil)
            new-store (render-twig (twig-container db session records) old-store)
            changes (diff-twig old-store new-store {:key :id})]
-       (when config/dev? (println "Changes for" sid ":" changes (count records)))
+       (when config/dev? (println "Changes for" sid ":" (count records)))
        (if (not= changes [])
          (do
           (wss-send! sid {:kind :patch, :data changes})
@@ -92,6 +93,7 @@
 
 (defn main! []
   (println "Running mode:" (if config/dev? "dev" "release"))
+  (.extend dayjs week-of-year)
   (run-server!)
   (render-loop!)
   (js/process.on "SIGINT" on-exit!)

@@ -55,8 +55,20 @@
       (comp-navigation states (:logged-in? store) (:count store))
       (if (:logged-in? store)
         (case (:name router)
-          :home (cursor-> :overview comp-overview states (:today store) (:tasks store))
-          :history (cursor-> :history comp-history states (:finished (:tasks store)))
+          :home
+            (cursor->
+             :overview
+             comp-overview
+             states
+             (:today store)
+             (get-in router [:data :tasks]))
+          :history
+            (cursor->
+             :history
+             comp-history
+             states
+             (get-in router [:data :week])
+             (get-in router [:data :tasks]))
           :profile (comp-profile (:user store) (:data router))
           :meeting (comp-meeting (:today store) (:tasks store))
           (<> (str "404 page:" router)))
