@@ -38,22 +38,21 @@
  (div
   {:style (merge ui/flex {:padding "8px 8px", :overflow :auto})}
   (div
-   {:style (merge
-            ui/row-parted
-            {:padding "0 8px",
-             :font-family ui/font-fancy,
-             :font-size 24,
-             :color (hsl 0 0 80)})}
-   (<> (<< "Histories of ~{week}th week"))
+   {:style (merge ui/row-parted {:padding "0 8px", :color (hsl 0 0 80)})}
+   (<> (<< "Histories of ~{week}th week") {:font-family ui/font-fancy, :font-size 20})
    (div
     {:style ui/row}
     (span
      {:inner-text "Prev",
-      :on-click (fn [e d! m!] (d! :router/change {:name :history, :data (dec week)}))})
+      :style ui/link,
+      :on-click (fn [e d! m!]
+        (d! :router/change {:name :history, :data (if (<= week 1) 54 (dec week))}))})
     (=< 8 nil)
     (span
      {:inner-text "Next",
-      :on-click (fn [e d! m!] (d! :router/change {:name :history, :data (inc week)}))})))
+      :style ui/link,
+      :on-click (fn [e d! m!]
+        (d! :router/change {:name :history, :data (if (>= week 54) 1 (inc week))}))})))
   (if (empty? finished-tasks)
     (<> "No tasks.")
     (let [grouped-tasks (->> (vals finished-tasks)
