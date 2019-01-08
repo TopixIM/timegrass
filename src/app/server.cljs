@@ -99,6 +99,7 @@
   (js/process.on "SIGINT" on-exit!)
   (repeat! 600 #(persist-db!))
   (set-today!)
+  (repeat! 60 #(set-today!))
   (println "Server started."))
 
 (defn reload! []
