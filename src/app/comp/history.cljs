@@ -82,11 +82,13 @@
                   (div
                    {:style (merge ui/column {:margin-top 24})}
                    (let [the-day (dayjs date-string)]
-                     (span
-                      {:style {:font-family ui/font-fancy, :padding "0 8px"}}
-                      (<> (.format the-day "ddd"))
-                      (=< 12 nil)
-                      (<> (.format the-day "MM-DD"))))
+                     (div
+                      {:style ui/row-parted}
+                      (span
+                       {:style {:font-family ui/font-fancy, :padding "0 8px"}}
+                       (<> (.format the-day "ddd"))
+                       (=< 12 nil)
+                       (<> (.format the-day "MM-DD")))))
                    (=< nil 4)
                    (list->
                     {}

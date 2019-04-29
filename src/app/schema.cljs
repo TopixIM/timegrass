@@ -3,11 +3,7 @@
 
 (def complain {:id nil, :text "", :time nil})
 
-(def database {:sessions {}, :users {}, :today "2018-08-07"})
-
-(def notification {:id nil, :kind nil, :text nil})
-
-(def router {:name nil, :title nil, :data {}, :router nil})
+(def note {:id nil, :time nil, :updated-time nil, :text nil})
 
 (def session
   {:user-id nil,
@@ -32,5 +28,11 @@
    :nickname nil,
    :avatar nil,
    :password nil,
-   :tasks {:working {}, :pending {}, :finished {}},
-   :complains {}})
+   :tasks {:working (do task {}), :pending {}, :finished {}},
+   :notes (do note {})})
+
+(def database {:sessions (do session {}), :users (do user {}), :today "2018-08-07"})
+
+(def notification {:id nil, :kind nil, :text nil})
+
+(def router {:name nil, :title nil, :data {}, :router nil})
