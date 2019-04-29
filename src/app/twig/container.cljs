@@ -14,10 +14,14 @@
 
 (deftwig
  twig-tasks-by-week
- (week tasks)
- (->> tasks
-      (filter (fn [[k task]] (= week (.week (dayjs (:finished-time task))))))
-      (into {})))
+ (data tasks)
+ (let [year (:year data), week (:week data)]
+   (->> tasks
+        (filter
+         (fn [[k task]]
+           (let [time (dayjs (:finished-time task))]
+             (and (= year (.year time)) (= week (.week time))))))
+        (into {}))))
 
 (deftwig
  twig-container
