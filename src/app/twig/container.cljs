@@ -53,8 +53,8 @@
                     {:week (:data router),
                      :tasks (twig-tasks-by-week
                              (:data router)
-                             (get-in user [:tasks :finished])),
-                     :notes (twig-notes-by-week (:data router) (:notes user))}
+                             (get-in user [:tasks :finished]))}
+                  :notes (twig-notes-by-week (:data router) (:notes user))
                   :profile (twig-members (:sessions db) (:users db))
                   {})),
        :count (count (:sessions db)),

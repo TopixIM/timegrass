@@ -15,7 +15,8 @@
             [app.comp.overview :refer [comp-overview]]
             [app.config :as config]
             [app.comp.history :refer [comp-history]]
-            [app.comp.meeting :refer [comp-meeting]]))
+            [app.comp.meeting :refer [comp-meeting]]
+            [app.comp.notes-page :refer [comp-notes-page]]))
 
 (defcomp
  comp-offline
@@ -69,6 +70,13 @@
              states
              (get-in router [:data :week])
              (get-in router [:data :tasks]))
+          :notes
+            (cursor->
+             :notes
+             comp-notes-page
+             states
+             (:data router)
+             (get-in session [:router :data]))
           :profile (comp-profile (:user store) (:data router))
           :meeting (comp-meeting (:today store) (:tasks store))
           (<> (str "404 page:" router)))
