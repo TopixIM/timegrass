@@ -7,7 +7,7 @@
             [respo.comp.space :refer [=<]]
             [app.config :as config]
             [respo-alerts.comp.alerts :refer [comp-prompt comp-confirm]]
-            [feather.core :refer [comp-i]]
+            [feather.core :refer [comp-i comp-icon]]
             ["dayjs" :as dayjs])
   (:require-macros [clojure.core.strint :refer [<<]]))
 
@@ -58,7 +58,31 @@
        :text "Add note about today's work:",
        :multiline? true}
       (fn [result d! m!] (d! :note/add result)))
-     (<> (<< "~{week}th week of ~{year}.") {:font-family ui/font-fancy}))
+     (div
+      {:style ui/row-middle}
+      (<> (<< "~{week}th week of ~{year}.") {:font-family ui/font-fancy})
+      (=< 8 nil)
+      (comp-icon
+       :arrow-left
+       {:font-size 16, :color (hsl 200 80 80), :cursor :pointer}
+       (fn [e d! m!]
+         (d!
+          :router/change
+          {:name :notes,
+           :data (if (<= week 1)
+             {:year (dec year), :week 53}
+             {:year year, :week (dec week)})})))
+      (=< 8 nil)
+      (comp-icon
+       :arrow-right
+       {:font-size 16, :color (hsl 200 80 80), :cursor :pointer}
+       (fn [e d! m!]
+         (d!
+          :router/change
+          {:name :notes,
+           :data (if (>= week 53)
+             {:year (inc year), :week 1}
+             {:year year, :week (inc week)})})))))
     (if (empty? notes)
       (div
        {:style (merge ui/center {:min-height 120})}
