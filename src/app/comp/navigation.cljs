@@ -5,7 +5,6 @@
             [respo.comp.space :refer [=<]]
             [respo.core :refer [defcomp <> action-> cursor-> span div]]
             [app.config :as config]
-            [respo-ui.comp.icon :refer [comp-icon]]
             [respo-alerts.comp.alerts :refer [comp-prompt]]
             ["dayjs" :as dayjs]))
 

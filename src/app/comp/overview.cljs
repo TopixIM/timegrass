@@ -11,7 +11,7 @@
             [app.style :as style]
             [respo-alerts.comp.alerts :refer [comp-prompt]]
             [respo.util.list :refer [map-val]]
-            [respo-ui.comp.icon :refer [comp-icon]]
+            [feather.core :refer [comp-i]]
             [inflow-popup.comp.dialog :refer [comp-menu-dialog comp-dialog]]
             ["dayjs" :as dayjs]
             ["copy-text-to-clipboard" :as copy!]))
@@ -144,7 +144,7 @@
        :creater
        comp-prompt
        states
-       {:trigger (comp-icon :plus), :text "Create new task:"}
+       {:trigger (comp-i :plus 14 (hsl 200 80 80)), :text "Create new task:"}
        (fn [result d! m!] (d! :task/create-working result)))))
     (if (empty? working-tasks)
       (comp-no-tasks)
