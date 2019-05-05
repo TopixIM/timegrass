@@ -171,7 +171,10 @@
      {:style ui/center}
      (a
       {:style {:color (hsl 200 80 60), :font-family ui/font-fancy},
-       :on-click (fn [e d! m!] (d! :router/change {:name :history, :data (.week (dayjs))}))}
+       :on-click (fn [e d! m!]
+         (d!
+          :router/change
+          {:name :history, :data {:year (.year (dayjs)), :week (.week (dayjs))}}))}
       (<> "View finished")))
     (div
      {:style style-meeting-icon,

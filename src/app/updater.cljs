@@ -5,6 +5,7 @@
             [app.updater.router :as router]
             [app.updater.misc :as misc]
             [app.updater.task :as task]
+            [app.updater.note :as note]
             [app.schema :as schema]
             [respo-message.updater :refer [update-messages]]))
 
@@ -25,5 +26,8 @@
             :task/touch-working task/touch-working
             :task/put-back task/put-back
             :task/pend task/pend
+            :note/add note/add-note
+            :note/edit note/edit-note
+            :note/remove note/remove-note
             (do (println "Unknown op:" op) identity))]
     (f db op-data sid op-id op-time)))

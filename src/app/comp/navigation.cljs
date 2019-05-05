@@ -6,7 +6,8 @@
             [respo.core :refer [defcomp <> action-> cursor-> span div]]
             [app.config :as config]
             [respo-ui.comp.icon :refer [comp-icon]]
-            [respo-alerts.comp.alerts :refer [comp-prompt]]))
+            [respo-alerts.comp.alerts :refer [comp-prompt]]
+            ["dayjs" :as dayjs]))
 
 (defcomp
  comp-navigation
@@ -23,8 +24,18 @@
             :background-color (:theme config/site),
             :color :white})}
   (div
-   {:style (merge ui/row-center {:cursor :pointer})}
-   (div {:on-click (action-> :router/change {:name :home})} (<> "Timegrass")))
+   {:style (merge ui/row-center)}
+   (div
+    {:style {:cursor :pointer}, :on-click (action-> :router/change {:name :home})}
+    (<> "Timegrass"))
+   (=< 16 nil)
+   (div
+    {:style {:cursor :pointer},
+     :on-click (action->
+                :router/change
+                {:name :notes,
+                 :data (let [now (dayjs)] {:year (.year now), :week (.week now)})})}
+    (<> "Notes")))
   (div
    {:style {:cursor "pointer"}, :on-click (action-> :router/change {:name :profile})}
    (<> (if logged-in? "Me" "Guest"))
