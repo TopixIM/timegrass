@@ -20,7 +20,9 @@
            {:border-bottom (str "1px solid " (hsl 0 0 90)), :padding "4px 8px"})}
   (div
    {:style ui/row-parted}
-   (<> (-> (:time note) dayjs (.format "MM-DD hh:mm:ss")) {:font-family ui/font-fancy})
+   (<>
+    (-> (:time note) dayjs (.format "MM-DD hh:mm"))
+    {:font-family ui/font-fancy, :color (hsl 0 0 80)})
    (=< 8 nil)
    (div
     {:style ui/row-middle}
@@ -47,21 +49,23 @@
  (states notes info)
  (let [year (:year info), week (:week info)]
    (div
-    {:style (merge ui/flex {:padding 8})}
+    {:style (merge ui/flex {:padding 16})}
     (div
-     {:style ui/row-parted}
-     (cursor->
-      :add
-      comp-prompt
-      states
-      {:trigger (a {:inner-text "Add note", :style (merge ui/link)}),
-       :text "Add note about today's work:",
-       :multiline? true}
-      (fn [result d! m!] (d! :note/add result)))
+     {:style (merge ui/row-parted {:margin "8px 0"})}
+     (span
+      {:style ui/row-middle}
+      (<> "Notes" {:color (hsl 0 0 50), :font-family ui/font-fancy, :font-size 16})
+      (=< 16 nil)
+      (cursor->
+       :add
+       comp-prompt
+       states
+       {:trigger (comp-i :plus 16 (hsl 200 80 80)),
+        :text "Add note about today's work:",
+        :multiline? true}
+       (fn [result d! m!] (d! :note/add result))))
      (div
       {:style ui/row-middle}
-      (<> (<< "~{week}th week of ~{year}.") {:font-family ui/font-fancy})
-      (=< 8 nil)
       (comp-icon
        :arrow-left
        {:font-size 16, :color (hsl 200 80 80), :cursor :pointer}
@@ -82,7 +86,11 @@
           {:name :notes,
            :data (if (>= week 53)
              {:year (inc year), :week 1}
-             {:year year, :week (inc week)})})))))
+             {:year year, :week (inc week)})})))
+      (=< 8 nil)
+      (<>
+       (<< "~{week}th week of ~{year}.")
+       {:font-family ui/font-fancy, :color (hsl 0 0 50)})))
     (if (empty? notes)
       (div
        {:style (merge ui/center {:min-height 120})}

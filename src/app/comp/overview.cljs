@@ -96,11 +96,13 @@
  comp-title
  (title child)
  (div
-  {:style {:margin "16px 0",
-           :font-family ui/font-fancy,
-           :color (hsl 0 0 50),
-           :font-size 16,
-           :font-weight 300}}
+  {:style (merge
+           ui/row-middle
+           {:margin "8px 0",
+            :font-family ui/font-fancy,
+            :color (hsl 0 0 50),
+            :font-size 16,
+            :font-weight 300})}
   (<> title)
   (=< 16 nil)
   child))
@@ -128,16 +130,7 @@
    (div
     {:style (merge ui/flex {:padding 16, :overflow :auto})}
     (div
-     {:style (merge
-              ui/row
-              {:font-family ui/font-fancy, :color (hsl 0 0 60), :justify-content :flex-end})}
-     (<> (.format (dayjs today) "ddd"))
-     (=< 8 nil)
-     (<> (str (.week (dayjs today)) "th week"))
-     (=< 16 nil)
-     (<> today))
-    (div
-     {:style ui/row}
+     {:style ui/row-parted}
      (comp-title
       "Doing"
       (cursor->
@@ -145,7 +138,14 @@
        comp-prompt
        states
        {:trigger (comp-i :plus 14 (hsl 200 80 80)), :text "Create new task:"}
-       (fn [result d! m!] (d! :task/create-working result)))))
+       (fn [result d! m!] (d! :task/create-working result))))
+     (div
+      {:style (merge ui/row-middle {:font-family ui/font-fancy, :color (hsl 0 0 60)})}
+      (<> (.format (dayjs today) "ddd"))
+      (=< 8 nil)
+      (<> (str (.week (dayjs today)) "th week"))
+      (=< 16 nil)
+      (<> today)))
     (if (empty? working-tasks)
       (comp-no-tasks)
       (list->
@@ -175,7 +175,7 @@
          (d!
           :router/change
           {:name :history, :data {:year (.year (dayjs)), :week (.week (dayjs))}}))}
-      (<> "View finished")))
+      (<> "View finished" {:cursor :pointer})))
     (div
      {:style style-meeting-icon,
       :on-click (fn [e d! m!] (d! :router/change {:name :meeting}))}
