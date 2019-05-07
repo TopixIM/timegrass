@@ -8,25 +8,28 @@
             [respo-alerts.comp.alerts :refer [comp-prompt]]
             ["dayjs" :as dayjs]))
 
+(def style-navbar
+  (merge
+   ui/row-center
+   {:height 48,
+    :justify-content :space-between,
+    :padding "0 16px",
+    :font-size 16,
+    :border-bottom (str "1px solid " (hsl 0 0 0 0.1)),
+    :font-family ui/font-fancy,
+    :background-color (:theme config/site),
+    :color :white}))
+
 (defcomp
  comp-navigation
- (states logged-in? count-members)
+ (states logged-in? count-members page)
  (div
-  {:style (merge
-           ui/row-center
-           {:height 48,
-            :justify-content :space-between,
-            :padding "0 16px",
-            :font-size 16,
-            :border-bottom (str "1px solid " (hsl 0 0 0 0.1)),
-            :font-family ui/font-fancy,
-            :background-color (:theme config/site),
-            :color :white})}
+  {:style style-navbar}
   (div
    {:style (merge ui/row-center)}
    (div
     {:style {:cursor :pointer}, :on-click (action-> :router/change {:name :home})}
-    (<> "Timegrass"))
+    (<> "Timegrass" (merge {:opacity 0.5} (if (= page :home) {:opacity 1}))))
    (=< 16 nil)
    (div
     {:style {:cursor :pointer},
@@ -34,7 +37,7 @@
                 :router/change
                 {:name :notes,
                  :data (let [now (dayjs)] {:year (.year now), :week (.week now)})})}
-    (<> "Notes")))
+    (<> "Notes" (merge {:opacity 0.5} (if (= page :notes) {:opacity 1})))))
   (div
    {:style {:cursor "pointer"}, :on-click (action-> :router/change {:name :profile})}
    (<> (if logged-in? "Me" "Guest"))
