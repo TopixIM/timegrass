@@ -7,7 +7,8 @@
             [app.config :as config]
             [respo-alerts.comp.alerts :refer [comp-prompt]]
             ["dayjs" :as dayjs]
-            [inflow-popup.comp.dialog :refer [comp-menu-dialog]])
+            [inflow-popup.comp.dialog :refer [comp-menu-dialog]]
+            [feather.core :refer [comp-icon]])
   (:require-macros [clojure.core.strint :refer [<<]]))
 
 (defcomp
@@ -36,37 +37,39 @@
  (states data finished-tasks)
  (let [year (:year data), week (:week data)]
    (div
-    {:style (merge ui/flex {:padding "8px 8px", :overflow :auto})}
+    {:style (merge ui/flex {:padding "16px", :overflow :auto})}
     (div
-     {:style (merge ui/row-parted {:padding "0 8px", :color (hsl 0 0 80)})}
+     {:style (merge ui/row-parted {:margin "8px 0"})}
      (<>
       (<< "Histories of ~{week}th week in ~{year}")
-      {:font-family ui/font-fancy, :font-size 20})
+      {:font-family ui/font-fancy, :font-size 16, :color (hsl 0 0 50)})
      (div
       {:style ui/row}
-      (span
-       {:inner-text "Prev",
-        :style ui/link,
-        :on-click (fn [e d! m!]
-          (d!
-           :router/change
-           {:name :history,
-            :data (if (<= week 1)
-              {:year (dec year), :week 53}
-              {:year year, :week (dec week)})}))})
+      (comp-icon
+       :arrow-left
+       {:font-size 16, :color (hsl 200 80 80), :cursor :pointer}
+       (fn [e d! m!]
+         (d!
+          :router/change
+          {:name :history,
+           :data (if (<= week 1)
+             {:year (dec year), :week 53}
+             {:year year, :week (dec week)})})))
       (=< 8 nil)
-      (span
-       {:inner-text "Next",
-        :style ui/link,
-        :on-click (fn [e d! m!]
-          (d!
-           :router/change
-           {:name :history,
-            :data (if (>= week 53)
-              {:year (inc year), :week 1}
-              {:year year, :week (inc week)})}))})))
+      (comp-icon
+       :arrow-right
+       {:font-size 16, :color (hsl 200 80 80), :cursor :pointer}
+       (fn [e d! m!]
+         (d!
+          :router/change
+          {:name :history,
+           :data (if (>= week 53)
+             {:year (inc year), :week 1}
+             {:year year, :week (inc week)})})))))
     (if (empty? finished-tasks)
-      (<> "No tasks.")
+      (div
+       {:style (merge ui/center {:height 80})}
+       (<> "No tasks." {:font-family ui/font-fancy, :color (hsl 0 0 80)}))
       (let [grouped-tasks (->> (vals finished-tasks)
                                (group-by
                                 (fn [task]
