@@ -22,7 +22,7 @@
    {:style ui/row-parted}
    (<>
     (-> (:time note) dayjs (.format "HH:mm"))
-    {:font-family ui/font-fancy, :color (hsl 0 0 70)})
+    {:font-family ui/font-fancy, :color (hsl 0 0 70), :font-size 12})
    (=< 8 nil)
    (div
     {:style ui/row-middle}
@@ -100,7 +100,8 @@
                                 (fn [[k note]]
                                   (println "note" note)
                                   (-> (:time note) (dayjs) (.format "MM-DD"))))
-                               (sort-by first))]
+                               (sort
+                                (fn [x y] (unchecked-negate (compare (first x) (first y))))))]
         (list->
          {}
          (->> grouped-notes
@@ -110,8 +111,10 @@
                   (div
                    {:style {:margin-top 16}}
                    (div
-                    {}
-                    (<> date {:font-family ui/font-fancy, :font-size 16, :font-weight 500}))
+                    {:style {:font-family ui/font-fancy, :font-size 14, :font-weight 500}}
+                    (<> (-> date dayjs (.format "ddd")))
+                    (=< 12 nil)
+                    (<> (str date)))
                    (list->
                     {:style ui/column}
                     (->> notes-in-day
