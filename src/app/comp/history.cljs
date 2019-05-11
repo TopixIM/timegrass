@@ -17,14 +17,14 @@
  (let [state (or (:data states) {:show-menu? false})]
    (div
     {:style (merge
-             ui/row
-             {:padding "4px 16px"}
+             {:padding "4px 8px"}
              (when (:show-menu? state) {:background-color (hsl 0 0 94)})),
      :on-click (fn [e d! m!] (m! (assoc state :show-menu? true)))}
-    (div
-     {:style {:min-width 72, :color (hsl 0 0 80), :font-size 12}}
-     (<> (.format (dayjs (:finished-time task)) "MM-DD HH:mm")))
-    (div {:style (merge ui/flex {:line-height "24px"})} (<> (:text task)))
+    (<>
+     (.format (dayjs (:finished-time task)) "HH:mm")
+     {:min-width 32, :color (hsl 0 0 80), :font-size 12, :display :inline-block})
+    (=< 4 nil)
+    (span {:style (merge ui/flex {:line-height "24px"})} (<> (:text task)))
     (when (:show-menu? state)
       (comp-menu-dialog
        (fn [result d! m!]
@@ -37,7 +37,7 @@
  (states data finished-tasks)
  (let [year (:year data), week (:week data)]
    (div
-    {:style (merge ui/flex {:padding "16px", :overflow :auto})}
+    {:style (merge ui/flex {:padding "16px 16px", :overflow :auto})}
     (div
      {:style (merge ui/row-parted {:margin "8px 0"})}
      (<>
@@ -82,12 +82,12 @@
                (fn [[date-string task-list]]
                  [date-string
                   (div
-                   {:style (merge ui/column {:margin-top 24})}
+                   {:style (merge ui/column {:margin-top 16})}
                    (let [the-day (dayjs date-string)]
                      (div
                       {:style ui/row-parted}
                       (span
-                       {:style {:font-family ui/font-fancy, :padding "0 8px"}}
+                       {:style {:font-family ui/font-fancy}}
                        (<> (.format the-day "ddd"))
                        (=< 12 nil)
                        (<> (.format the-day "MM-DD")))))
