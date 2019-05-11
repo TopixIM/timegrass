@@ -17,12 +17,12 @@
  (div
   {:style (merge
            ui/column
-           {:border-bottom (str "1px solid " (hsl 0 0 90)), :padding "4px 8px"})}
+           {:border-top (str "1px solid " (hsl 0 0 94)), :padding "4px 8px"})}
   (div
    {:style ui/row-parted}
    (<>
-    (-> (:time note) dayjs (.format "MM-DD hh:mm"))
-    {:font-family ui/font-fancy, :color (hsl 0 0 80)})
+    (-> (:time note) dayjs (.format "HH:mm"))
+    {:font-family ui/font-fancy, :color (hsl 0 0 70)})
    (=< 8 nil)
    (div
     {:style ui/row-middle}
@@ -49,7 +49,7 @@
  (states notes info)
  (let [year (:year info), week (:week info)]
    (div
-    {:style (merge ui/flex {:padding 16})}
+    {:style (merge ui/expand {:padding 16})}
     (div
      {:style (merge ui/row-parted {:margin "8px 0"})}
      (span
@@ -95,8 +95,26 @@
       (div
        {:style (merge ui/center {:min-height 120})}
        (<> "No notes" {:font-family ui/font-fancy, :color (hsl 0 0 80)}))
-      (list->
-       {:style ui/column}
-       (->> notes
-            (sort-by (fn [[k note]] (unchecked-negate (:time note))))
-            (map (fn [[k note]] [k (cursor-> k comp-note states note)]))))))))
+      (let [grouped-notes (->> notes
+                               (group-by
+                                (fn [[k note]]
+                                  (println "note" note)
+                                  (-> (:time note) (dayjs) (.format "MM-DD"))))
+                               (sort-by first))]
+        (list->
+         {}
+         (->> grouped-notes
+              (map
+               (fn [[date notes-in-day]]
+                 [date
+                  (div
+                   {:style {:margin-top 16}}
+                   (div
+                    {}
+                    (<> date {:font-family ui/font-fancy, :font-size 16, :font-weight 500}))
+                   (list->
+                    {:style ui/column}
+                    (->> notes-in-day
+                         (sort-by (fn [[k note]] (unchecked-negate (:time note))))
+                         (map (fn [[k note]] [k (cursor-> k comp-note states note)])))))]))))))
+    (=< nil 160))))
