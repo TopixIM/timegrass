@@ -8,6 +8,11 @@
             [respo-alerts.comp.alerts :refer [comp-prompt]]
             ["dayjs" :as dayjs]))
 
+(defn render-entry [title get-route highlighted?]
+  (div
+   {:style {:cursor :pointer}, :on-click (action-> :router/change (get-route))}
+   (<> title (merge {:opacity 0.5} (if highlighted? {:opacity 1})))))
+
 (def style-navbar
   (merge
    ui/row-center
@@ -27,17 +32,17 @@
   {:style style-navbar}
   (div
    {:style (merge ui/row-center)}
-   (div
-    {:style {:cursor :pointer}, :on-click (action-> :router/change {:name :home})}
-    (<> "Timegrass" (merge {:opacity 0.5} (if (= page :home) {:opacity 1}))))
+   (render-entry "Timegrass" (fn [] {:name :home}) (= page :home))
    (=< 16 nil)
-   (div
-    {:style {:cursor :pointer},
-     :on-click (action->
-                :router/change
-                {:name :notes,
-                 :data (let [now (dayjs)] {:year (.year now), :week (.week now)})})}
-    (<> "Notes" (merge {:opacity 0.5} (if (= page :notes) {:opacity 1})))))
+   (render-entry
+    "Finished"
+    (fn [] {:name :history, :data {:year (.year (dayjs)), :week (.week (dayjs))}})
+    (= page :history))
+   (=< 16 nil)
+   (render-entry
+    "Notes"
+    (fn [] {:name :notes, :data (let [now (dayjs)] {:year (.year now), :week (.week now)})})
+    (= page :notes)))
   (div
    {:style {:cursor "pointer"}, :on-click (action-> :router/change {:name :profile})}
    (<> (if logged-in? "Me" "Guest"))

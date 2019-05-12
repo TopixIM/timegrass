@@ -166,16 +166,6 @@
               (fn [[k task]]
                 (unchecked-negate (or (:touched-time task) (:created-time task)))))
              (map-val (fn [task] (cursor-> (:id task) comp-task states task :pending)))))))
-    (=< nil 32)
-    (div
-     {:style ui/center}
-     (a
-      {:style {:color (hsl 200 80 60), :font-family ui/font-fancy},
-       :on-click (fn [e d! m!]
-         (d!
-          :router/change
-          {:name :history, :data {:year (.year (dayjs)), :week (.week (dayjs))}}))}
-      (<> "View finished" {:cursor :pointer})))
     (div
      {:style style-meeting-icon,
       :on-click (fn [e d! m!] (d! :router/change {:name :meeting}))}
