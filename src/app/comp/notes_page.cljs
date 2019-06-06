@@ -112,7 +112,7 @@
                    {:style {:margin-top 16}}
                    (div
                     {:style {:font-family ui/font-fancy, :font-size 14, :font-weight 500}}
-                    (<> (-> date dayjs (.format "ddd")))
+                    (<> (-> (str year "-" date) dayjs (.format "ddd")))
                     (=< 12 nil)
                     (<> (str date)))
                    (list->
