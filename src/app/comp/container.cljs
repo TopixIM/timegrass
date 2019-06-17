@@ -22,12 +22,22 @@
  comp-offline
  ()
  (div
-  {:style (merge ui/global ui/fullscreen ui/center {:background-color (:theme config/site)})}
+  {:style (merge
+           ui/global
+           ui/fullscreen
+           ui/column-dispersive
+           {:background-color (:theme config/site)})}
+  (div {:style {:height 0}})
+  (div
+   {:style {:background-image (str "url(" (:icon config/site) ")"),
+            :width 128,
+            :height 128,
+            :background-size :contain}})
   (span
    {:style {:cursor :pointer}, :on-click (action-> :effect/connect nil)}
    (<>
     "Socket broken! Click to retry."
-    {:font-family ui/font-fancy, :font-weight 100, :font-size 32}))))
+    {:font-family ui/font-fancy, :font-weight 100, :font-size 24}))))
 
 (defcomp
  comp-status-color
