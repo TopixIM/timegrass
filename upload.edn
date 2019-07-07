@@ -1,0 +1,8 @@
+
+{:host "tiye.me"
+ :uploads [{:from "dist/*"
+            :to "cdn/timegrass/"}
+           {:from "dist/{index.html,manifest.json}"
+            :to "repo/TopixIM/timegrass/"}
+           {:from "dist/{server.js,package.json}"
+            :to "servers/timegrass/"}]}
