@@ -107,21 +107,6 @@
   (=< 16 nil)
   child))
 
-(def style-meeting-icon
-  (merge
-   ui/center
-   {:position :fixed,
-    :bottom 16,
-    :right 16,
-    :background-color "hsl(115,33%,73%)",
-    :color :white,
-    :width 40,
-    :height 40,
-    :border-radius "50%",
-    :font-family ui/font-fancy,
-    :font-size 20,
-    :z-index 20}))
-
 (defcomp
  comp-overview
  (states today tasks)
@@ -165,8 +150,4 @@
              (sort-by
               (fn [[k task]]
                 (unchecked-negate (or (:touched-time task) (:created-time task)))))
-             (map-val (fn [task] (cursor-> (:id task) comp-task states task :pending)))))))
-    (div
-     {:style style-meeting-icon,
-      :on-click (fn [e d! m!] (d! :router/change {:name :meeting}))}
-     (<> "M")))))
+             (map-val (fn [task] (cursor-> (:id task) comp-task states task :pending))))))))))
