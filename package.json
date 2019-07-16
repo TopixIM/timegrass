@@ -22,11 +22,11 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "dayjs": "^1.8.14",
+    "dayjs": "^1.8.15",
     "md5": "^2.2.1",
     "randomcolor": "^0.5.4",
     "shortid": "^2.2.14",
-    "ws": "^7.0.1"
+    "ws": "^7.1.0"
   },
   "devDependencies": {
     "copy-text-to-clipboard": "^2.1.0",
