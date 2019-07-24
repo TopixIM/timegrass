@@ -51,10 +51,10 @@
              :touch (do (d! :task/touch-working (:id task)) (m! new-state))
              (m! new-state))))
        {:done "Done",
+        :pend (if (= mode :pending) "Do it now" "Do it later"),
         :touch "Move to top",
         :copy "Copy",
         :edit "Edit",
-        :pend (if (= mode :pending) "Do it now" "Do it later"),
         :remove "Remove"}))
     (when (:show-editor? state)
       (comp-dialog
