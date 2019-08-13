@@ -33,10 +33,13 @@
              {:border-bottom (str "1px solid " (hsl 0 0 90)),
               :line-height "24px",
               :padding "8px 8px",
-              :overflow :auto}
+              :overflow :auto,
+              :user-select :none}
              (when (or (:menu? state) (:show-editor? state) (:show-confirm? state))
                {:background-color (hsl 0 0 94)})),
-     :on-click (fn [e d! m!] (m! (assoc state :menu? true)))}
+     :on-click (fn [e d! m!] (m! (assoc state :menu? true))),
+     :on-dragend (fn [e d! m!] (d! :task/touch-working (:id task))),
+     :draggable true}
     (div {:style ui/flex} (<> (:text task) {}))
     (when (:menu? state)
       (comp-menu-dialog
@@ -52,7 +55,7 @@
              (m! new-state))))
        {:done "Done",
         :pend (if (= mode :pending) "Do it now" "Do it later"),
-        :touch "Move to top",
+        :touch "Up",
         :copy "Copy",
         :edit "Edit",
         :remove "Remove"}))
