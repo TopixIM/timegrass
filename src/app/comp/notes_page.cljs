@@ -97,9 +97,7 @@
        (<> "No notes" {:font-family ui/font-fancy, :color (hsl 0 0 80)}))
       (let [grouped-notes (->> notes
                                (group-by
-                                (fn [[k note]]
-                                  (println "note" note)
-                                  (-> (:time note) (dayjs) (.format "MM-DD"))))
+                                (fn [[k note]] (-> (:time note) (dayjs) (.format "MM-DD"))))
                                (sort
                                 (fn [x y] (unchecked-negate (compare (first x) (first y))))))]
         (list->
