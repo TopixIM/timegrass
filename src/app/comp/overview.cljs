@@ -5,11 +5,11 @@
             [respo-ui.core :as ui]
             [respo.core
              :refer
-             [defcomp list-> cursor-> list-> <> span div button textarea input a]]
+             [defcomp list-> cursor-> list-> <> span div button textarea input a defeffect]]
             [respo.comp.space :refer [=<]]
             [app.config :as config]
             [app.style :as style]
-            [respo-alerts.comp.alerts :refer [comp-prompt]]
+            [respo-alerts.core :refer [comp-prompt comp-modal]]
             [respo.util.list :refer [map-val]]
             [feather.core :refer [comp-i]]
             [inflow-popup.comp.dialog :refer [comp-menu-dialog comp-dialog]]
@@ -23,11 +23,39 @@
   {:style (merge ui/center {:color (hsl 0 0 80), :font-family ui/font-fancy})}
   (<> "No tasks")))
 
+(defeffect
+ effect-focus
+ ()
+ (action el *local)
+ (case action :mount (-> el (.querySelector "input") (.focus)) (do)))
+
+(defcomp
+ comp-task-drafter
+ (states initial-draft edit!)
+ (let [state (or (:data states) {:draft initial-draft}), draft (:draft state)]
+   [(effect-focus)
+    (div
+     {:style ui/column}
+     (input
+      {:style (merge ui/input {}),
+       :value draft,
+       :autofocus true,
+       :on-input (fn [e d! m!] (m! (assoc state :draft (:value e)))),
+       :on-keydown (fn [e d! m!]
+         (when (= 13 (.-keyCode (:event e))) (edit! draft d! m!) (m! nil)))})
+     (=< nil 8)
+     (div
+      {:style ui/row-parted}
+      (span {})
+      (button
+       {:style ui/button,
+        :inner-text "Edit",
+        :on-click (fn [e d! m!] (edit! draft d! m!) (m! nil))})))]))
+
 (defcomp
  comp-task
  (states task mode)
- (let [state (or (:data states)
-                 {:menu? false, :show-editor? false, :draft "", :show-confirm? false})]
+ (let [state (or (:data states) {:menu? false, :show-editor? false, :show-confirm? false})]
    (div
     {:style (merge
              {:border-bottom (str "1px solid " (hsl 0 0 90)),
@@ -47,7 +75,7 @@
          (let [new-state (assoc state :menu? false)]
            (case result
              :done (d! :task/finish-working (:id task))
-             :edit (m! (assoc new-state :show-editor? true :draft (:text task)))
+             :edit (m! (assoc new-state :show-editor? true))
              :copy (do (copy! (:text task)) (m! new-state))
              :remove (m! (assoc new-state :show-confirm? true))
              :pend (do (d! :task/pend (:id task)) (m! new-state))
@@ -59,30 +87,26 @@
         :copy "Copy",
         :edit "Edit",
         :remove "Remove"}))
-    (when (:show-editor? state)
-      (comp-dialog
-       (fn [m!] (m! (assoc state :show-editor? false)))
-       (let [edit! (fn [e d! m!]
-                     (d! :task/update-working {:id (:id task), :text (:draft state)})
-                     (m! (assoc state :show-editor? false :draft "")))]
-         (div
-          {:style ui/column}
-          (input
-           {:style (merge ui/input {:width 320}),
-            :value (:draft state),
-            :autofocus true,
-            :on-input (fn [e d! m!] (m! (assoc state :draft (:value e)))),
-            :on-keydown (fn [e d! m!] (when (= 13 (.-keyCode (:event e))) (edit! e d! m!)))})
-          (=< nil 8)
-          (div
-           {:style ui/row-parted}
-           (span {})
-           (button {:style ui/button, :inner-text "Edit", :on-click edit!}))))))
-    (when (:show-confirm? state)
-      (comp-dialog
-       (fn [m!] (m! (assoc state :show-confirm? false)))
+    (comp-modal
+     (:show-editor? state)
+     {:style {:width 320, :padding 16}}
+     (fn [m!] (m! (assoc state :show-editor? false)))
+     (fn []
+       (cursor->
+        :drafter
+        comp-task-drafter
+        states
+        (:text task)
+        (fn [draft d! m!]
+          (d! :task/update-working {:id (:id task), :text draft})
+          (m! %cursor (assoc state :show-editor? false))))))
+    (comp-modal
+     (:show-confirm? state)
+     {:style {:width 320, :padding :16}}
+     (fn [m!] (m! (assoc state :show-confirm? false)))
+     (fn []
        (div
-        {:style (merge ui/column {:width 320})}
+        {:style (merge ui/column {})}
         (div {} (<> "Sure to delete?"))
         (=< nil 8)
         (div
