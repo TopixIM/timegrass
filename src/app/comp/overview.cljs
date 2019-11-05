@@ -141,41 +141,43 @@
  (let [working-tasks (->> tasks (filter (fn [[k task]] (not (:pending? task)))) (into {}))
        pending-tasks (->> tasks (filter (fn [[k task]] (:pending? task))) (into {}))]
    (div
-    {:style (merge ui/flex {:padding 16, :overflow :auto})}
+    {:style (merge ui/expand {:padding 16})}
     (div
-     {:style ui/row-parted}
-     (comp-title
-      "Doing"
-      (cursor->
-       :creater
-       comp-prompt
-       states
-       {:trigger (comp-i :plus 14 (hsl 200 80 80)), :text "Create new task:"}
-       (fn [result d! m!] (d! :task/create-working result))))
+     {:style {:max-width 800, :margin :auto}}
      (div
-      {:style (merge ui/row-middle {:font-family ui/font-fancy, :color (hsl 0 0 60)})}
-      (<> (.format (dayjs today) "ddd"))
-      (=< 8 nil)
-      (<> (str (.week (dayjs today)) "th week"))
-      (=< 16 nil)
-      (<> today)))
-    (if (empty? working-tasks)
-      (comp-no-tasks)
-      (list->
-       {}
-       (->> working-tasks
-            (sort-by
-             (fn [[k task]]
-               (unchecked-negate (or (:touched-time task) (:created-time task)))))
-            (map-val (fn [task] (cursor-> (:id task) comp-task states task :working))))))
-    (when (not (empty? pending-tasks))
+      {:style ui/row-parted}
+      (comp-title
+       "Doing"
+       (cursor->
+        :creater
+        comp-prompt
+        states
+        {:trigger (comp-i :plus 14 (hsl 200 80 80)), :text "Create new task:"}
+        (fn [result d! m!] (d! :task/create-working result))))
       (div
-       {}
-       (comp-title "Later" nil)
+       {:style (merge ui/row-middle {:font-family ui/font-fancy, :color (hsl 0 0 60)})}
+       (<> (.format (dayjs today) "ddd"))
+       (=< 8 nil)
+       (<> (str (.week (dayjs today)) "th week"))
+       (=< 16 nil)
+       (<> today)))
+     (if (empty? working-tasks)
+       (comp-no-tasks)
        (list->
         {}
-        (->> pending-tasks
+        (->> working-tasks
              (sort-by
               (fn [[k task]]
                 (unchecked-negate (or (:touched-time task) (:created-time task)))))
-             (map-val (fn [task] (cursor-> (:id task) comp-task states task :pending))))))))))
+             (map-val (fn [task] (cursor-> (:id task) comp-task states task :working))))))
+     (when (not (empty? pending-tasks))
+       (div
+        {}
+        (comp-title "Later" nil)
+        (list->
+         {}
+         (->> pending-tasks
+              (sort-by
+               (fn [[k task]]
+                 (unchecked-negate (or (:touched-time task) (:created-time task)))))
+              (map-val (fn [task] (cursor-> (:id task) comp-task states task :pending)))))))))))
