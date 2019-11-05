@@ -5,9 +5,8 @@
             [respo.comp.space :refer [=<]]
             [respo.core :refer [defcomp <> action-> list-> cursor-> span div]]
             [app.config :as config]
-            [respo-alerts.comp.alerts :refer [comp-prompt]]
+            [respo-alerts.core :refer [comp-prompt comp-modal-menu]]
             ["dayjs" :as dayjs]
-            [inflow-popup.comp.dialog :refer [comp-menu-dialog]]
             [feather.core :refer [comp-icon]])
   (:require-macros [clojure.core.strint :refer [<<]]))
 
@@ -25,12 +24,14 @@
      {:min-width 32, :color (hsl 0 0 80), :font-size 12, :display :inline-block})
     (=< 4 nil)
     (span {:style (merge ui/flex {:line-height "24px"})} (<> (:text task)))
-    (when (:show-menu? state)
-      (comp-menu-dialog
-       (fn [result d! m!]
-         (m! (assoc state :show-menu? false))
-         (when (= :put-back result) (d! :task/put-back (:id task))))
-       {:put-back (<> "Put back")})))))
+    (comp-modal-menu
+     (:show-menu? state)
+     {:title "Operations", :style {:width 320}}
+     [{:value :put-back, :display "Put back"}]
+     (fn [m!] (m! (assoc state :show-menu? false)))
+     (fn [item d! m!]
+       (m! (assoc state :show-menu? false))
+       (when (= :put-back (:value item)) (d! :task/put-back (:id task))))))))
 
 (defcomp
  comp-history
