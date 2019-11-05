@@ -9,10 +9,9 @@
             [respo.comp.space :refer [=<]]
             [app.config :as config]
             [app.style :as style]
-            [respo-alerts.core :refer [comp-prompt comp-modal]]
+            [respo-alerts.core :refer [comp-prompt comp-modal comp-modal-menu]]
             [respo.util.list :refer [map-val]]
             [feather.core :refer [comp-i]]
-            [inflow-popup.comp.dialog :refer [comp-menu-dialog comp-dialog]]
             ["dayjs" :as dayjs]
             ["copy-text-to-clipboard" :as copy!]))
 
@@ -69,24 +68,26 @@
      :on-dragend (fn [e d! m!] (d! :task/touch-working (:id task))),
      :draggable true}
     (div {:style ui/flex} (<> (:text task) {}))
-    (when (:menu? state)
-      (comp-menu-dialog
-       (fn [result d! m!]
-         (let [new-state (assoc state :menu? false)]
-           (case result
-             :done (d! :task/finish-working (:id task))
-             :edit (m! (assoc new-state :show-editor? true))
-             :copy (do (copy! (:text task)) (m! new-state))
-             :remove (m! (assoc new-state :show-confirm? true))
-             :pend (do (d! :task/pend (:id task)) (m! new-state))
-             :touch (do (d! :task/touch-working (:id task)) (m! new-state))
-             (m! new-state))))
-       {:done "Done",
-        :pend (if (= mode :pending) "Do it now" "Do it later"),
-        :touch "Up",
-        :copy "Copy",
-        :edit "Edit",
-        :remove "Remove"}))
+    (comp-modal-menu
+     (:menu? state)
+     {:title "Operations", :style {:width 320}}
+     [{:value :done, :display "Done"}
+      {:value :pend, :display (if (= mode :pending) "Do it now" "Do it later")}
+      {:value :touch, :display "Up"}
+      {:value :copy, :display "Copy"}
+      {:value :edit, :display "Edit"}
+      {:value :remove, :display "Remove"}]
+     (fn [m!] (m! (assoc state :menu? false)))
+     (fn [item d! m!]
+       (let [new-state (assoc state :menu? false), result (:value item)]
+         (case result
+           :done (d! :task/finish-working (:id task))
+           :edit (m! (assoc new-state :show-editor? true))
+           :copy (do (copy! (:text task)) (m! new-state))
+           :remove (m! (assoc new-state :show-confirm? true))
+           :pend (do (d! :task/pend (:id task)) (m! new-state))
+           :touch (do (d! :task/touch-working (:id task)) (m! new-state))
+           (m! new-state)))))
     (comp-modal
      (:show-editor? state)
      {:style {:width 320, :padding 16}}
