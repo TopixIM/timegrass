@@ -8088,15 +8088,28 @@
                     :data {
                      "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1572937035403, :text ":done", :id "UwTuDQWIph-"}
                      "j" {
-                      :type :expr, :by "B1y7Rc-Zz", :at 1572937035403, :id "2pXV_u9jla_"
+                      :type :expr, :by "B1y7Rc-Zz", :at 1572970778617, :id "4hwGa00-k"
                       :data {
-                       "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1572937035403, :text "d!", :id "26GqNOVMQXh"}
-                       "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1572937035403, :text ":task/finish-working", :id "W-YQnqAtfGC"}
-                       "r" {
-                        :type :expr, :by "B1y7Rc-Zz", :at 1572937035403, :id "gccVTpUzThl"
+                       "D" {:type :leaf, :by "B1y7Rc-Zz", :at 1572970779664, :text "do", :id "F-7ZPztTRF"}
+                       "T" {
+                        :type :expr, :by "B1y7Rc-Zz", :at 1572937035403, :id "2pXV_u9jla_"
                         :data {
-                         "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1572937035403, :text ":id", :id "5psUJkKGlp-"}
-                         "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1572937035403, :text "task", :id "GN37puyIs62"}
+                         "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1572937035403, :text "d!", :id "26GqNOVMQXh"}
+                         "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1572937035403, :text ":task/finish-working", :id "W-YQnqAtfGC"}
+                         "r" {
+                          :type :expr, :by "B1y7Rc-Zz", :at 1572937035403, :id "gccVTpUzThl"
+                          :data {
+                           "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1572937035403, :text ":id", :id "5psUJkKGlp-"}
+                           "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1572937035403, :text "task", :id "GN37puyIs62"}
+                          }
+                         }
+                        }
+                       }
+                       "j" {
+                        :type :expr, :by "B1y7Rc-Zz", :at 1572970780475, :id "zI0mRb1fNU"
+                        :data {
+                         "T" {:type :leaf, :by "B1y7Rc-Zz", :at 1572970782524, :text "m!", :id "zI0mRb1fNUleaf"}
+                         "j" {:type :leaf, :by "B1y7Rc-Zz", :at 1572970783996, :text "new-state", :id "6VQSRqyi75"}
                         }
                        }
                       }

@@ -81,7 +81,7 @@
      (fn [item d! m!]
        (let [new-state (assoc state :menu? false), result (:value item)]
          (case result
-           :done (d! :task/finish-working (:id task))
+           :done (do (d! :task/finish-working (:id task)) (m! new-state))
            :edit (m! (assoc new-state :show-editor? true))
            :copy (do (copy! (:text task)) (m! new-state))
            :remove (m! (assoc new-state :show-confirm? true))
