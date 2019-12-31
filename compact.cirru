@@ -27,7 +27,7 @@
           defn dispatch! (op op-data)
             when
               and config/dev? $ not= op :states
-              println "\"Dispatch" op op-data
+              js/console.log "\"Dispatch" op op-data
             case-default op
               ws-send! $ {} (:kind :op) (:op op) (:data op-data)
               :states $ reset! *states (update-states @*states op-data)
@@ -35,6 +35,7 @@
         |main! $ quote
           defn main! () (.!extend dayjs week-of-year)
             println "\"Running mode:" $ if config/dev? "\"dev" "\"release"
+            if config/dev? $ load-console-formatter!
             render-app!
             connect!
             add-watch *store :changes $ fn (store prev) (render-app!)
@@ -49,7 +50,7 @@
             case-default (:kind data) (println "\"unknown server data kind:" data)
               :patch $ let
                   changes $ :data data
-                when config/dev? $ js/console.log "\"Changes" (to-js-data changes)
+                when config/dev? $ js/console.log "\"Changes" changes
                 reset! *store $ patch-twig @*store changes
         |reload! $ quote
           defn reload! () $ if
@@ -236,12 +237,14 @@
                           :cursor :pointer
                         fn (e d!)
                           d! :router/change $ {} (:name :history)
-                            :data $ if (<= week 1)
-                              {}
-                                :year $ dec year
-                                :week 53
-                              {} (:year year)
-                                :week $ dec week
+                            :data $ let
+                                change-year? $ <= week 1
+                                y $ if change-year? (dec year) year
+                                w $ if change-year? 53 (dec week)
+                                d $ -> (dayjs) (.!year y) (.!week w)
+                              {} (:year y) (:week w)
+                                :start $ .!format (.!startOf d "\"week")
+                                :end $ .!format (.!endOf d "\"week")
                       =< 8 nil
                       comp-icon :arrow-right
                         {} (:font-size 16)
@@ -249,12 +252,14 @@
                           :cursor :pointer
                         fn (e d!)
                           d! :router/change $ {} (:name :history)
-                            :data $ if (>= week 53)
-                              {}
-                                :year $ inc year
-                                :week 1
-                              {} (:year year)
-                                :week $ inc week
+                            :data $ let
+                                change-year? $ >= week 53
+                                y $ if change-year? (inc year) year
+                                w $ if change-year? 1 (inc week)
+                                d $ -> (dayjs) (.!year y) (.!week w)
+                              {} (:year y) (:week w)
+                                :start $ .!format (.!startOf d "\"week")
+                                :end $ .!format (.!endOf d "\"week")
                   if (empty? finished-tasks)
                     div
                       {} (:class-name css/center)
@@ -384,15 +389,16 @@
                       :data $ let
                           now $ dayjs
                           month $ .!month now
+                          week-date $ if
+                            and (= month 11)
+                              > (.!date now) 25
+                            .!week $ .!subtract now 7 "\"day"
+                            , now
                         {}
                           :year $ .!year now
-                          :week $ let
-                              w $ .!week now
-                            if
-                              and (= month 11)
-                                > (.!date now) 25
-                              .!week $ .!subtract now 7 "\"day"
-                              , w
+                          :week $ .!week week-date
+                          :start $ .!format (.!startOf week-date "\"week")
+                          :end $ .!format (.!endOf week-date "\"week")
                     = page :history
                   =< 16 nil
                   render-entry "\"Notes"
@@ -1080,28 +1086,24 @@
             let
                 filter-year $ :year data
                 filter-week $ dec (:week data)
-                start-time $ .timestamp
-                  try
-                    from-ywd (:year data)
-                      dec $ :week data
-                      , 1
-                    fn (e) (eprintln "\"date parsing error:" e)
-                      from-ywd (:year data) (:week data) 1
-                end-time $ + start-time week-millis
-              ; println "\"start:" $ extract-time start-time
-              ; println "\"end " $ extract-time end-time
+                start-time $ parse-time (:start data) "|%Y-%m-%dT%H:%M:%S %z"
+                end-time $ parse-time (:end data) "|%Y-%m-%dT%H:%M:%S %z"
+              ; println "\"start:" $ format-time start-time "|%Y-%m-%dT%H:%M:%S %z"
+              ; println "\"end " $ format-time end-time "|%Y-%m-%dT%H:%M:%S %z"
               -> tasks (.to-map)
                 .filter-kv $ fn (k task)
                   let
                       t $ :finished-time task
-                    and (> t start-time) (< t end-time)
+                    and
+                      > t $ .timestamp start-time
+                      < t $ .timestamp end-time
         |week-millis $ quote
           def week-millis $ * 7 24 3600 1000
       :ns $ quote
         ns app.twig.container $ :require
           [] app.twig.user :refer $ [] twig-user
           calcit.std.rand :refer $ rand-hex-color!
-          calcit.std.date :refer $ Date extract-time get-time! from-ywd from-ymd
+          calcit.std.date :refer $ Date extract-time get-time! from-ywd from-ymd parse-time format-time
     |app.twig.user $ {}
       :defs $ {}
         |twig-user $ quote
