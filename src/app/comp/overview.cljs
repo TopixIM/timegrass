@@ -5,7 +5,7 @@
             [respo-ui.core :as ui]
             [respo.core
              :refer
-             [defcomp list-> cursor-> list-> <> span div button textarea input a defeffect]]
+             [defcomp list-> >> <> span div button textarea input a defeffect]]
             [respo.comp.space :refer [=<]]
             [app.config :as config]
             [app.style :as style]
@@ -31,7 +31,9 @@
 (defcomp
  comp-task-drafter
  (states initial-draft edit!)
- (let [state (or (:data states) {:draft initial-draft}), draft (:draft state)]
+ (let [cursor (:cursor states)
+       state (or (:data states) {:draft initial-draft})
+       draft (:draft state)]
    [(effect-focus)
     (div
      {:style ui/column}
@@ -39,9 +41,9 @@
       {:style (merge ui/input {}),
        :value draft,
        :autofocus true,
-       :on-input (fn [e d! m!] (m! (assoc state :draft (:value e)))),
-       :on-keydown (fn [e d! m!]
-         (when (= 13 (.-keyCode (:event e))) (edit! draft d! m!) (m! nil)))})
+       :on-input (fn [e d!] (d! cursor (assoc state :draft (:value e)))),
+       :on-keydown (fn [e d!]
+         (when (= 13 (.-keyCode (:event e))) (edit! draft d!) (d! cursor nil)))})
      (=< nil 8)
      (div
       {:style ui/row-parted}
@@ -49,12 +51,13 @@
       (button
        {:style ui/button,
         :inner-text "Edit",
-        :on-click (fn [e d! m!] (edit! draft d! m!) (m! nil))})))]))
+        :on-click (fn [e d!] (edit! draft d!) (d! cursor nil))})))]))
 
 (defcomp
  comp-task
  (states task mode)
- (let [state (or (:data states) {:menu? false, :show-editor? false, :show-confirm? false})]
+ (let [cursor (:cursor states)
+       state (or (:data states) {:menu? false, :show-editor? false, :show-confirm? false})]
    (div
     {:style (merge
              {:border-bottom (str "1px solid " (hsl 0 0 90)),
@@ -64,61 +67,60 @@
               :user-select :none}
              (when (or (:menu? state) (:show-editor? state) (:show-confirm? state))
                {:background-color (hsl 0 0 94)})),
-     :on-click (fn [e d! m!] (m! (assoc state :menu? true))),
-     :on-dragend (fn [e d! m!] (d! :task/touch-working (:id task))),
+     :on-click (fn [e d!] (d! cursor (assoc state :menu? true))),
+     :on-dragend (fn [e d!] (d! :task/touch-working (:id task))),
      :draggable true}
     (div {:style ui/flex} (<> (:text task) {}))
     (comp-modal-menu
+     {:title "Operations",
+      :style {:width 320},
+      :items [{:value :done, :display "Done"}
+              {:value :pend, :display (if (= mode :pending) "Do it now" "Do it later")}
+              {:value :touch, :display "Up"}
+              {:value :copy, :display "Copy"}
+              {:value :edit, :display "Edit"}
+              {:value :remove, :display "Remove"}]}
      (:menu? state)
-     {:title "Operations", :style {:width 320}}
-     [{:value :done, :display "Done"}
-      {:value :pend, :display (if (= mode :pending) "Do it now" "Do it later")}
-      {:value :touch, :display "Up"}
-      {:value :copy, :display "Copy"}
-      {:value :edit, :display "Edit"}
-      {:value :remove, :display "Remove"}]
-     (fn [m!] (m! (assoc state :menu? false)))
-     (fn [item d! m!]
+     (fn [d!] (d! cursor (assoc state :menu? false)))
+     (fn [item d!]
        (let [new-state (assoc state :menu? false), result (:value item)]
          (case result
-           :done (do (d! :task/finish-working (:id task)) (m! new-state))
-           :edit (m! (assoc new-state :show-editor? true))
-           :copy (do (copy! (:text task)) (m! new-state))
-           :remove (m! (assoc new-state :show-confirm? true))
-           :pend (do (d! :task/pend (:id task)) (m! new-state))
-           :touch (do (d! :task/touch-working (:id task)) (m! new-state))
-           (m! new-state)))))
+           :done (do (d! :task/finish-working (:id task)) (d! cursor new-state))
+           :edit (d! cursor (assoc new-state :show-editor? true))
+           :copy (do (copy! (:text task)) (d! cursor new-state))
+           :remove (d! cursor (assoc new-state :show-confirm? true))
+           :pend (do (d! :task/pend (:id task)) (d! cursor new-state))
+           :touch (do (d! :task/touch-working (:id task)) (d! cursor new-state))
+           (d! cursor new-state)))))
     (comp-modal
+     {:style {:width 320, :padding 16},
+      :render-body (fn []
+        (comp-task-drafter
+         (>> states :drafter)
+         (:text task)
+         (fn [draft d!]
+           (d! :task/update-working {:id (:id task), :text draft})
+           (d! cursor (assoc state :show-editor? false)))))}
      (:show-editor? state)
-     {:style {:width 320, :padding 16}}
-     (fn [m!] (m! (assoc state :show-editor? false)))
-     (fn []
-       (cursor->
-        :drafter
-        comp-task-drafter
-        states
-        (:text task)
-        (fn [draft d! m!]
-          (d! :task/update-working {:id (:id task), :text draft})
-          (m! %cursor (assoc state :show-editor? false))))))
+     (fn [d!] (d! cursor (assoc state :show-editor? false))))
     (comp-modal
-     (:show-confirm? state)
-     {:style {:width 320, :padding :16}}
-     (fn [m!] (m! (assoc state :show-confirm? false)))
-     (fn []
-       (div
-        {:style (merge ui/column {})}
-        (div {} (<> "Sure to delete?"))
-        (=< nil 8)
+     {:style {:width 320, :padding :16},
+      :render-body (fn []
         (div
-         {:style ui/row-parted}
-         (span {})
-         (button
-          {:style ui/button,
-           :inner-text "Confirm",
-           :on-click (fn [e d! m!]
-             (d! :task/remove-working (:id task))
-             (m! (assoc state :show-confirm? false)))}))))))))
+         {:style (merge ui/column {})}
+         (div {} (<> "Sure to delete?"))
+         (=< nil 8)
+         (div
+          {:style ui/row-parted}
+          (span {})
+          (button
+           {:style ui/button,
+            :inner-text "Confirm",
+            :on-click (fn [e d!]
+              (d! :task/remove-working (:id task))
+              (d! cursor (assoc state :show-confirm? false)))}))))}
+     (:show-confirm? state)
+     (fn [d!] (d! cursor (assoc state :show-confirm? false)))))))
 
 (defcomp
  comp-title
@@ -148,10 +150,8 @@
       {:style ui/row-parted}
       (comp-title
        "Doing"
-       (cursor->
-        :creater
-        comp-prompt
-        states
+       (comp-prompt
+        (>> states :creater)
         {:trigger (comp-i :plus 14 (hsl 200 80 80)), :text "Create new task:"}
         (fn [result d! m!] (d! :task/create-working result))))
       (div
@@ -169,7 +169,7 @@
              (sort-by
               (fn [[k task]]
                 (unchecked-negate (or (:touched-time task) (:created-time task)))))
-             (map-val (fn [task] (cursor-> (:id task) comp-task states task :working))))))
+             (map-val (fn [task] (comp-task (>> states (:id task)) task :working))))))
      (when (not (empty? pending-tasks))
        (div
         {}
@@ -180,4 +180,4 @@
               (sort-by
                (fn [[k task]]
                  (unchecked-negate (or (:touched-time task) (:created-time task)))))
-              (map-val (fn [task] (cursor-> (:id task) comp-task states task :pending)))))))))))
+              (map-val (fn [task] (comp-task (>> states (:id task)) task :pending)))))))))))

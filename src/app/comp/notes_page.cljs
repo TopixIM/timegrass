@@ -3,10 +3,10 @@
   (:require [hsl.core :refer [hsl]]
             [app.schema :as schema]
             [respo-ui.core :as ui]
-            [respo.core :refer [defcomp list-> cursor-> <> span div button a]]
+            [respo.core :refer [defcomp list-> >> <> span div button a]]
             [respo.comp.space :refer [=<]]
             [app.config :as config]
-            [respo-alerts.comp.alerts :refer [comp-prompt comp-confirm]]
+            [respo-alerts.core :refer [comp-prompt comp-confirm]]
             [feather.core :refer [comp-i comp-icon]]
             ["dayjs" :as dayjs])
   (:require-macros [clojure.core.strint :refer [<<]]))
@@ -26,20 +26,16 @@
    (=< 8 nil)
    (div
     {:style ui/row-middle}
-    (cursor->
-     :edit
-     comp-prompt
-     states
+    (comp-prompt
+     (>> states :edit)
      {:trigger (comp-i :edit 16 (hsl 200 80 80)),
       :text "Update note:",
       :multiline? true,
       :initial (:text note)}
      (fn [result d! m!] (d! :note/edit {:id (:id note), :text result})))
     (=< 8 nil)
-    (cursor->
-     :remove
-     comp-confirm
-     states
+    (comp-confirm
+     (>> states :remove)
      {:trigger (comp-i :delete 16 (hsl 10 80 60)), :text "Sure to delete note?"}
      (fn [e d! m!] (d! :note/remove (:id note))))))
   (<> (:text note))))
@@ -58,20 +54,18 @@
        {:style ui/row-middle}
        (<> "Notes" {:color (hsl 0 0 50), :font-family ui/font-fancy, :font-size 16})
        (=< 16 nil)
-       (cursor->
-        :add
-        comp-prompt
-        states
+       (comp-prompt
+        (>> states :add)
         {:trigger (comp-i :plus 16 (hsl 200 80 80)),
          :text "Add note about today's work:",
          :multiline? true}
-        (fn [result d! m!] (d! :note/add result))))
+        (fn [result d!] (d! :note/add result))))
       (div
        {:style ui/row-middle}
        (comp-icon
         :arrow-left
         {:font-size 16, :color (hsl 200 80 80), :cursor :pointer}
-        (fn [e d! m!]
+        (fn [e d!]
           (d!
            :router/change
            {:name :notes,
@@ -82,7 +76,7 @@
        (comp-icon
         :arrow-right
         {:font-size 16, :color (hsl 200 80 80), :cursor :pointer}
-        (fn [e d! m!]
+        (fn [e d!]
           (d!
            :router/change
            {:name :notes,
@@ -119,5 +113,5 @@
                      {:style ui/column}
                      (->> notes-in-day
                           (sort-by (fn [[k note]] (unchecked-negate (:time note))))
-                          (map (fn [[k note]] [k (cursor-> k comp-note states note)])))))]))))))
+                          (map (fn [[k note]] [k (comp-note (>> states k) note)])))))]))))))
      (=< nil 160)))))
