@@ -2,7 +2,7 @@
 (ns app.comp.container
   (:require [hsl.core :refer [hsl]]
             [respo-ui.core :as ui]
-            [respo.core :refer [defcomp <> div span action-> cursor-> button]]
+            [respo.core :refer [defcomp <> >> div span button]]
             [respo.comp.inspect :refer [comp-inspect]]
             [respo.comp.space :refer [=<]]
             [app.comp.navigation :refer [comp-navigation]]
@@ -33,7 +33,7 @@
             :height 128,
             :background-size :contain}})
   (span
-   {:style {:cursor :pointer}, :on-click (action-> :effect/connect nil)}
+   {:style {:cursor :pointer}, :on-click (fn [e d!] (d! :effect/connect nil))}
    (<>
     "Socket broken! Click to retry."
     {:font-family ui/font-fancy, :font-weight 100, :font-size 24}))))
@@ -62,33 +62,27 @@
      (comp-offline)
      (div
       {:style (merge ui/global ui/fullscreen ui/column)}
-      (comp-navigation states (:logged-in? store) (:count store) (:name router))
+      (comp-navigation (:logged-in? store) (:count store) (:name router))
       (if (:logged-in? store)
         (case (:name router)
           :home
-            (cursor->
-             :overview
-             comp-overview
-             states
+            (comp-overview
+             (>> states :overview)
              (:today store)
              (get-in router [:data :tasks]))
           :history
-            (cursor->
-             :history
-             comp-history
-             states
+            (comp-history
+             (>> states :history)
              (get-in router [:data :week])
              (get-in router [:data :tasks]))
           :notes
-            (cursor->
-             :notes
-             comp-notes-page
-             states
+            (comp-notes-page
+             (>> states :notes)
              (:data router)
              (get-in session [:router :data]))
           :profile (comp-profile (:user store) (:data router))
           (<> (str "404 page:" router)))
-        (comp-login states))
+        (comp-login (>> states :login)))
       (comp-status-color (:color store))
       (when dev? (comp-inspect "Store" store {:bottom 0, :left 0, :z-index 9999}))
       (comp-messages

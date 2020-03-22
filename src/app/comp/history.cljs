@@ -3,7 +3,7 @@
   (:require [hsl.core :refer [hsl]]
             [respo-ui.core :as ui]
             [respo.comp.space :refer [=<]]
-            [respo.core :refer [defcomp <> action-> list-> cursor-> span div]]
+            [respo.core :refer [defcomp <> >> list-> span div]]
             [app.config :as config]
             [respo-alerts.core :refer [comp-prompt comp-modal-menu]]
             ["dayjs" :as dayjs]
@@ -13,24 +13,25 @@
 (defcomp
  comp-done-task
  (states task)
- (let [state (or (:data states) {:show-menu? false})]
+ (let [cursor (:cursor states), state (or (:data states) {:show-menu? false})]
    (div
     {:style (merge
              {:padding "4px 8px"}
              (when (:show-menu? state) {:background-color (hsl 0 0 94)})),
-     :on-click (fn [e d! m!] (m! (assoc state :show-menu? true)))}
+     :on-click (fn [e d!] (d! cursor (assoc state :show-menu? true)))}
     (<>
      (.format (dayjs (:finished-time task)) "HH:mm")
      {:min-width 32, :color (hsl 0 0 80), :font-size 12, :display :inline-block})
     (=< 4 nil)
     (span {:style (merge ui/flex {:line-height "24px"})} (<> (:text task)))
     (comp-modal-menu
+     {:title "Operations",
+      :style {:width 320},
+      :items [{:value :put-back, :display "Put back"}]}
      (:show-menu? state)
-     {:title "Operations", :style {:width 320}}
-     [{:value :put-back, :display "Put back"}]
-     (fn [m!] (m! (assoc state :show-menu? false)))
-     (fn [item d! m!]
-       (m! (assoc state :show-menu? false))
+     (fn [d!] (d! cursor (assoc state :show-menu? false)))
+     (fn [item d!]
+       (d! cursor (assoc state :show-menu? false))
        (when (= :put-back (:value item)) (d! :task/put-back (:id task))))))))
 
 (defcomp
@@ -101,4 +102,4 @@
                           (sort-by (fn [task] (unchecked-negate (:finished-time task))))
                           (map
                            (fn [task]
-                             [(:id task) (cursor-> (:id task) comp-done-task states task)])))))]))))))))))
+                             [(:id task) (comp-done-task (>> states (:id task)) task)])))))]))))))))))

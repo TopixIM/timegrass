@@ -3,14 +3,14 @@
   (:require [hsl.core :refer [hsl]]
             [respo-ui.core :as ui]
             [respo.comp.space :refer [=<]]
-            [respo.core :refer [defcomp <> action-> cursor-> span div]]
+            [respo.core :refer [defcomp <> >> span div]]
             [app.config :as config]
-            [respo-alerts.comp.alerts :refer [comp-prompt]]
+            [respo-alerts.core :refer [comp-prompt]]
             ["dayjs" :as dayjs]))
 
 (defn render-entry [title get-route highlighted?]
   (div
-   {:style {:cursor :pointer}, :on-click (action-> :router/change (get-route))}
+   {:style {:cursor :pointer}, :on-click (fn [e d!] (d! :router/change (get-route)))}
    (<> title (merge {:opacity 0.5} (if highlighted? {:opacity 1})))))
 
 (def style-navbar
@@ -26,7 +26,7 @@
 
 (defcomp
  comp-navigation
- (states logged-in? count-members page)
+ (logged-in? count-members page)
  (div
   {:style style-navbar}
   (div
@@ -46,7 +46,7 @@
        {:name :notes, :data (let [now (dayjs)] {:year (.year now), :week (.week now)})})
      (= page :notes)))
    (div
-    {:style {:cursor "pointer"}, :on-click (action-> :router/change {:name :profile})}
+    {:style {:cursor "pointer"}, :on-click (fn [e d!] (d! :router/change {:name :profile}))}
     (<> (if logged-in? "Me" "Guest"))
     (=< 8 nil)
     (<> count-members)))))
