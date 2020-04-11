@@ -9,7 +9,6 @@
     "build": "shadow-cljs clj-run build.main/build",
     "page": "shadow-cljs clj-run build.main/page",
     "up": "yarn build-cdn && tiye-up",
-    "serve": "http-server dist -s",
     "repl": "rlwrap shadow-cljs clj-repl client",
     "repl-server": "rlwrap shadow-cljs clj-repl server",
     "ln": "cd target && rm -f entry && ln -s ../entry",
@@ -31,7 +30,6 @@
   "devDependencies": {
     "copy-text-to-clipboard": "^2.2.0",
     "feather-icons": "^4.28.0",
-    "http-server": "^0.12.1",
     "shadow-cljs": "^2.8.94",
     "source-map-support": "^0.5.16"
   }
