@@ -43,7 +43,7 @@
     (render-entry
      "Notes"
      (fn []
-       {:name :notes, :data (let [now (dayjs)] {:year (.year now), :week (.week now)})})
+       {:name :notes, :data (let [now (dayjs)] {:year (.year now), :month (.month now)})})
      (= page :notes)))
    (div
     {:style {:cursor "pointer"}, :on-click (fn [e d!] (d! :router/change {:name :profile}))}

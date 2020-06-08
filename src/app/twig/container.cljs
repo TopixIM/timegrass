@@ -13,13 +13,14 @@
       (into {})))
 
 (deftwig
- twig-notes-by-week
+ twig-notes-by-month
  (data notes)
- (let [year (:year data), week (:week data)]
+ (let [year (:year data), month (:month data)]
    (->> notes
         (filter
          (fn [[k task]]
-           (let [time (dayjs (:time task))] (and (= year (.year time)) (= week (.week time))))))
+           (let [time (dayjs (:time task))]
+             (and (= year (.year time)) (= month (.month time))))))
         (into {}))))
 
 (deftwig
@@ -54,7 +55,7 @@
                      :tasks (twig-tasks-by-week
                              (:data router)
                              (get-in user [:tasks :finished]))}
-                  :notes (twig-notes-by-week (:data router) (:notes user))
+                  :notes (twig-notes-by-month (:data router) (:notes user))
                   :profile (twig-members (:sessions db) (:users db))
                   {})),
        :count (count (:sessions db)),

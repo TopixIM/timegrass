@@ -43,7 +43,7 @@
 (defcomp
  comp-notes-page
  (states notes info)
- (let [year (:year info), week (:week info)]
+ (let [year (:year info), month (:month info)]
    (div
     {:style (merge ui/expand {:padding 16})}
     (div
@@ -69,9 +69,9 @@
           (d!
            :router/change
            {:name :notes,
-            :data (if (<= week 1)
-              {:year (dec year), :week 53}
-              {:year year, :week (dec week)})})))
+            :data (if (<= month 0)
+              {:year (dec year), :month 11}
+              {:year year, :month (dec month)})})))
        (=< 8 nil)
        (comp-icon
         :arrow-right
@@ -80,12 +80,12 @@
           (d!
            :router/change
            {:name :notes,
-            :data (if (>= week 53)
-              {:year (inc year), :week 1}
-              {:year year, :week (inc week)})})))
+            :data (if (>= month 11)
+              {:year (inc year), :month 0}
+              {:year year, :month (inc month)})})))
        (=< 8 nil)
        (<>
-        (<< "~{week}th week of ~{year}.")
+        (<< "~(inc month)th month of ~{year}.")
         {:font-family ui/font-fancy, :color (hsl 0 0 50)})))
      (if (empty? notes)
        (div
