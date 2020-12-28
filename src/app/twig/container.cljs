@@ -26,12 +26,18 @@
 (deftwig
  twig-tasks-by-week
  (data tasks)
- (let [year (:year data), week (:week data)]
+ (let [filter-year (:year data), filter-week (:week data)]
    (->> tasks
         (filter
          (fn [[k task]]
-           (let [time (dayjs (:finished-time task))]
-             (and (= year (.year time)) (= week (.week time))))))
+           (let [time (dayjs (:finished-time task))
+                 year (.year time)
+                 month (.month time)
+                 w (.week time)
+                 week (if (and (== month 11) (> (.date time) 25))
+                        (inc (.week (.subtract time 7 "day")))
+                        w)]
+             (and (= filter-year year) (= filter-week week)))))
         (into {}))))
 
 (deftwig
