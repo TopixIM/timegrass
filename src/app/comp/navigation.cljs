@@ -24,12 +24,11 @@
     :background-color (:theme config/site),
     :color :white}))
 
-(def today (dayjs))
-
 (defcomp
  comp-navigation
  (logged-in? count-members page)
- (let [year (.year today)
+ (let [today (dayjs)
+       year (.year today)
        month (.month today)
        week (let [w (.week today)]
               (if (and (== month 11) (> (.date today) 25))
