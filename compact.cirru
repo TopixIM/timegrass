@@ -273,8 +273,8 @@
             let
                 filter-year $ :year data
                 filter-week $ :week data
-              -> tasks $ .map-kv
-                fn (k task)
+              -> tasks (.to-map)
+                .map-kv $ fn (k task)
                   let
                       time $ dayjs (:finished-time task)
                       year $ .year time
