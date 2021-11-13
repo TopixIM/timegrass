@@ -244,7 +244,7 @@
           defn twig-notes-by-month (data notes)
             let
                 year $ :year data
-                month $ :month data
+                month $ inc (:month data)
               -> notes (.to-map)
                 .map-kv $ fn (k task)
                   let
@@ -285,11 +285,12 @@
           defn twig-tasks-by-week (data tasks)
             let
                 filter-year $ :year data
-                filter-week $ :week data
+                filter-week $ dec (:week data)
               -> tasks (.to-map)
                 .map-kv $ fn (k task)
                   let
-                      time $ extract-time (:finished-time task)
+                      time $ wo-log
+                        extract-time $ :finished-time task
                       year $ :year time
                       month $ :month time
                       week $ if
