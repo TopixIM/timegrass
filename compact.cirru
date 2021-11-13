@@ -238,7 +238,7 @@
         ns app.twig.container $ :require
           [] app.twig.user :refer $ [] twig-user
           calcit.std.rand :refer $ rand-hex-color!
-          calcit.std.date :refer $ extract-time get-time!
+          calcit.std.date :refer $ extract-time get-time! from-ywd from-ymd
       :defs $ {}
         |twig-notes-by-month $ quote
           defn twig-notes-by-month (data notes)
@@ -246,15 +246,12 @@
                 year $ :year data
                 month $ inc (:month data)
               -> notes (.to-map)
-                .map-kv $ fn (k task)
+                .filter-kv $ fn (k task)
                   let
                       time $ extract-time (:time task)
-                    if
-                      and
-                        = year $ :year time
-                        = month $ :month time
-                      [] k task
-                      , nil
+                    and
+                      = year $ :year time
+                      = month $ :month time
         |twig-container $ quote
           defn twig-container (db session records)
             let
@@ -286,28 +283,28 @@
             let
                 filter-year $ :year data
                 filter-week $ dec (:week data)
+                start-time $ key-match
+                  from-ywd (:year data)
+                    - (:week data) 2
+                    , 0
+                  (:single d) d
+                  _ 0
+                end-time $ + start-time week-millis
+              ; println "\"start:" $ extract-time start-time
+              ; println "\"end " $ extract-time end-time
               -> tasks (.to-map)
-                .map-kv $ fn (k task)
+                .filter-kv $ fn (k task)
                   let
-                      time $ wo-log
-                        extract-time $ :finished-time task
-                      year $ :year time
-                      month $ :month time
-                      week $ if
-                        and (= month 12)
-                          > (:day time) 25
-                        inc $ :week time
-                        :week time
-                    if
-                      and (= filter-year year) (= filter-week week)
-                      [] k task
-                      , nil
+                      t $ :finished-time task
+                    and (> t start-time) (< t end-time)
         |twig-members $ quote
           defn twig-members (sessions users)
             -> sessions $ .map-kv
               fn (k session)
                 [] k $ get-in users
                   [] (:user-id session) :name
+        |week-millis $ quote
+          def week-millis $ * 7 24 3600 1000
     |app.updater $ {}
       :ns $ quote
         ns app.updater $ :require ([] app.updater.session :as session) ([] app.updater.user :as user) ([] app.updater.router :as router) ([] app.updater.misc :as misc) ([] app.updater.task :as task) ([] app.updater.note :as note) ([] app.schema :as schema)
