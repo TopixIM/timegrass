@@ -1176,7 +1176,6 @@
           "\"url-parse" :default url-parse
           "\"bottom-tip" :default hud!
           "\"./calcit.build-errors" :default client-errors
-          "\"../js-out/calcit.build-errors" :default server-errors
           "\"dayjs" :default dayjs
           "\"dayjs/plugin/weekOfYear" :default week-of-year
       :defs $ {}
@@ -1236,8 +1235,8 @@
               do $ println "\"Found no storage."
         |reload! $ quote
           defn reload! () $ if
-            or (some? client-errors) (some? server-errors)
-            hud! "\"error" $ str client-errors &newline server-errors
+            or $ some? client-errors
+            hud! "\"error" $ str client-errors
             do (hud! "\"inactive" nil) (remove-watch *store :changes) (remove-watch *states :changes) (clear-cache!) (render-app!)
               add-watch *store :changes $ fn (store prev) (render-app!)
               add-watch *states :changes $ fn (states prev) (render-app!)
