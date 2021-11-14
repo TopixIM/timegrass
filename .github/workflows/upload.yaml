@@ -39,9 +39,12 @@ jobs:
         && git clone https://github.com/Respo/respo-markdown.calcit.git
         && git clone https://github.com/Respo/alerts.calcit.git
         && git clone https://github.com/calcit-lang/calcit-wss.git
-        && git clone https://github.com/calcit-lang/calcit.std.git --branch 0.0.12
+        && git clone https://github.com/calcit-lang/calcit.std.git --branch 0.0.13
 
     - run: yarn && yarn compile-page && yarn release-page
+
+    - run: cr --entry server --emit-ir -1
+      name: Check server code
 
     - run: mkdir -p dist-server && cp compact.cirru dist-server && cp package.json dist-server/
       name: Copy server scripts
