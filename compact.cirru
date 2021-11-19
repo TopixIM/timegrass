@@ -126,7 +126,7 @@
           app.$meta :refer $ calcit-dirname
           calcit.std.fs :refer $ path-exists? check-write-file!
           calcit.std.time :refer $ set-interval
-          calcit.std.date :refer $ get-time! extract-time format-time
+          calcit.std.date :refer $ get-time! extract-time format-time get-timestamp
           calcit.std.path :refer $ join-path
       :defs $ {}
         |*initial-db $ quote
@@ -201,7 +201,7 @@
           defn dispatch! (op op-data sid)
             let
                 op-id $ generate-id!
-                op-time $ get-time!
+                op-time $ get-timestamp (get-time!)
               if config/dev? $ println "\"Dispatch!" (str op) (; op-data) sid
               if (= op :effect/persist) (persist-db!)
                 reset! *reel $ reel-reducer @*reel updater op op-data sid op-id op-time config/dev?
@@ -238,7 +238,7 @@
         ns app.twig.container $ :require
           [] app.twig.user :refer $ [] twig-user
           calcit.std.rand :refer $ rand-hex-color!
-          calcit.std.date :refer $ extract-time get-time! from-ywd from-ymd
+          calcit.std.date :refer $ Date extract-time get-time! from-ywd from-ymd
       :defs $ {}
         |twig-notes-by-month $ quote
           defn twig-notes-by-month (data notes)
@@ -248,7 +248,8 @@
               -> notes (.to-map)
                 .filter-kv $ fn (k task)
                   let
-                      time $ extract-time (:time task)
+                      time $ extract-time
+                        :: Date $ :time task
                     and
                       = year $ :year time
                       = month $ :month time
@@ -283,12 +284,10 @@
             let
                 filter-year $ :year data
                 filter-week $ dec (:week data)
-                start-time $ key-match
+                start-time $ .timestamp
                   from-ywd (:year data)
                     - (:week data) 2
                     , 0
-                  (:single d) d
-                  _ 0
                 end-time $ + start-time week-millis
               ; println "\"start:" $ extract-time start-time
               ; println "\"end " $ extract-time end-time
