@@ -286,8 +286,8 @@
                 filter-week $ dec (:week data)
                 start-time $ .timestamp
                   from-ywd (:year data)
-                    - (:week data) 2
-                    , 0
+                    - (:week data) 1
+                    , 1
                 end-time $ + start-time week-millis
               ; println "\"start:" $ extract-time start-time
               ; println "\"end " $ extract-time end-time
