@@ -56,7 +56,7 @@
                   comp-messages
                     get-in store $ [] :session :messages
                     {}
-                    fn (info d! m!) (d! :session/remove-message info)
+                    fn (info d!) (d! :session/remove-message info)
                   when dev? $ comp-reel (:reel-length store) ({})
         |comp-offline $ quote
           defcomp comp-offline () $ div
@@ -679,16 +679,16 @@
                   button
                     {}
                       :style $ merge ui/button
-                      :on-click $ fn (e d! m!)
-                        .replace js/location $ str js/location.origin "\"?time=" (.now js/Date)
+                      :on-click $ fn (e d!)
+                        js/location.replace $ str js/location.origin "\"?time=" (.now js/Date)
                     <> "\"Refresh"
                   =< 16 nil
                   button
                     {}
                       :style $ merge ui/button
                         {} (:color :red) (:border-color :red)
-                      :on-click $ fn (e dispatch! mutate!) (dispatch! :user/log-out nil)
-                        .removeItem js/localStorage $ :storage-key config/site
+                      :on-click $ fn (e d!) (d! :user/log-out nil)
+                        js/localStorage.removeItem $ :storage-key config/site
                     <> "\"Log out"
     |app.comp.login $ {}
       :ns $ quote
@@ -806,7 +806,8 @@
                     = page :notes
                 div
                   {}
-                    :style $ {} (:cursor |pointer)
+                    :style $ {} (:cursor |pointer) (:user-select :none)
+                    :tab-index 0
                     :on-click $ fn (e d!)
                       d! :router/change $ {} (:name :profile)
                   <> $ if logged-in? |Me |Guest
@@ -819,8 +820,9 @@
                 :style $ {} (:cursor :pointer)
                 :on-click $ fn (e d!)
                   d! :router/change $ get-route
+                :tab-index 0
               <> title $ merge
-                {} $ :opacity 0.5
+                {} (:opacity 0.5) (:user-select :none)
                 if highlighted? $ {} (:opacity 1)
         |style-navbar $ quote
           def style-navbar $ merge ui/row-center
