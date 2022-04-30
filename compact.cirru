@@ -592,6 +592,9 @@
                     :pending? $ last pair
                 create-plugin $ use-prompt (>> states :create)
                   {} $ :text "\"Create new task:"
+                cursor $ :cursor states
+                state $ or (:data states)
+                  {} $ :show-later? false
               div
                 {} $ :style
                   merge ui/expand $ {} (:padding 16)
@@ -628,17 +631,28 @@
                             , task :working
                   when
                     not $ empty? pending-tasks
-                    div ({}) (comp-title "\"Later" nil)
-                      list-> ({})
-                        -> pending-tasks (.to-list)
-                          .sort-by $ fn (pair)
-                            let
-                                task $ last pair
-                              negate $ or (:touched-time task) (:created-time task)
-                          .map-pair $ fn (k task)
-                            [] k $ comp-task
-                              >> states $ :id task
-                              , task :pending
+                    div ({})
+                      comp-title "\"Later" nil $ fn (e d!)
+                        d! cursor $ update state :show-later? not
+                      if (:show-later? state)
+                        list-> ({})
+                          -> pending-tasks (.to-list)
+                            .sort-by $ fn (pair)
+                              let
+                                  task $ last pair
+                                negate $ or (:touched-time task) (:created-time task)
+                            .map-pair $ fn (k task)
+                              [] k $ comp-task
+                                >> states $ :id task
+                                , task :pending
+                        div
+                          {}
+                            :style $ {} (:font-size 16)
+                            :on-click $ fn (e d!)
+                              d! cursor $ update state :show-later? not
+                          <>
+                            str (count pending-tasks) "\" future tasks. Click to show."
+                            {} (:font-family ui/font-fancy) (:font-weight 300) (:cursor :pointer)
                   .render create-plugin
         |comp-task $ quote
           defcomp comp-task (states task mode)
@@ -715,13 +729,18 @@
                 .render update-plugin
                 .render delete-plugin
         |comp-title $ quote
-          defcomp comp-title (title child)
+          defcomp comp-title (title child ? on-click)
             div
-              {} $ :style
-                merge ui/row-middle $ {} (:margin "\"8px 0") (:font-family ui/font-fancy)
-                  :color $ hsl 0 0 50
-                  :font-size 16
-                  :font-weight 300
+              {}
+                :style $ merge ui/row-middle
+                  {} (:margin "\"8px 0") (:font-family ui/font-fancy)
+                    :color $ hsl 0 0 50
+                    :font-size 16
+                    :font-weight 300
+                  if (fn? on-click)
+                    {} $ :cursor :pointer
+                :on-click $ fn (e d!)
+                  if (fn? on-click) (on-click e d!)
               <> title
               =< 16 nil
               , child
