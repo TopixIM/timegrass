@@ -96,7 +96,7 @@
                 router-data $ :data router
               if (nil? store) (comp-offline)
                 div
-                  {} $ :style (merge ui/global ui/fullscreen ui/column)
+                  {} $ :class-name css-container
                   comp-navigation (:logged-in? store) (:count store) (:name router)
                   if (:logged-in? store)
                     case-default (:name router)
@@ -120,9 +120,7 @@
                   when dev? $ comp-reel (:reel-length store) ({})
         |comp-offline $ quote
           defcomp comp-offline () $ div
-            {} $ :style
-              merge ui/global ui/fullscreen ui/column-dispersive $ {}
-                :background-color $ :theme config/site
+            {} $ :class-name css-offline
             div $ {}
               :style $ {} (:height 0)
             div $ {}
@@ -138,28 +136,40 @@
               <> "|Socket broken! Click to retry." $ {} (:font-family ui/font-fancy) (:font-weight 100) (:font-size 24)
         |comp-status-color $ quote
           defcomp comp-status-color (color)
-            div $ {}
-              :style $ {} (:width 16) (:height 16) (:position :absolute) (:bottom 16) (:right 8) (:background-color color) (:border-radius "\"8px") (:opacity 0.8)
+            div $ {} (:class-name css-status-color)
+              :style $ {} (:background-color color) 
+        |css-container $ quote
+          defstyle css-container $ {}
+            "\"$0" $ merge ui/global ui/fullscreen ui/column
+        |css-offline $ quote
+          defstyle css-offline $ {}
+            "\"$0" $ merge ui/global ui/fullscreen ui/column-dispersive
+              {} $ :background-color (:theme config/site)
+        |css-status-color $ quote
+          defstyle css-status-color $ {}
+            "\"$0" $ {} (:width 16) (:height 16) (:position :absolute) (:bottom 16) (:right 8) (:border-radius "\"8px") (:opacity 0.8)
         |style-body $ quote
           def style-body $ {} (:padding "|8px 16px")
       :ns $ quote
         ns app.comp.container $ :require
-          [] hsl.core :refer $ [] hsl
-          [] respo-ui.core :as ui
-          [] respo.core :refer $ [] defcomp <> >> div span button
-          [] respo.comp.inspect :refer $ [] comp-inspect
-          [] respo.comp.space :refer $ [] =<
-          [] app.comp.navigation :refer $ [] comp-navigation
-          [] app.comp.profile :refer $ [] comp-profile
-          [] app.comp.login :refer $ [] comp-login
-          [] respo-message.comp.messages :refer $ [] comp-messages
-          [] cumulo-reel.comp.reel :refer $ [] comp-reel
-          [] app.config :refer $ [] dev?
-          [] app.schema :as schema
-          [] app.comp.overview :refer $ [] comp-overview
-          [] app.config :as config
-          [] app.comp.history :refer $ [] comp-history
-          [] app.comp.notes-page :refer $ [] comp-notes-page
+          hsl.core :refer $ hsl
+          respo-ui.core :as ui
+          respo-ui.css :as css
+          respo.css :refer $ defstyle
+          respo.core :refer $ defcomp <> >> div span button
+          respo.comp.inspect :refer $ comp-inspect
+          respo.comp.space :refer $ =<
+          app.comp.navigation :refer $ comp-navigation
+          app.comp.profile :refer $ comp-profile
+          app.comp.login :refer $ comp-login
+          respo-message.comp.messages :refer $ comp-messages
+          cumulo-reel.comp.reel :refer $ comp-reel
+          app.config :refer $ dev?
+          app.schema :as schema
+          app.comp.overview :refer $ comp-overview
+          app.config :as config
+          app.comp.history :refer $ comp-history
+          app.comp.notes-page :refer $ comp-notes-page
     |app.comp.history $ {}
       :defs $ {}
         |comp-done-task $ quote
@@ -208,19 +218,19 @@
                 year $ :year data
                 week $ :week data
               div
-                {} $ :style
-                  merge ui/flex $ {} (:padding "\"16px 16px") (:overflow :auto)
+                {} (:class-name css/flex)
+                  :style $ {} (:padding "\"16px 16px") (:overflow :auto)
                 div
                   {} $ :style
                     {} (:max-width 800) (:margin :auto)
                   div
-                    {} $ :style
-                      merge ui/row-parted $ {} (:margin "\"8px 0")
+                    {} (:class-name css/row-parted)
+                      :style $ {} (:margin "\"8px 0")
                     <> (str "\"Histories of " week "\"th week in " year)
                       {} (:font-family ui/font-fancy) (:font-size 16)
                         :color $ hsl 0 0 50
                     div
-                      {} $ :style ui/row
+                      {} $ :class-name css/row
                       comp-icon :arrow-left
                         {} (:font-size 16)
                           :color $ hsl 200 80 80
@@ -248,8 +258,8 @@
                                 :week $ inc week
                   if (empty? finished-tasks)
                     div
-                      {} $ :style
-                        merge ui/center $ {} (:height 80)
+                      {} (:class-name css/center)
+                        :style $ {} (:height 80)
                       <> "\"No tasks." $ {} (:font-family ui/font-fancy)
                         :color $ hsl 0 0 80
                     let
@@ -264,12 +274,12 @@
                             &compare (first y) (first x)
                           .map-pair $ fn (date-string task-list)
                             [] date-string $ div
-                              {} $ :style
-                                merge ui/column $ {} (:margin-top 16)
+                              {} (:class-name css/column)
+                                :style $ {} (:margin-top 16)
                               let
                                   the-day $ dayjs date-string
                                 div
-                                  {} $ :style ui/row-parted
+                                  {} $ :class-name css/row-parted
                                   span
                                     {} $ :style
                                       {} $ :font-family ui/font-fancy
@@ -288,14 +298,15 @@
                                         , task
       :ns $ quote
         ns app.comp.history $ :require
-          [] respo-ui.core :refer $ [] hsl
-          [] respo-ui.core :as ui
-          [] respo.comp.space :refer $ [] =<
-          [] respo.core :refer $ [] defcomp <> >> list-> span div
-          [] app.config :as config
-          [] respo-alerts.core :refer $ [] comp-modal-menu
-          [] "\"dayjs" :default dayjs
-          [] feather.core :refer $ [] comp-icon
+          respo-ui.core :refer $ hsl
+          respo-ui.core :as ui
+          respo-ui.css :as css
+          respo.comp.space :refer $ =<
+          respo.core :refer $ defcomp <> >> list-> span div
+          app.config :as config
+          respo-alerts.core :refer $ comp-modal-menu
+          "\"dayjs" :default dayjs
+          feather.core :refer $ comp-icon
     |app.comp.login $ {}
       :defs $ {}
         |comp-login $ quote
@@ -354,12 +365,12 @@
         |comp-navigation $ quote
           defcomp comp-navigation (logged-in? count-members page)
             div
-              {} $ :style style-navbar
+              {} $ :class-name css-navbar
               div
-                {} $ :style
-                  merge ui/row-parted $ {} (:max-width 840) (:width "\"100%") (:margin :auto)
+                {} (:class-name css/row-parted)
+                  :style $ {} (:max-width 840) (:width "\"100%") (:margin :auto)
                 div
-                  {} $ :style (merge ui/row-center)
+                  {} $ :class-name css/row-center
                   render-entry "\"Timegrass"
                     fn () $ {} (:name :home)
                     = page :home
@@ -397,6 +408,14 @@
                   <> $ if logged-in? |Me |Guest
                   =< 8 nil
                   <> count-members
+        |css-navbar $ quote
+          defstyle css-navbar $ {}
+            "\"$0" $ merge ui/row-center
+              {} (:height 48) (:padding "\"0 16px") (:font-size 16)
+                :border-bottom $ str "\"1px solid " (hsl 0 0 0 0.1)
+                :font-family ui/font-fancy
+                :background-color $ :theme config/site
+                :color :white
         |render-entry $ quote
           defn render-entry (title get-route highlighted?)
             div
@@ -408,22 +427,17 @@
               <> title $ merge
                 {} (:opacity 0.5) (:user-select :none)
                 if highlighted? $ {} (:opacity 1)
-        |style-navbar $ quote
-          def style-navbar $ merge ui/row-center
-            {} (:height 48) (:padding "\"0 16px") (:font-size 16)
-              :border-bottom $ str "\"1px solid " (hsl 0 0 0 0.1)
-              :font-family ui/font-fancy
-              :background-color $ :theme config/site
-              :color :white
       :ns $ quote
         ns app.comp.navigation $ :require
-          [] respo-ui.core :refer $ [] hsl
-          [] respo-ui.core :as ui
-          [] respo.comp.space :refer $ [] =<
-          [] respo.core :refer $ [] defcomp <> >> span div
-          [] app.config :as config
-          [] respo-alerts.core :refer $ [] comp-prompt
-          [] "\"dayjs" :default dayjs
+          respo-ui.core :refer $ hsl
+          respo-ui.core :as ui
+          respo.css :refer $ defstyle
+          respo-ui.css :as css
+          respo.comp.space :refer $ =<
+          respo.core :refer $ defcomp <> >> span div
+          app.config :as config
+          respo-alerts.core :refer $ comp-prompt
+          "\"dayjs" :default dayjs
     |app.comp.notes-page $ {}
       :defs $ {}
         |comp-note $ quote
@@ -435,12 +449,12 @@
                 remove-plugin $ use-confirm (>> states :remove)
                   {} $ :text "\"Sure to delete note?"
               div
-                {} $ :style
-                  merge ui/column $ {}
+                {} (:class-name css/column)
+                  :style $ {}
                     :border-top $ str "\"1px solid " (hsl 0 0 94)
                     :padding "\"4px 8px"
                 div
-                  {} $ :style ui/row-parted
+                  {} $ :class-name css/row-parted
                   <>
                     -> (:time note) dayjs $ .format "\"HH:mm"
                     {} (:font-family ui/font-fancy)
@@ -448,7 +462,7 @@
                       :font-size 12
                   =< 8 nil
                   div
-                    {} $ :style ui/row-middle
+                    {} $ :class-name css/row-middle
                     comp-icon :edit
                       &{} :font-size 16 :curspr :pointer :color $ hsl 200 80 80
                       fn (e d!)
@@ -473,16 +487,16 @@
                 add-plugin $ use-prompt (>> states :add)
                   {} (:text "\"Add note about today's work:") (:multiline? true)
               div
-                {} $ :style
-                  merge ui/expand $ {} (:padding 16)
+                {} (:class-name css/expand)
+                  :style $ {} (:padding 16)
                 div
                   {} $ :style
                     {} (:max-width 800) (:margin :auto)
                   div
-                    {} $ :style
-                      merge ui/row-parted $ {} (:margin "\"8px 0")
+                    {} (:class-name css/row-parted)
+                      :style $ {} (:margin "\"8px 0")
                     span
-                      {} $ :style ui/row-middle
+                      {} $ :class-name css/row-middle
                       <> "\"Notes" $ {}
                         :color $ hsl 0 0 50
                         :font-family ui/font-fancy
@@ -493,7 +507,7 @@
                         fn (e d!)
                           .show add-plugin d! $ fn (result) (d! :note/add result)
                     div
-                      {} $ :style ui/row-middle
+                      {} $ :class-name css/row-middle
                       comp-icon :arrow-left
                         {} (:font-size 16)
                           :color $ hsl 200 80 80
@@ -526,8 +540,8 @@
                           :color $ hsl 0 0 50
                   if (empty? notes)
                     div
-                      {} $ :style
-                        merge ui/center $ {} (:min-height 120)
+                      {} (:class-name css/center)
+                        :style $ {} (:min-height 120)
                       <> "\"No notes" $ {} (:font-family ui/font-fancy)
                         :color $ hsl 0 0 80
                     let
@@ -553,7 +567,7 @@
                                 =< 12 nil
                                 <> $ str date
                               list->
-                                {} $ :style ui/column
+                                {} $ :class-name css/column
                                 -> notes-in-day
                                   .sort-by $ fn (pair)
                                     negate $ :time (last pair)
@@ -563,21 +577,23 @@
                 .render add-plugin
       :ns $ quote
         ns app.comp.notes-page $ :require
-          [] respo-ui.core :refer $ [] hsl
-          [] app.schema :as schema
-          [] respo-ui.core :as ui
-          [] respo.core :refer $ [] defcomp list-> >> <> span div button a
-          [] respo.comp.space :refer $ [] =<
-          [] app.config :as config
-          [] respo-alerts.core :refer $ [] use-prompt use-confirm
-          [] feather.core :refer $ [] comp-i comp-icon
-          [] "\"dayjs" :default dayjs
+          respo-ui.core :refer $ hsl
+          respo.css :refer $ defstyle
+          respo-ui.css :as css
+          app.schema :as schema
+          respo-ui.core :as ui
+          respo.core :refer $ defcomp list-> >> <> span div button a
+          respo.comp.space :refer $ =<
+          app.config :as config
+          respo-alerts.core :refer $ use-prompt use-confirm
+          feather.core :refer $ comp-i comp-icon
+          "\"dayjs" :default dayjs
     |app.comp.overview $ {}
       :defs $ {}
         |comp-no-tasks $ quote
           defcomp comp-no-tasks () $ div
-            {} $ :style
-              merge ui/center $ {}
+            {} (:class-name css/center)
+              :style $ {}
                 :color $ hsl 0 0 80
                 :font-family ui/font-fancy
             <> "\"No tasks"
@@ -596,20 +612,20 @@
                 state $ or (:data states)
                   {} $ :show-later? false
               div
-                {} $ :style
-                  merge ui/expand $ {} (:padding 16)
+                {} (:class-name css/expand)
+                  :style $ {} (:padding 16)
                 div
                   {} $ :style
                     {} (:max-width 800) (:margin :auto)
                   div
-                    {} $ :style ui/row-parted
+                    {} $ :class-name css/row-parted
                     comp-title "\"Doing" $ comp-icon :plus
                       &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
                       fn (e d!)
                         .show create-plugin d! $ fn (result) (d! :task/create-working result)
                     div
-                      {} $ :style
-                        merge ui/row-middle $ {} (:font-family ui/font-fancy)
+                      {} (:class-name css/row-middle)
+                        :style $ {} (:font-family ui/font-fancy)
                           :color $ hsl 0 0 60
                       <> $ .format (dayjs today) "\"ddd"
                       =< 8 nil
@@ -668,14 +684,8 @@
                 delete-plugin $ use-confirm (>> states :delete)
                   {} $ :text "\"Sure to remove task:"
               div
-                {}
+                {} (:class-name css-task-base)
                   :style $ merge
-                    {}
-                      :border-bottom $ str "\"1px solid " (hsl 0 0 90)
-                      :line-height "\"24px"
-                      :padding "\"8px 8px"
-                      :overflow :auto
-                      :user-select :none
                     when
                       or $ :menu? state
                       {} $ :background-color (hsl 0 0 94)
@@ -731,19 +741,29 @@
         |comp-title $ quote
           defcomp comp-title (title child ? on-click)
             div
-              {}
-                :style $ merge ui/row-middle
-                  {} (:margin "\"8px 0") (:font-family ui/font-fancy)
-                    :color $ hsl 0 0 50
-                    :font-size 16
-                    :font-weight 300
-                  if (fn? on-click)
-                    {} $ :cursor :pointer
+              {} (:class-name css-title)
+                :style $ if (fn? on-click)
+                  {} $ :cursor :pointer
                 :on-click $ fn (e d!)
                   if (fn? on-click) (on-click e d!)
               <> title
               =< 16 nil
               , child
+        |css-task-base $ quote
+          defstyle css-task-base $ {}
+            "\"$0" $ {}
+              :border-bottom $ str "\"1px solid " (hsl 0 0 90)
+              :line-height "\"24px"
+              :padding "\"8px 8px"
+              :overflow :auto
+              :user-select :none
+        |css-title $ quote
+          defstyle css-title $ {}
+            "\"$0" $ merge ui/row-middle
+              {} (:margin "\"8px 0") (:font-family ui/font-fancy)
+                :color $ hsl 0 0 50
+                :font-size 16
+                :font-weight 300
         |effect-focus $ quote
           defeffect effect-focus () (action el *local)
             case action
@@ -751,24 +771,26 @@
               do
       :ns $ quote
         ns app.comp.overview $ :require
-          [] respo-ui.core :refer $ [] hsl
-          [] app.schema :as schema
-          [] respo-ui.core :as ui
-          [] respo.core :refer $ [] defcomp list-> >> <> span div button textarea input a defeffect
-          [] respo.comp.space :refer $ [] =<
-          [] app.config :as config
-          [] app.style :as style
-          [] respo-alerts.core :refer $ [] comp-prompt comp-modal comp-modal-menu use-prompt use-confirm
-          [] feather.core :refer $ [] comp-i comp-icon
-          [] "\"dayjs" :default dayjs
-          [] "\"copy-text-to-clipboard" :default copy!
+          respo-ui.core :refer $ hsl
+          respo-ui.css :as css
+          respo.css :refer $ defstyle
+          app.schema :as schema
+          respo-ui.core :as ui
+          respo.core :refer $ defcomp list-> >> <> span div button textarea input a defeffect
+          respo.comp.space :refer $ =<
+          app.config :as config
+          app.style :as style
+          respo-alerts.core :refer $ comp-prompt comp-modal comp-modal-menu use-prompt use-confirm
+          feather.core :refer $ comp-i comp-icon
+          "\"dayjs" :default dayjs
+          "\"copy-text-to-clipboard" :default copy!
     |app.comp.profile $ {}
       :defs $ {}
         |comp-profile $ quote
           defcomp comp-profile (user members)
             div
-              :style $ merge ui/flex
-                {} $ :padding 16
+              {} (:class-name css/flex)
+                :style $ {} (:padding 16)
               div
                 {} $ :style
                   {} (:max-width 800) (:margin :auto)
@@ -778,48 +800,50 @@
                   <> $ str "|Hello! " (:name user)
                 =< nil 16
                 div
-                  {} $ :style ui/row
+                  {} $ :class-name css/row
                   <> "\"Members:"
                   =< 8 nil
                   list->
-                    {} $ :style ui/row
+                    {} $ :class-name css/row
                     -> members (.to-list)
                       .map-pair $ fn (k username)
                         [] k $ div
-                          {} $ :style
-                            {} (:padding "\"0 8px")
-                              :border $ str "\"1px solid " (hsl 0 0 80)
-                              :border-radius "\"16px"
-                              :margin "\"0 4px"
+                          {} $ :class-name css-member-label
                           <> username
                 =< nil 48
                 div ({})
                   button
-                    {}
-                      :style $ merge ui/button
+                    {} (:class-name css/button)
                       :on-click $ fn (e d!)
                         js/location.replace $ str js/location.origin "\"?time=" (.now js/Date)
                     <> "\"Refresh"
                   =< 16 nil
                   button
-                    {}
-                      :style $ merge ui/button
-                        {} (:color :red) (:border-color :red)
+                    {} (:class-name css/button)
+                      :style $ {} (:color :red) (:border-color :red)
                       :on-click $ fn (e d!) (d! :user/log-out nil)
                         js/localStorage.removeItem $ :storage-key config/site
                     <> "\"Log out"
+        |css-member-label $ quote
+          defstyle css-member-label $ {}
+            "\"$0" $ {} (:padding "\"0 8px")
+              :border $ str "\"1px solid " (hsl 0 0 80)
+              :border-radius "\"16px"
+              :margin "\"0 4px"
       :ns $ quote
         ns app.comp.profile $ :require
-          [] respo-ui.core :refer $ [] hsl
-          [] app.schema :as schema
-          [] respo-ui.core :as ui
-          [] respo.core :refer $ [] defcomp list-> <> span div button
-          [] respo.comp.space :refer $ [] =<
-          [] app.config :as config
+          respo-ui.core :refer $ hsl
+          respo-ui.css :as css
+          app.schema :as schema
+          respo-ui.core :as ui
+          respo.core :refer $ defcomp list-> <> span div button
+          respo.css :refer $ defstyle
+          respo.comp.space :refer $ =<
+          app.config :as config
     |app.config $ {}
       :defs $ {}
         |dev? $ quote
-          def dev? $ = "\"dev" (get-env "\"mode")
+          def dev? $ = "\"dev" (get-env "\"mode" "\"release")
         |site $ quote
           def site $ {} (:port 11009) (:title "\"Timegrass") (:icon "\"http://cdn.tiye.me/logo/timegrass.png") (:dev-ui "\"http://localhost:8100/main.css") (:release-ui "\"http://cdn.tiye.me/favored-fonts/main.css") (:cdn-url "\"http://cdn.tiye.me/timegrass/") (:theme "\"#51C766") (:storage-key "\"timegrass") (:storage-file "\"storage.cirru")
       :ns $ quote (ns app.config)
