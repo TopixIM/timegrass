@@ -281,8 +281,7 @@
                                 div
                                   {} $ :class-name css/row-parted
                                   span
-                                    {} $ :style
-                                      {} $ :font-family ui/font-fancy
+                                    {} $ :class-name css/font-fancy
                                     <> $ .format the-day "\"ddd"
                                     =< 12 nil
                                     <> $ .format the-day "\"MM-DD"
@@ -561,8 +560,8 @@
                               {} $ :style
                                 {} $ :margin-top 16
                               div
-                                {} $ :style
-                                  {} (:font-family ui/font-fancy) (:font-size 14) (:font-weight 500)
+                                {} (:class-name css/font-fancy)
+                                  :style $ {} (:font-size 14) (:font-weight 500)
                                 <> $ -> (str year "\"-" date) dayjs (.format "\"ddd")
                                 =< 12 nil
                                 <> $ str date
@@ -592,10 +591,10 @@
       :defs $ {}
         |comp-no-tasks $ quote
           defcomp comp-no-tasks () $ div
-            {} (:class-name css/center)
+            {}
+              :class-name $ str-spaced css/center css/font-fancy
               :style $ {}
                 :color $ hsl 0 0 80
-                :font-family ui/font-fancy
             <> "\"No tasks"
         |comp-overview $ quote
           defcomp comp-overview (states today tasks)
@@ -624,8 +623,9 @@
                       fn (e d!)
                         .show create-plugin d! $ fn (result) (d! :task/create-working result)
                     div
-                      {} (:class-name css/row-middle)
-                        :style $ {} (:font-family ui/font-fancy)
+                      {}
+                        :class-name $ str-spaced css/row-middle css/font-fancy
+                        :style $ {}
                           :color $ hsl 0 0 60
                       <> $ .format (dayjs today) "\"ddd"
                       =< 8 nil
@@ -795,8 +795,8 @@
                 {} $ :style
                   {} (:max-width 800) (:margin :auto)
                 div
-                  {} $ :style
-                    {} (:font-family ui/font-fancy) (:font-size 32) (:font-weight 100)
+                  {} (:class-name css/font-fancy)
+                    :style $ {} (:font-size 32) (:font-weight 100)
                   <> $ str "|Hello! " (:name user)
                 =< nil 16
                 div
