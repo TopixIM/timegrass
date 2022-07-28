@@ -147,7 +147,8 @@
               {} $ :background-color (:theme config/site)
         |css-status-color $ quote
           defstyle css-status-color $ {}
-            "\"$0" $ {} (:width 16) (:height 16) (:position :absolute) (:bottom 16) (:right 8) (:border-radius "\"8px") (:opacity 0.8)
+            "\"$0" $ {} (:width 16) (:height 16) (:position :absolute) (:bottom 16) (:right 8) (:border-radius "\"8px") (:opacity 0.8) (:transition-duration "\"200ms") (:opacity 0.5)
+            "\"$0:hover" $ {} (:opacity 0.7)
         |style-body $ quote
           def style-body $ {} (:padding "|8px 16px")
       :ns $ quote
@@ -179,7 +180,7 @@
                 state $ or (:data states)
                   {} $ :show-menu? false
               div
-                {}
+                {} (:class-name css-done-task)
                   :style $ merge
                     {} $ :padding "\"4px 8px"
                     when (:show-menu? state)
@@ -187,9 +188,7 @@
                   :on-click $ fn (e d!)
                     d! cursor $ assoc state :show-menu? true
                 <>
-                  .format
-                    dayjs $ :finished-time task
-                    , "\"HH:mm"
+                  -> (:finished-time task) dayjs $ .!format "\"HH:mm"
                   {} (:min-width 32)
                     :color $ hsl 0 0 80
                     :font-size 12
@@ -265,7 +264,7 @@
                     let
                         grouped-tasks $ -> finished-tasks (.to-list) (.map last)
                           group-by $ fn (task)
-                            .format
+                            .!format
                               dayjs $ :finished-time task
                               , "\"YYYY-MM-DD"
                       list-> ({})
@@ -295,11 +294,17 @@
                                       comp-done-task
                                         >> states $ :id task
                                         , task
+        |css-done-task $ quote
+          defstyle css-done-task $ {}
+            "\"$0" $ {} (:transition-duration "\"200ms")
+            "\"$0:hover" $ {}
+              :background-color $ hsl 0 0 80 0.2
       :ns $ quote
         ns app.comp.history $ :require
           respo-ui.core :refer $ hsl
           respo-ui.core :as ui
           respo-ui.css :as css
+          respo.css :refer $ defstyle
           respo.comp.space :refer $ =<
           respo.core :refer $ defcomp <> >> list-> span div
           app.config :as config
@@ -378,15 +383,15 @@
                     fn () $ {} (:name :history)
                       :data $ let
                           now $ dayjs
-                          month $ .month now
+                          month $ .!month now
                         {}
-                          :year $ .year now
+                          :year $ .!year now
                           :week $ let
-                              w $ .week now
+                              w $ .!week now
                             if
                               and (= month 11)
-                                > (.date now) 25
-                              .week $ .subtract now 7 "\"day"
+                                > (.!date now) 25
+                              .!week $ .!subtract now 7 "\"day"
                               , w
                     = page :history
                   =< 16 nil
@@ -395,8 +400,8 @@
                       :data $ let
                           now $ dayjs
                         {}
-                          :year $ .year now
-                          :month $ .month now
+                          :year $ .!year now
+                          :month $ .!month now
                     = page :notes
                 div
                   {}
@@ -407,6 +412,10 @@
                   <> $ if logged-in? |Me |Guest
                   =< 8 nil
                   <> count-members
+        |css-entry $ quote
+          defstyle css-entry $ {}
+            "\"$0" $ {} (:opacity 0.6) (:user-select :none) (:transition-duration "\"200ms")
+            "\"$0:hover" $ {} (:opacity 0.8)
         |css-navbar $ quote
           defstyle css-navbar $ {}
             "\"$0" $ merge ui/row-center
@@ -418,14 +427,14 @@
         |render-entry $ quote
           defn render-entry (title get-route highlighted?)
             div
-              {}
-                :style $ {} (:cursor :pointer)
+              {} (:class-name css-entry)
+                :style $ merge
+                  {} $ :cursor :pointer
+                  if highlighted? $ {} (:opacity 1)
                 :on-click $ fn (e d!)
                   d! :router/change $ get-route
                 :tab-index 0
-              <> title $ merge
-                {} (:opacity 0.5) (:user-select :none)
-                if highlighted? $ {} (:opacity 1)
+              <> title nil
       :ns $ quote
         ns app.comp.navigation $ :require
           respo-ui.core :refer $ hsl
@@ -448,7 +457,8 @@
                 remove-plugin $ use-confirm (>> states :remove)
                   {} $ :text "\"Sure to delete note?"
               div
-                {} (:class-name css/column)
+                {}
+                  :class-name $ str-spaced css/column css-note
                   :style $ {}
                     :border-top $ str "\"1px solid " (hsl 0 0 94)
                     :padding "\"4px 8px"
@@ -548,8 +558,7 @@
                           .group-by $ fn (pair)
                             ->
                               :time $ last pair
-                              dayjs
-                              .format "\"MM-DD"
+                              , dayjs $ .format "\"MM-DD"
                           .to-list
                           .sort $ fn (x y)
                             &compare (first y) (first x)
@@ -574,6 +583,11 @@
                                     [] k $ comp-note (>> states k) note
                   =< nil 160
                 .render add-plugin
+        |css-note $ quote
+          defstyle css-note $ {}
+            "\"$0" $ {} (:transition-duration "\"200ms")
+            "\"$0:hover" $ {}
+              :background-color $ hsl 0 0 80 0.2
       :ns $ quote
         ns app.comp.notes-page $ :require
           respo-ui.core :refer $ hsl
@@ -757,6 +771,9 @@
               :padding "\"8px 8px"
               :overflow :auto
               :user-select :none
+              :transition-duration "\"200ms"
+            "\"$0:hover" $ {}
+              :background-color $ hsl 0 0 80 0.1
         |css-title $ quote
           defstyle css-title $ {}
             "\"$0" $ merge ui/row-middle
