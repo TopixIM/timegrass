@@ -71,7 +71,7 @@ jobs:
 
     - name: Upload server script
       id: deploy-server
-      uses: Pendect/action-rsyncer@v1.1.0
+      uses: Pendect/action-rsyncer@v2.0.0
       env:
         DEPLOY_KEY: ${{secrets.rsync_private_key}}
       with:
