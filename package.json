@@ -15,8 +15,8 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "@calcit/procs": "^0.6.13",
-    "dayjs": "^1.11.6",
+    "@calcit/procs": "^0.6.18",
+    "dayjs": "^1.11.7",
     "nanoid": "^4.0.0"
   },
   "devDependencies": {
@@ -24,6 +24,6 @@
     "copy-text-to-clipboard": "^3.0.1",
     "feather-icons": "^4.29.0",
     "url-parse": "^1.5.10",
-    "vite": "^3.2.2"
+    "vite": "^4.0.3"
   }
 }

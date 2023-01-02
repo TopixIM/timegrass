@@ -1081,9 +1081,12 @@
                 filter-year $ :year data
                 filter-week $ dec (:week data)
                 start-time $ .timestamp
-                  from-ywd (:year data)
-                    - (:week data) 1
-                    , 1
+                  try
+                    from-ywd (:year data)
+                      dec $ :week data
+                      , 1
+                    fn (e) (eprintln "\"date parsing error:" e)
+                      from-ywd (:year data) (:week data) 1
                 end-time $ + start-time week-millis
               ; println "\"start:" $ extract-time start-time
               ; println "\"end " $ extract-time end-time
