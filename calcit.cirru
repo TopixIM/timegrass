@@ -7724,26 +7724,27 @@
                                           |T $ {} (:at 1636795180276) (:by |B1y7Rc-Zz) (:text |t) (:type :leaf)
                                           |j $ {} (:at 1636795180925) (:by |B1y7Rc-Zz) (:type :expr)
                                             :data $ {}
-                                              |T $ {} (:at 1636795180925) (:by |B1y7Rc-Zz) (:text |:finished-time) (:type :leaf)
+                                              |T $ {} (:at 1677349621393) (:by |B1y7Rc-Zz) (:text |&map:get) (:type :leaf)
                                               |j $ {} (:at 1636795180925) (:by |B1y7Rc-Zz) (:text |task) (:type :leaf)
+                                              |n $ {} (:at 1677349622092) (:by |B1y7Rc-Zz) (:text |:finished-time) (:type :leaf)
                                   |n $ {} (:at 1636795624369) (:by |B1y7Rc-Zz) (:type :expr)
                                     :data $ {}
                                       |T $ {} (:at 1636795624369) (:by |B1y7Rc-Zz) (:text |and) (:type :leaf)
                                       |j $ {} (:at 1636795624369) (:by |B1y7Rc-Zz) (:type :expr)
                                         :data $ {}
-                                          |T $ {} (:at 1636795624369) (:by |B1y7Rc-Zz) (:text |>) (:type :leaf)
+                                          |T $ {} (:at 1677349597392) (:by |B1y7Rc-Zz) (:text |&>) (:type :leaf)
                                           |j $ {} (:at 1636795624369) (:by |B1y7Rc-Zz) (:text |t) (:type :leaf)
                                           |r $ {} (:at 1677347901058) (:by |B1y7Rc-Zz) (:type :expr)
                                             :data $ {}
-                                              |D $ {} (:at 1677347904318) (:by |B1y7Rc-Zz) (:text |.timestamp) (:type :leaf)
+                                              |D $ {} (:at 1677349722188) (:by |B1y7Rc-Zz) (:text |get-timestamp) (:type :leaf)
                                               |T $ {} (:at 1636795624369) (:by |B1y7Rc-Zz) (:text |start-time) (:type :leaf)
                                       |r $ {} (:at 1636795624369) (:by |B1y7Rc-Zz) (:type :expr)
                                         :data $ {}
-                                          |T $ {} (:at 1636795624369) (:by |B1y7Rc-Zz) (:text |<) (:type :leaf)
+                                          |T $ {} (:at 1677349599828) (:by |B1y7Rc-Zz) (:text |&<) (:type :leaf)
                                           |j $ {} (:at 1636795624369) (:by |B1y7Rc-Zz) (:text |t) (:type :leaf)
                                           |r $ {} (:at 1677347906057) (:by |B1y7Rc-Zz) (:type :expr)
                                             :data $ {}
-                                              |D $ {} (:at 1677347906592) (:by |B1y7Rc-Zz) (:text |.timestamp) (:type :leaf)
+                                              |D $ {} (:at 1677349726551) (:by |B1y7Rc-Zz) (:text |get-timestamp) (:type :leaf)
                                               |T $ {} (:at 1636795624369) (:by |B1y7Rc-Zz) (:text |end-time) (:type :leaf)
           |week-millis $ {} (:at 1636795220485) (:by |B1y7Rc-Zz) (:type :expr)
             :data $ {}
@@ -7791,7 +7792,8 @@
                         |r $ {} (:at 1636795040733) (:by |B1y7Rc-Zz) (:text |from-ywd) (:type :leaf)
                         |v $ {} (:at 1636795718683) (:by |B1y7Rc-Zz) (:text |from-ymd) (:type :leaf)
                         |w $ {} (:at 1677347613109) (:by |B1y7Rc-Zz) (:text |parse-time) (:type :leaf)
-                        |x $ {} (:at 1677347813332) (:by |B1y7Rc-Zz) (:text |format-time) (:type :leaf)
+                        |x $ {} (:at 1677349717123) (:by |B1y7Rc-Zz) (:text |format-time) (:type :leaf)
+                        |y $ {} (:at 1677349719187) (:by |B1y7Rc-Zz) (:text |get-timestamp) (:type :leaf)
         :proc $ {} (:at 1500541255553) (:by nil) (:id |H1ubxLZx0SZ) (:type :expr)
           :data $ {}
       |app.twig.user $ {}

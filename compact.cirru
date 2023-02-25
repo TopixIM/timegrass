@@ -1093,17 +1093,17 @@
               -> tasks (.to-map)
                 .filter-kv $ fn (k task)
                   let
-                      t $ :finished-time task
+                      t $ &map:get task :finished-time
                     and
-                      > t $ .timestamp start-time
-                      < t $ .timestamp end-time
+                      &> t $ get-timestamp start-time
+                      &< t $ get-timestamp end-time
         |week-millis $ quote
           def week-millis $ * 7 24 3600 1000
       :ns $ quote
         ns app.twig.container $ :require
           [] app.twig.user :refer $ [] twig-user
           calcit.std.rand :refer $ rand-hex-color!
-          calcit.std.date :refer $ Date extract-time get-time! from-ywd from-ymd parse-time format-time
+          calcit.std.date :refer $ Date extract-time get-time! from-ywd from-ymd parse-time format-time get-timestamp
     |app.twig.user $ {}
       :defs $ {}
         |twig-user $ quote
