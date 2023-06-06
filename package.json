@@ -24,6 +24,6 @@
     "copy-text-to-clipboard": "^3.0.1",
     "feather-icons": "^4.29.0",
     "url-parse": "^1.5.10",
-    "vite": "^4.1.4"
+    "vite": "^4.1.5"
   }
 }
