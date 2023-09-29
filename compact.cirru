@@ -14,7 +14,8 @@
               :states $ {}
                 :cursor $ []
         |*store $ %{} :CodeEntry (:doc |)
-          :code $ quote (defatom *store nil)
+          :code $ quote
+            defatom *store $ :: :initial
         |connect! $ %{} :CodeEntry (:doc |)
           :code $ quote
             defn connect! () $ let
@@ -25,7 +26,9 @@
                 if config/dev? (str "\"ws://" host "\":" port) "\"wss://timegrass.topix.im/ws"
                 {}
                   :on-open $ fn (event) (simulate-login!)
-                  :on-close $ fn (event) (reset! *store nil) (js/console.error "\"Lost connection!")
+                  :on-close $ fn (event)
+                    reset! *store $ :: :offline
+                    js/console.error "\"Lost connection!"
                   :on-data on-server-data
         |dispatch! $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -48,7 +51,12 @@
               add-watch *store :changes $ fn (store prev) (render-app!)
               add-watch *states :changes $ fn (states prev) (render-app!)
               on-page-touch $ fn ()
-                if (nil? @*store) (connect!)
+                if
+                  = @*store $ :: :offline
+                  connect!
+              visibility-heartbeat $ fn ()
+                if (map? @*store)
+                  ws-send! $ :: :effect/ping
               println "\"App started!"
         |mount-target $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -56,11 +64,12 @@
         |on-server-data $ %{} :CodeEntry (:doc |)
           :code $ quote
             defn on-server-data (data)
-              tag-match data $ 
-                :patch changes
-                do
-                  when config/dev? $ js/console.log "\"Changes" changes
-                  reset! *store $ patch-twig @*store changes
+              tag-match data
+                  :patch changes
+                  do
+                    when config/dev? $ js/console.log "\"Changes" changes
+                    reset! *store $ patch-twig @*store changes
+                (:effect/pong) :ok
         |reload! $ %{} :CodeEntry (:doc |)
           :code $ quote
             defn reload! () $ if
@@ -93,7 +102,7 @@
             app.config :as config
             ws-edn.client :refer $ ws-connect! ws-send!
             recollect.patch :refer $ patch-twig
-            cumulo-util.core :refer $ on-page-touch
+            cumulo-util.core :refer $ on-page-touch visibility-heartbeat
             "\"url-parse" :default url-parse
             "\"bottom-tip" :default hud!
             "\"./calcit.build-errors" :default client-errors
@@ -104,12 +113,12 @@
         |comp-container $ %{} :CodeEntry (:doc |)
           :code $ quote
             defcomp comp-container (states store)
-              let
-                  state $ :data states
-                  session $ :session store
-                  router $ :router store
-                  router-data $ :data router
-                if (nil? store) (comp-offline)
+              case-default store
+                let
+                    state $ :data states
+                    session $ :session store
+                    router $ :router store
+                    router-data $ :data router
                   div
                     {} $ :class-name css-container
                     comp-navigation (:logged-in? store) (:count store) (:name router)
@@ -133,23 +142,28 @@
                       {}
                       fn (info d!) (d! :session/remove-message info)
                     when dev? $ comp-reel (:reel-length store) ({})
+                (:: :initial) (comp-offline :initial)
+                (:: :offline) (comp-offline :offline)
         |comp-offline $ %{} :CodeEntry (:doc |)
           :code $ quote
-            defcomp comp-offline () $ div
-              {} $ :class-name css-offline
-              div $ {}
-                :style $ {} (:height 0)
-              div $ {}
-                :style $ {}
-                  :background-image $ str "\"url(" (:icon config/site) "\")"
-                  :width 128
-                  :height 128
-                  :background-size :contain
-              span
-                {}
-                  :style $ {} (:cursor :pointer)
-                  :on-click $ fn (e d!) (d! :effect/connect nil)
-                <> "|Socket broken! Click to retry." $ {} (:font-family ui/font-fancy) (:font-weight 100) (:font-size 24)
+            defcomp comp-offline (state)
+              div
+                {} $ :class-name css-offline
+                div $ {}
+                  :style $ {} (:height 0)
+                div $ {}
+                  :style $ {}
+                    :background-image $ str "\"url(" (:icon config/site) "\")"
+                    :width 128
+                    :height 128
+                    :background-size :contain
+                span
+                  {}
+                    :style $ {} (:cursor :pointer)
+                    :on-click $ fn (e d!) (d! :effect/connect nil)
+                  <>
+                    if (= :initial state) "\"Loading..." "|Socket broken! Click to retry."
+                    {} (:font-family ui/font-fancy) (:font-weight 100) (:font-size 24)
         |comp-status-color $ %{} :CodeEntry (:doc |)
           :code $ quote
             defcomp comp-status-color (color)
@@ -987,8 +1001,12 @@
                   op-id $ generate-id!
                   op-time $ get-timestamp (get-time!)
                 if config/dev? $ println "\"Dispatch!" (str op) sid
-                if (= op :effect/persist) (persist-db!)
-                  reset! *reel $ reel-reducer @*reel updater op sid op-id op-time config/dev?
+                tag-match op
+                    :effect/persist
+                    persist-db!
+                  (:effect/ping)
+                    wss-send! sid $ format-cirru-edn (:: :effect/pong)
+                  _ $ reset! *reel (reel-reducer @*reel updater op sid op-id op-time config/dev?)
         |get-backup-path! $ %{} :CodeEntry (:doc |)
           :code $ quote
             defn get-backup-path! () $ let
