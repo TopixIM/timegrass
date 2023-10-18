@@ -60,7 +60,7 @@
               println "\"App started!"
         |mount-target $ %{} :CodeEntry (:doc |)
           :code $ quote
-            def mount-target $ .querySelector js/document "\".app"
+            def mount-target $ js/document.querySelector "\".app"
         |on-server-data $ %{} :CodeEntry (:doc |)
           :code $ quote
             defn on-server-data (data)
@@ -696,12 +696,18 @@
                         &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
                           .show create-plugin d! $ fn (result) (d! :task/create-working result)
+                      comp-global-keydown ({})
+                        fn (e d!)
+                          if
+                            and (:meta? e)
+                              = "\"b" $ :key e
+                            .show create-plugin d! $ fn (result) (d! :task/create-working result)
                       div
                         {}
                           :class-name $ str-spaced css/row-middle css/font-fancy
                           :style $ {}
                             :color $ hsl 0 0 60
-                        <> $ .format (dayjs today) "\"ddd"
+                        <> $ .!format (dayjs today) "\"ddd"
                         =< 8 nil
                         <> $ str
                           .!week $ dayjs today
@@ -867,6 +873,7 @@
             feather.core :refer $ comp-i comp-icon
             "\"dayjs" :default dayjs
             "\"copy-text-to-clipboard" :default copy!
+            respo.comp.global-keydown :refer $ comp-global-keydown
     |app.comp.profile $ %{} :FileEntry
       :defs $ {}
         |comp-profile $ %{} :CodeEntry (:doc |)
