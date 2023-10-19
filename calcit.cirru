@@ -2169,7 +2169,7 @@
                                                                           |T $ %{} :Leaf (:at 1572973338571) (:by |B1y7Rc-Zz) (:text |<>)
                                                                           |j $ %{} :Expr (:at 1572973338571) (:by |B1y7Rc-Zz)
                                                                             :data $ {}
-                                                                              |T $ %{} :Leaf (:at 1572973338571) (:by |B1y7Rc-Zz) (:text |.format)
+                                                                              |T $ %{} :Leaf (:at 1697707433189) (:by |B1y7Rc-Zz) (:text |.!format)
                                                                               |j $ %{} :Leaf (:at 1572973338571) (:by |B1y7Rc-Zz) (:text |the-day)
                                                                               |r $ %{} :Leaf (:at 1572973338571) (:by |B1y7Rc-Zz) (:text "|\"ddd")
                                                                       |v $ %{} :Expr (:at 1572973338571) (:by |B1y7Rc-Zz)
@@ -2182,7 +2182,7 @@
                                                                           |T $ %{} :Leaf (:at 1572973338571) (:by |B1y7Rc-Zz) (:text |<>)
                                                                           |j $ %{} :Expr (:at 1572973338571) (:by |B1y7Rc-Zz)
                                                                             :data $ {}
-                                                                              |T $ %{} :Leaf (:at 1572973338571) (:by |B1y7Rc-Zz) (:text |.format)
+                                                                              |T $ %{} :Leaf (:at 1697707434803) (:by |B1y7Rc-Zz) (:text |.!format)
                                                                               |j $ %{} :Leaf (:at 1572973338571) (:by |B1y7Rc-Zz) (:text |the-day)
                                                                               |r $ %{} :Leaf (:at 1572973338571) (:by |B1y7Rc-Zz) (:text "|\"MM-DD")
                                                           |v $ %{} :Expr (:at 1572973338571) (:by |B1y7Rc-Zz)
@@ -2662,8 +2662,7 @@
                           |r $ %{} :Leaf (:at 1500541010211) (:by |root) (:text |password)
                   |v $ %{} :Expr (:at 1500541010211) (:by nil)
                     :data $ {}
-                      |T $ %{} :Leaf (:at 1500541010211) (:by |root) (:text |.setItem)
-                      |j $ %{} :Leaf (:at 1500541010211) (:by |root) (:text |js/localStorage)
+                      |j $ %{} :Leaf (:at 1697707420035) (:by |B1y7Rc-Zz) (:text |js/localStorage.setItem)
                       |r $ %{} :Expr (:at 1500541010211) (:by nil)
                         :data $ {}
                           |T $ %{} :Leaf (:at 1500541010211) (:by |root) (:text |:storage-key)

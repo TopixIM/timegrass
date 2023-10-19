@@ -323,9 +323,9 @@
                                     {} $ :class-name css/row-parted
                                     span
                                       {} $ :class-name css/font-fancy
-                                      <> $ .format the-day "\"ddd"
+                                      <> $ .!format the-day "\"ddd"
                                       =< 12 nil
-                                      <> $ .format the-day "\"MM-DD"
+                                      <> $ .!format the-day "\"MM-DD"
                                 =< nil 4
                                 list-> ({})
                                   -> task-list
@@ -400,7 +400,7 @@
             defn on-submit (username password signup?)
               fn (e dispatch!)
                 dispatch! (if signup? :user/sign-up :user/log-in) ([] username password)
-                .setItem js/localStorage (:storage-key config/site)
+                js/localStorage.setItem (:storage-key config/site)
                   format-cirru-edn $ [] username password
       :ns $ %{} :CodeEntry (:doc |)
         :code $ quote

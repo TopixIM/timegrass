@@ -4,7 +4,7 @@
 
 "@calcit/procs@^0.8.9":
   version "0.8.9"
-  resolved "https://registry.yarnpkg.com/@calcit/procs/-/procs-0.8.9.tgz#090d18aba5a9f3d20fa562d34f5640de764934f1"
+  resolved "https://registry.npmmirror.com/@calcit/procs/-/procs-0.8.9.tgz#090d18aba5a9f3d20fa562d34f5640de764934f1"
   integrity sha512-xG7gmTZv+FUwNd592n84Lo2jTjvVSY18fJwPy9R55qP3AJFnKQkD+UjqNo9EKffWZKWEF3jAkkOMfuRNQMmeag==
   dependencies:
     "@calcit/ternary-tree" "0.0.23"
@@ -166,7 +166,7 @@ copy-text-to-clipboard@^3.2.0:
 
 core-js@^3.1.3:
   version "3.33.0"
-  resolved "https://registry.yarnpkg.com/core-js/-/core-js-3.33.0.tgz#70366dbf737134761edb017990cf5ce6c6369c40"
+  resolved "https://registry.npmmirror.com/core-js/-/core-js-3.33.0.tgz#70366dbf737134761edb017990cf5ce6c6369c40"
   integrity sha512-HoZr92+ZjFEKar5HS6MC776gYslNOKHt75mEBKWKnPeFDpZ6nH5OeF3S6HFT1mUAUZKrzkez05VboaX8myjSuw==
 
 dayjs@^1.11.10:
@@ -273,7 +273,7 @@ nanoid@^4.0.1:
 
 nanoid@^5.0.2:
   version "5.0.2"
-  resolved "https://registry.yarnpkg.com/nanoid/-/nanoid-5.0.2.tgz#97588ebc70166d0feaf73ccd2799bb4ceaebf692"
+  resolved "https://registry.npmmirror.com/nanoid/-/nanoid-5.0.2.tgz#97588ebc70166d0feaf73ccd2799bb4ceaebf692"
   integrity sha512-2ustYUX1R2rL/Br5B/FMhi8d5/QzvkJ912rBYxskcpu0myTHzSZfTr1LAS2Sm7jxRUObRrSBFoyzwAhL49aVSg==
 
 next-tick@^0.2.2:
@@ -351,7 +351,7 @@ virtual-dom@^2.1.1:
 
 vite@^4.5.0:
   version "4.5.0"
-  resolved "https://registry.yarnpkg.com/vite/-/vite-4.5.0.tgz#ec406295b4167ac3bc23e26f9c8ff559287cff26"
+  resolved "https://registry.npmmirror.com/vite/-/vite-4.5.0.tgz#ec406295b4167ac3bc23e26f9c8ff559287cff26"
   integrity sha512-ulr8rNLA6rkyFAlVWw2q5YJ91v098AFQ2R0PRFwPzREXOUJQPtFUG0t+/ZikhaOCDqFoDhN6/v8Sq0o4araFAw==
   dependencies:
     esbuild "^0.18.10"
