@@ -700,7 +700,7 @@
                         fn (e d!)
                           if
                             and (:meta? e)
-                              = "\"b" $ :key e
+                              = "\"i" $ :key e
                             .show create-plugin d! $ fn (result) (d! :task/create-working result)
                       div
                         {}
