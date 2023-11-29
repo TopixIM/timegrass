@@ -520,7 +520,7 @@
                   div
                     {} $ :class-name css/row-parted
                     <>
-                      -> (:time note) dayjs $ .format "\"HH:mm"
+                      -> (:time note) dayjs $ .!format "\"HH:mm"
                       {} (:font-family ui/font-fancy)
                         :color $ hsl 0 0 70
                         :font-size 12
@@ -614,7 +614,7 @@
                             .group-by $ fn (pair)
                               ->
                                 :time $ last pair
-                                , dayjs $ .format "\"MM-DD"
+                                , dayjs $ .!format "\"MM-DD"
                             .to-list
                             .sort $ fn (x y)
                               &compare (first y) (first x)
@@ -627,7 +627,7 @@
                                 div
                                   {} (:class-name css/font-fancy)
                                     :style $ {} (:font-size 14) (:font-weight 500)
-                                  <> $ -> (str year "\"-" date) dayjs (.format "\"ddd")
+                                  <> $ -> (str year "\"-" date) dayjs (.!format "\"ddd")
                                   =< 12 nil
                                   <> $ str date
                                 list->
