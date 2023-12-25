@@ -2865,35 +2865,7 @@
                                                   |n $ %{} :Expr (:at 1677346351618) (:by |B1y7Rc-Zz)
                                                     :data $ {}
                                                       |T $ %{} :Leaf (:at 1677346355200) (:by |B1y7Rc-Zz) (:text |week-date)
-                                                      |b $ %{} :Expr (:at 1677346357166) (:by |B1y7Rc-Zz)
-                                                        :data $ {}
-                                                          |T $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |if)
-                                                          |b $ %{} :Expr (:at 1677346357166) (:by |B1y7Rc-Zz)
-                                                            :data $ {}
-                                                              |T $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |and)
-                                                              |b $ %{} :Expr (:at 1677346357166) (:by |B1y7Rc-Zz)
-                                                                :data $ {}
-                                                                  |T $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |=)
-                                                                  |b $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |month)
-                                                                  |h $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |11)
-                                                              |h $ %{} :Expr (:at 1677346357166) (:by |B1y7Rc-Zz)
-                                                                :data $ {}
-                                                                  |T $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |>)
-                                                                  |b $ %{} :Expr (:at 1677346357166) (:by |B1y7Rc-Zz)
-                                                                    :data $ {}
-                                                                      |T $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |.!date)
-                                                                      |b $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |now)
-                                                                  |h $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |25)
-                                                          |h $ %{} :Expr (:at 1677346357166) (:by |B1y7Rc-Zz)
-                                                            :data $ {}
-                                                              |T $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |.!week)
-                                                              |b $ %{} :Expr (:at 1677346357166) (:by |B1y7Rc-Zz)
-                                                                :data $ {}
-                                                                  |T $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |.!subtract)
-                                                                  |b $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |now)
-                                                                  |h $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text |7)
-                                                                  |l $ %{} :Leaf (:at 1677346357166) (:by |B1y7Rc-Zz) (:text "|\"day")
-                                                          |l $ %{} :Leaf (:at 1677346381204) (:by |B1y7Rc-Zz) (:text |now)
+                                                      |X $ %{} :Leaf (:at 1703522843408) (:by |B1y7Rc-Zz) (:text |now)
                                               |T $ %{} :Expr (:at 1557586164005) (:by |B1y7Rc-Zz)
                                                 :data $ {}
                                                   |T $ %{} :Leaf (:at 1557586164005) (:by |B1y7Rc-Zz) (:text |{})

@@ -433,11 +433,7 @@
                         :data $ let
                             now $ dayjs
                             month $ .!month now
-                            week-date $ if
-                              and (= month 11)
-                                > (.!date now) 25
-                              .!week $ .!subtract now 7 "\"day"
-                              , now
+                            week-date now
                           {}
                             :year $ .!year now
                             :week $ .!week week-date
