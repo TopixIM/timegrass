@@ -238,15 +238,14 @@
                   comp-modal-menu
                     {} (:title "\"Operations")
                       :style $ {} (:width 320)
-                      :items $ []
-                        {} (:value :put-back) (:display "\"Put back")
+                      :items $ [] (:: :item :put-back "\"Put back")
                     :show-menu? state
                     fn (d!)
                       d! cursor $ assoc state :show-menu? false
                     fn (item d!)
                       d! cursor $ assoc state :show-menu? false
                       when
-                        = :put-back $ :value item
+                        = :put-back $ nth item 1
                         d! :task/put-back $ :id task
         |comp-history $ %{} :CodeEntry (:doc |)
           :code $ quote
@@ -777,21 +776,20 @@
                   comp-modal-menu
                     {} (:title "\"Operations")
                       :style $ {} (:width 320)
-                      :items $ []
-                        {} (:value :done) (:display "\"Done")
-                        {} (:value :pend)
-                          :display $ if (= mode :pending) "\"Do it now" "\"Do it later"
-                        {} (:value :touch) (:display "\"Up")
-                        {} (:value :copy) (:display "\"Copy")
-                        {} (:value :edit) (:display "\"Edit")
-                        {} (:value :remove) (:display "\"Remove")
+                      :items $ [] (:: :item :done "\"Done")
+                        :: :item :pend $ if (= mode :pending) "\"Do it now" "\"Do it later"
+                        :: :item :touch "\"Up"
+                        :: :item :copy "\"Copy"
+                        :: :item :edit "\"Edit"
+                        :: :item :remove "\"Remove"
                     :menu? state
                     fn (d!)
                       d! cursor $ assoc state :menu? false
                     fn (item d!)
                       let
                           new-state $ assoc state :menu? false
-                          result $ :value item
+                          result $ nth item 1
+                        js/console.log item
                         case-default result (d! cursor new-state)
                           :done $ do
                             d! :task/finish-working $ :id task
