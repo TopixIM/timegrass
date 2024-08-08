@@ -19,11 +19,11 @@ jobs:
 
     - uses: calcit-lang/setup-cr@0.0.3
       with:
-        version: "0.8.59"
+        version: "0.9.1"
 
     - run: caps --ci && yarn && yarn compile-page && yarn release-page
 
-    - run: cr --entry server --emit-ir -1
+    - run: cr --entry server -1 ir
       name: Check server code
 
     - run: mkdir -p dist-server && cp compact.cirru dist-server && cp package.json dist-server/
