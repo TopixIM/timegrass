@@ -624,7 +624,7 @@
         |comp-container $ %{} :CodeEntry (:doc |)
           :code $ %{} :Expr (:at 1500541010211) (:by nil)
             :data $ {}
-              |T $ %{} :Leaf (:at 1500541010211) (:by |root) (:text |defcomp)
+              |T $ %{} :Leaf (:at 1727010173485) (:by |B1y7Rc-Zz) (:text |defn)
               |j $ %{} :Leaf (:at 1500541010211) (:by |root) (:text |comp-container)
               |r $ %{} :Expr (:at 1500541010211) (:by nil)
                 :data $ {}

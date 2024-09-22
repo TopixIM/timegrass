@@ -112,7 +112,7 @@
       :defs $ {}
         |comp-container $ %{} :CodeEntry (:doc |)
           :code $ quote
-            defcomp comp-container (states store)
+            defn comp-container (states store)
               case-default store
                 let
                     state $ :data states
