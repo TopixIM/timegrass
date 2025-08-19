@@ -1,10 +1,10 @@
 
-{} (:calcit-version |0.9.16)
+{} (:calcit-version |0.9.18)
   :dependencies $ {} (|Cumulo/cumulo-reel.calcit |main)
     |Cumulo/cumulo-util.calcit |main
     |Respo/alerts.calcit |main
     |Respo/respo-feather.calcit |main
-    |Respo/respo-markdown.calcit |0.4.9
+    |Respo/respo-markdown.calcit |0.4.11
     |Respo/respo-message.calcit |main
     |Respo/respo-ui.calcit |0.6.3
     |Respo/respo.calcit |0.16.16
