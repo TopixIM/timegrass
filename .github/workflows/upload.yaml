@@ -25,9 +25,12 @@ jobs:
     - uses: calcit-lang/setup-cr@0.0.8
 
 
-    - run: caps --ci && yarn && yarn compile-page && yarn release-page
+    - name: Install deps
+      run: caps --ci && yarn install --immutable
 
-    - run: cr --entry server -1 ir
+    - run: yarn compile-page && yarn release-page
+
+    - run: cr --entry server ir
       name: Check server code
 
     - run: mkdir -p dist-server && cp compact.cirru dist-server && cp package.json dist-server/
