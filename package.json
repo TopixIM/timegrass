@@ -25,6 +25,6 @@
     "copy-text-to-clipboard": "^3.2.2",
     "feather-icons": "^4.29.2",
     "url-parse": "^1.5.10",
-    "vite": "^8.0.2"
+    "vite": "^8.0.5"
   }
 }
