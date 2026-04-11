@@ -36,6 +36,24 @@ jobs:
     - run: mkdir -p dist-server && cp compact.cirru dist-server && cp package.json dist-server/
       name: Copy server scripts
 
+    - name: Check deploy key availability
+      run: |
+        if [ -z "$DEPLOY_KEY" ]; then
+          echo "ERROR: DEPLOY_KEY (rsync_private_key) is empty or not available."
+          echo ""
+          echo "This is likely because this workflow was triggered by Dependabot."
+          echo "Dependabot PRs can only access Dependabot secrets, not regular repository secrets."
+          echo "See: https://docs.github.com/en/code-security/dependabot/working-with-dependabot/automating-dependabot-with-github-actions#accessing-secrets"
+          echo ""
+          echo "To fix: either add 'rsync_private_key' under Settings > Secrets > Dependabot,"
+          echo "or restrict deploy steps to push events only (not pull_request)."
+          exit 1
+        else
+          echo "DEPLOY_KEY is present. Proceeding with deployment."
+        fi
+      env:
+        DEPLOY_KEY: ${{secrets.rsync_private_key}}
+
     - name: Upload web assets
       id: deploy
       uses: Pendect/action-rsyncer@v2.0.0
