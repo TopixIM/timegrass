@@ -8,8 +8,8 @@
     |Respo/respo-message.calcit |0.0.9
     |Respo/respo-ui.calcit |0.6.4
     |Respo/respo.calcit |0.16.45
-    |calcit-lang/calcit-wss |0.2.8
-    |calcit-lang/calcit.std |0.2.10
+    |calcit-lang/calcit-wss |0.2.9
+    |calcit-lang/calcit.std |0.2.11
     |calcit-lang/lilac |0.5.1
     |calcit-lang/memof |0.0.23
     |calcit-lang/recollect |0.0.20
