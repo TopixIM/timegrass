@@ -605,5 +605,11 @@ When adding a feature:
 
 **Further Reading**:
 
-- UI components → [Respo.md](./llms/Respo.md)
 - Template source → https://github.com/Cumulo/calcium-workflow
+
+Make sure read
+
+```bash
+cr docs agents --full
+cr docs read respo.calcit --full
+```

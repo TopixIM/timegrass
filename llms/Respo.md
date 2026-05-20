@@ -171,12 +171,12 @@ cr cirru parse -O 'defn f (x) (+ x 1)'
 
 ```bash
 # Get project configuration (init-fn, reload-fn, version)
-cr query config
+cr config show
 
 # Set project configuration
-cr edit config version "0.16.22"
-cr edit config init-fn "respo.main/main!"
-cr edit config reload-fn "respo.main/reload!"
+cr config version "0.16.22"
+cr config init-fn "respo.main/main!"
+cr config reload-fn "respo.main/reload!"
 ```
 
 ### 5. Workflow: Building From Scratch
@@ -728,12 +728,10 @@ cr query ns namespace-name  # Check imports
 ### ⚠️ Critical Rules
 
 1. **NEVER directly edit `calcit.cirru` or `compact.cirru`** with text editors
-
    - Use `cr edit` commands instead
    - These are serialized AST structures, not human-readable code
 
 2. **ALWAYS use relative paths for documentation links**
-
    - Use `../` and `../../` for navigation
    - This allows easy file discovery for LLM tools
 
@@ -902,12 +900,10 @@ div ({})
 ## 4. CLI 调试技巧
 
 - **检查代码**: `cr js --check-only`
-
   - 这是一个非常快速的检查命令，能发现未定义的变量 (Warnings) 和语法错误，而不会生成 JS 文件。
   - **务必关注 Warnings**: 很多运行时错误（如 `unknown head`）都是因为使用了未定义的 Symbol（可能是忘记加 `|` 前缀的字符串）。
 
 - **查看节点结构**: `cr tree show <ns/def> -p <path>`
-
   - 在修改前，先查看目标节点的结构（是 `list` 还是 `leaf`），确认路径是否正确。
 
 - **精确修改**: `cr tree replace`
