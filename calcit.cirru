@@ -1,6 +1,6 @@
 
 {} (:about "|Machine-generated snapshot. Do not edit directly — changes will be overwritten. Use `cr query` to inspect and `cr edit`/`cr tree` to modify. Run `cr docs agents --full` first. Manual edits must follow format and schema conventions, then run `cr edit format`.") (:package |app)
-  :configs $ {} (:init-fn |app.client/main!) (:reload-fn |app.client/reload!) (:version |0.0.0)
+  :configs $ {} (:init-fn |app.client/main!) (:reload-fn |app.client/reload!) (:version |0.1.0)
     :modules $ [] |lilac/ |recollect/ |memof/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |respo-feather.calcit/ |alerts.calcit/ |respo-markdown.calcit/ |respo.calcit/
   :entries $ {}
     :server $ {} (:init-fn |app.server/main!) (:reload-fn |app.server/reload!) (:version |0.0.0)
@@ -45,7 +45,7 @@
                 (:effect/connect) (connect!)
                 _ $ ws-send! op
           :examples $ []
-        |main! $ %{} :CodeEntry (:doc |) (:schema :dynamic)
+        |main! $ %{} :CodeEntry (:doc |)
           :code $ quote
             defn main! () (.!extend dayjs week-of-year)
               println "|Running mode:" $ if config/dev? |dev |release
@@ -63,6 +63,10 @@
                   ws-send! $ :: :effect/ping
               println "|App started!"
           :examples $ []
+          :schema $ :: :fn
+            {} (:return :dynamic)
+              :args $ []
+              :features $ #{} :js-ffi
         |mount-target $ %{} :CodeEntry (:doc |) (:schema :dynamic)
           :code $ quote
             def mount-target $ js/document.querySelector |.app
@@ -237,7 +241,7 @@
                   {} (:class-name css-done-task)
                     :style $ merge
                       {} $ :padding "|4px 8px"
-                      when (:show-menu? state)
+                      or (:show-menu? state)
                         {} $ :background-color (hsl 0 0 94)
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :show-menu? true
@@ -392,14 +396,16 @@
                           :value $ :username state
                           :style ui/input
                           :on-input $ fn (e d!)
-                            d! cursor $ assoc state :username (:value e)
+                            d! cursor $ assoc state :username
+                              str $ :value e
                       =< nil 8
                       div ({})
                         input $ {} (:placeholder |Password)
                           :value $ :password state
                           :style ui/input
                           :on-input $ fn (e d!)
-                            d! cursor $ assoc state :password (:value e)
+                            d! cursor $ assoc state :password
+                              str $ :value e
                     =< nil 8
                     div
                       {} $ :style
@@ -794,8 +800,9 @@
                 div
                   {} (:class-name css-task-base)
                     :style $ merge
-                      when
+                      or
                         or $ :menu? state
+                        {}
                         {} $ :background-color (hsl 0 0 94)
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :menu? true
