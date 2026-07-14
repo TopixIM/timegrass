@@ -7,7 +7,7 @@
     |Respo/respo-markdown.calcit |0.4.14
     |Respo/respo-message.calcit |0.0.10
     |Respo/respo-ui.calcit |0.6.5
-    |Respo/respo.calcit |0.16.49
+    |Respo/respo.calcit |0.16.50
     |calcit-lang/calcit-wss |0.2.9
     |calcit-lang/calcit.std |0.2.12
     |calcit-lang/lilac |0.5.1
