@@ -241,8 +241,9 @@
                   {} (:class-name css-done-task)
                     :style $ merge
                       {} $ :padding "|4px 8px"
-                      or (:show-menu? state)
+                      if (:show-menu? state)
                         {} $ :background-color (hsl 0 0 94)
+                        {}
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :show-menu? true
                   <>
@@ -800,10 +801,9 @@
                 div
                   {} (:class-name css-task-base)
                     :style $ merge
-                      or
-                        or $ :menu? state
-                        {}
+                      if (:menu? state)
                         {} $ :background-color (hsl 0 0 94)
+                        {}
                     :on-click $ fn (e d!)
                       d! cursor $ assoc state :menu? true
                     :on $ {}
