@@ -3,9 +3,13 @@
   "version": "0.1.0",
   "packageManager": "yarn@4.12.0",
   "description": "Cumulo Workflow",
+  "engines": {
+    "node": ">=22.12.0"
+  },
   "main": "index.js",
   "scripts": {
     "compile-page": "cr js",
+    "dev-page": "vite --force",
     "release-page": "vite build --base=./",
     "watch-page": "cr js -w"
   },
@@ -16,7 +20,7 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "@calcit/procs": "^0.12.50",
+    "@calcit/procs": "0.12.59",
     "dayjs": "^1.11.19",
     "nanoid": "^5.1.6"
   },
