@@ -22,7 +22,7 @@
   "dependencies": {
     "@calcit/procs": "0.12.59",
     "dayjs": "^1.11.19",
-    "nanoid": "^5.1.6"
+    "nanoid": "^5.1.16"
   },
   "devDependencies": {
     "bottom-tip": "^0.1.5",
