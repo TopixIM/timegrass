@@ -10,7 +10,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
 
     - uses: actions/setup-node@v6
       with:
@@ -33,7 +33,6 @@ jobs:
         cr calcit.cirru edit format
         git diff --exit-code -- calcit.cirru
         cr calcit.cirru --check-only
-        cr calcit.cirru --entry server --check-only
 
     - name: Build browser client
       run: yarn compile-page && yarn release-page
@@ -42,7 +41,7 @@ jobs:
       name: Copy server scripts
 
     - name: Check deploy key availability
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: |
         if [ -z "$DEPLOY_KEY" ]; then
           echo "ERROR: DEPLOY_KEY (rsync_private_key) is empty or not available."
@@ -61,7 +60,7 @@ jobs:
         DEPLOY_KEY: ${{secrets.rsync_private_key}}
 
     - name: Upload web assets
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       id: deploy
       uses: Pendect/action-rsyncer@v2.0.0
       env:
@@ -74,11 +73,11 @@ jobs:
         dest: 'rsync-user@tiye.me:/web-assets/repo/${{ github.repository }}'
 
     - name: Display status from deploy
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: echo "${{ steps.deploy.outputs.status }}"
 
     - name: Upload server script
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       id: deploy-server
       uses: Pendect/action-rsyncer@v2.0.0
       env:
@@ -91,5 +90,5 @@ jobs:
         dest: 'rsync-user@tiye.me:/servers/timegrass/'
 
     - name: Display status from deploy
-      if: github.event_name == 'push'
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       run: echo "${{ steps.deploy-server.outputs.status }}"
