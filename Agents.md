@@ -42,8 +42,8 @@ app.comp.*          # ← ADD your UI components here
 #### 1. **Update Schema** (Define data structure)
 
 ```bash
-cr query def app.schema/user
-cr tree append-child app.schema/user -p "1" -e ":tasks (noted task ({}))"
+calcit query def app.schema/user
+calcit tree append-child app.schema/user --path "1" --code ':tasks (noted task ({}))'
 ```
 
 Add to `app.schema` namespace if needed:
@@ -60,7 +60,7 @@ def task
 #### 2. **Create Updater** (Business logic - pure function)
 
 ```bash
-cr edit def app.updater.task/add-task -e \
+calcit edit def app.updater.task/add-task --code \
   'defn add-task (db title sid op-id op-time)
     let
         user-id $ get-in db ([] :sessions sid :user-id)
@@ -78,18 +78,18 @@ cr edit def app.updater.task/add-task -e \
 
 ```bash
 # Find insertion point
-cr query def app.updater/updater
-cr tree show app.updater/updater -p "2"
+calcit query def app.updater/updater
+calcit tree show app.updater/updater --path "2"
 
 # Add new branch
-cr tree insert-before app.updater/updater -p "2,8" -e \
+calcit tree insert-before app.updater/updater --path "2,8" --code \
   '(:task/add title) (task/add-task db title sid op-id op-time)'
 ```
 
 #### 4. **Update Twig** (Control what clients see)
 
 ```bash
-cr query def app.twig.container/twig-container
+calcit query def app.twig.container/twig-container
 # Then add/modify twig logic
 ```
 
@@ -177,8 +177,8 @@ defn twig-your-feature (db session)
 **Find location**:
 
 ```bash
-cr query def app.updater/updater
-cr tree show app.updater/updater -p "2"  # tag-match cases
+calcit query def app.updater/updater
+calcit tree show app.updater/updater --path "2"  # tag-match cases
 ```
 
 **Add case** (use same structure as existing ones):
@@ -197,26 +197,26 @@ tag-match op
 ### A. Add Field to Existing Schema
 
 ```bash
-cr tree append-child app.schema/user -p "1" -e ":new-field default-value"
+calcit tree append-child app.schema/user --path "1" --code ':new-field default-value'
 ```
 
 ### B. Modify Updater Logic
 
 ```bash
 # 1. Find and read current code
-cr query def app.updater.user/log-in
+calcit query def app.updater.user/log-in
 
 # 2. Locate exact position
-cr tree show app.updater.user/log-in -p "2"
+calcit tree show app.updater.user/log-in --path "2"
 
 # 3. Replace specific node
-cr tree replace app.updater.user/log-in -p "2,1,0" -e 'new-logic here'
+calcit tree replace app.updater.user/log-in --path "2,1,0" --code 'new-logic here'
 ```
 
 ### C. Add New Twig Projection
 
 ```bash
-cr edit def app.twig.user/twig-user-profile -e \
+calcit edit def app.twig.user/twig-user-profile --code \
   'defn twig-user-profile (user)
     {}
       :id $ :id user
@@ -227,7 +227,7 @@ cr edit def app.twig.user/twig-user-profile -e \
 ### D. Wire New Operation
 
 ```bash
-cr tree insert-after app.updater/updater -p "2,5" -e \
+calcit tree insert-after app.updater/updater --path "2,5" --code \
   '(:new/operation data) (new-updater db data sid op-id op-time)'
 ```
 
@@ -298,29 +298,29 @@ defn good-twig-container (db session)
 
 ```bash
 # View schema
-cr query def app.schema/database
+calcit query def app.schema/database
 
 # Trace updater flow
-cr query usages app.updater/updater
+calcit query usages app.updater/updater
 
 # Find where something is defined
-cr query find your-function-name
+calcit query find your-function-name
 
 # See all operations
-cr query search app.updater/updater -p "tag-match" -l
+calcit query search app.updater/updater --pattern "tag-match" --limit 100
 ```
 
 ### Test Changes
 
 ```bash
 # Syntax check only (fast)
-cr --check-only
+calcit calcit.cirru --check-only
 
 # Run once and exit
-cr -1
+calcit calcit.cirru
 
 # Compile JS once
-cr -1 js
+calcit calcit.cirru js
 ```
 
 ### Server Logs (set `dev? true` in config)
@@ -416,20 +416,20 @@ dispatch! $ :: :router/change ({} (:name :profile))
 
 ```bash
 # Development cycle
-cr --check-only              # Fast syntax check
-cr -1                        # Run once
-cr js                        # Watch compile
-mode=dev cr --entry server   # Dev server
+calcit calcit.cirru --check-only              # Fast syntax check
+calcit calcit.cirru                         # Run once
+calcit calcit.cirru js                      # Compile once
+mode=dev calcit --entry server              # Dev server
 
 # Code exploration
-cr query def app.updater/updater
-cr query usages your-function
-cr query find symbol-name
+calcit query def app.updater/updater
+calcit query usages your-function
+calcit query find symbol-name
 
 # Code modification
-cr tree show path/to/func -p "2,1"
-cr tree replace path/to/func -p "2,1,0" -e 'new-code'
-cr edit def new/function -e 'defn ...'
+calcit tree show path/to/func --path "2,1"
+calcit tree replace path/to/func --path "2,1,0" --code 'new-code'
+calcit edit def new/function --code 'defn ...'
 ```
 
 ### Common Code Patterns
@@ -497,10 +497,10 @@ comp-messages (:messages session)
 ## Testing
 
 ```bash
-cr --check-only  # Syntax only (fast)
+calcit calcit.cirru --check-only  # Syntax only (fast)
 
-cr --check-only  # Syntax only (fast)
-cr -1            # Run full cycle once
+calcit calcit.cirru --check-only  # Syntax only (fast)
+calcit calcit.cirru                # Run full cycle once
 ```
 
 ---
@@ -576,7 +576,7 @@ When adding a feature:
 3. ✅ **Wire** - Add case to `app.updater/updater` tag-match
 4. ✅ **Twig** - Filter data by session in `app.twig.*`
 5. ✅ **UI** - Create Respo component in `app.comp.*`
-6. ✅ **Test** - `cr --check-only` before commit
+6. ✅ **Test** - `calcit calcit.cirru --check-only` before commit
 
 **Key Rules**:
 
@@ -584,7 +584,7 @@ When adding a feature:
 - Twigs must **filter by session** (never leak private data)
 - Always **dissoc :password** before sending to client
 - Use **`(:: :namespace/action args)`** for operations
-- Test with **`cr --check-only`** frequently
+- Test with **`calcit calcit.cirru --check-only`** frequently
 
 **Template handles** (don't need to modify often):
 
@@ -610,6 +610,6 @@ When adding a feature:
 Make sure read
 
 ```bash
-cr docs agents --full
-cr docs read respo.calcit --full
+calcit docs agents --full
+calcit docs read upgrade
 ```
