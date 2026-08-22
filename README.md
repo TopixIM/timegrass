@@ -21,7 +21,7 @@ yarn watch-page
 yarn dev-page
 
 # realtime server
-mode=dev cr calcit.cirru --entry server -w
+mode=dev calcit -w calcit.cirru --entry server
 ```
 
 `calcit.cirru` now uses explicit entries: the default browser entry runs in

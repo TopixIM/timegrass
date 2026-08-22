@@ -8,10 +8,10 @@
   },
   "main": "index.js",
   "scripts": {
-    "compile-page": "cr js",
+    "compile-page": "calcit calcit.cirru js",
     "dev-page": "vite --force",
     "release-page": "vite build --base=./",
-    "watch-page": "cr js -w"
+    "watch-page": "calcit -w calcit.cirru js"
   },
   "repository": {
     "type": "git",
@@ -20,7 +20,7 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "@calcit/procs": "^0.13.27",
+    "@calcit/procs": "^0.13.29",
     "dayjs": "^1.11.19",
     "nanoid": "^5.1.16"
   },

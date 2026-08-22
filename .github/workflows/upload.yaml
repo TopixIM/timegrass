@@ -22,7 +22,9 @@ jobs:
         corepack prepare yarn@4.12.0 --activate
         yarn --version
 
-    - uses: calcit-lang/setup-cr@0.0.9
+    - uses: calcit-lang/setup-calcit@v1
+      with:
+        tools: calcit,caps
 
 
     - name: Install deps
@@ -30,9 +32,9 @@ jobs:
 
     - name: Validate Calcit snapshot
       run: |
-        cr calcit.cirru edit format
+        calcit calcit.cirru edit format
         git diff --exit-code -- calcit.cirru
-        cr calcit.cirru --check-only
+        calcit calcit.cirru --check-only
 
     - name: Build browser client
       run: yarn compile-page && yarn release-page
