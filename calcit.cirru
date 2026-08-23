@@ -159,7 +159,7 @@
                     router $ if
                       map? $ &map:get store :router
                       &map:get store :router
-                      , &map:get session :router
+                      &map:get session :router
                     router-data $ &map:get router :data
                   div
                     {} $ :class-name css-container
