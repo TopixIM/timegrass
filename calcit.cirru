@@ -156,7 +156,10 @@
                 let
                     state $ &map:get states :data
                     session $ &map:get store :session
-                    router $ &map:get store :router
+                    router $ if
+                      map? $ &map:get store :router
+                      &map:get store :router
+                      , &map:get session :router
                     router-data $ &map:get router :data
                   div
                     {} $ :class-name css-container
@@ -1337,7 +1340,7 @@
               let
                   logged-in? $ some? (:user-id session)
                   router $ :router session
-                  base-data $ {} (:logged-in? logged-in?) (:session session)
+                  base-data $ {} (:logged-in? logged-in?) (:session session) (:router router)
                     :reel-length $ count records
                   user $ get-in db
                     [] :users $ :user-id session
