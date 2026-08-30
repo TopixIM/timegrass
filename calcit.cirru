@@ -28,16 +28,50 @@
             defatom *store $ :: :initial
           :examples $ []
           :schema $ :: 'Dynamic
+        '*sync-revision $ %{} 'CodeEntry (:doc |)
+          :code $ quote (defatom *sync-revision 0)
+          :examples $ []
+          :schema $ :: 'Ref 'Number
         '*ws-client $ %{} 'CodeEntry (:doc "|Current nominal ws-edn client retained across browser recovery events.")
           :code $ quote
             defatom *ws-client $ %none
           :examples $ []
           :schema $ :: 'Ref (:: 'Option 'ws-edn.client/WsClient)
+        'ClientPatchError $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defenum ClientPatchError (:revision-mismatch 'Number 'Number) (:invalid-patch 'recollect.patch/PatchError)
+          :examples $ []
+          :schema $ :: 'EnumDef
         'ConnectionRecoveryAction $ %{} 'CodeEntry (:doc "|Deterministic browser recovery choice.")
           :code $ quote
             defenum ConnectionRecoveryAction (:none) (:reconnect) (:connect)
           :examples $ []
           :schema $ :: 'EnumDef
+        'ack-sync! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn ack-sync! (revision)
+              ws-send! $ %:: schema/ClientMessage :sync/ack revision
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Number
+        'apply-server-patch! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn apply-server-patch! (base-revision revision changes)
+              match (validate-server-patch @*store @*sync-revision base-revision changes)
+                (:ok next-store)
+                  do (reset! *store next-store) (reset! *sync-revision revision) (ack-sync! revision)
+                (:err error)
+                  do
+                    match error
+                      (:revision-mismatch expected actual) (js/console.warn |Sync-revision-mismatch expected actual)
+                      (:invalid-patch patch-error)
+                        js/console.error |Failed-to-apply-server-patch $ patch-error-message patch-error
+                    request-snapshot!
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Number 'Number (:: 'List 'recollect.schema/change-op)
         'choose-recovery-action $ %{} 'CodeEntry (:doc "|Choose whether a visible online page should reconnect or create a client.")
           :code $ quote
             defn choose-recovery-action (connected? has-client? visible? online?)
@@ -69,34 +103,40 @@
                 host $ if (js-present? host-value) (unsafe-coerce host-value 'String) (unsafe-coerce js/location.hostname 'String)
                 port $ if (js-present? port-value) (unsafe-coerce port-value 'String)
                   str $ &map:get config/site :port
+              reset! *store $ :: :loading
               reset! *ws-client $ %some
                 ws-connect!
                   if config/dev? (str |ws:// host |: port) |wss://timegrass.topix.im/ws
                   {}
                     :on-open $ fn (event)
-                      do (reset! *connected? true) (simulate-login!)
+                      do (reset! *connected? true) (request-snapshot!) (send-activity!) (simulate-login!)
                     :on-close $ fn (event) (reset! *connected? false)
                       reset! *store $ :: :offline
                       js/console.error "|Lost connection!"
                     :on-data on-server-data
+                    :heartbeat-timeout-ms 75000
+                    :class-mapper $ {} (:ServerMessage schema/ServerMessage) (:change-op patch-schema/change-op)
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
               :args $ []
-              :features $ #{} :js-ffi
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defn dispatch! (op)
+            defn dispatch! (op ? op-data)
               when
-                and config/dev? $ not= (nth op 0) :states
-                js/console.log |Dispatch op
-              match op
-                (:states cursor s)
-                  reset! *states $ update-states @*states cursor s
-                (:effect/connect) (connect!)
-                _ $ ws-send! op
+                and config/dev? $ not= op :states
+                js/console.log |Dispatch op op-data
+              if (tag? op)
+                recur $ :: op op-data
+                match op
+                  (:states cursor s)
+                    reset! *states $ update-states @*states cursor s
+                  (:effect/connect) (connect!)
+                  _ $ ws-send! (%:: schema/ClientMessage :dispatch op)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'Dynamic)
+              :args $ [] 'app.schema/Op 'Dynamic
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn main! () $ do (.!extend dayjs week-of-year)
@@ -111,13 +151,9 @@
                   = @*store $ :: :offline
                   recover-connection!
               js/window.addEventListener |visibilitychange $ fn (event)
-                when @*connected? $ ws-send! (:: :effect/ping)
-                recover-connection!
-              js/window.addEventListener |online $ fn (event) (recover-connection!)
+                when @*connected? $ send-activity!
               visibility-heartbeat $ fn ()
-                when
-                  and @*connected? $ map? @*store
-                  ws-send! $ :: :effect/ping
+                when @*connected? $ ws-send! (%:: schema/ClientMessage :sync/heartbeat @*sync-revision)
               println "|App started!"
           :examples $ []
           :schema $ :: 'Fn
@@ -132,17 +168,21 @@
         'on-server-data $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn on-server-data (data)
-              match data
-                (:patch changes)
-                  do
-                    when config/dev? $ js/console.log |Changes changes
-                    reset! *store $ patch-twig @*store changes
-                (:effect/pong) &unit
+              match (schema/decode-server-message data)
+                (:ok message)
+                  match message
+                    (:snapshot revision store)
+                      do (reset! *store store) (reset! *sync-revision revision) (ack-sync! revision)
+                    (:patch base-revision revision changes)
+                      do
+                        when config/dev? $ js/console.log |Changes changes
+                        apply-server-patch! base-revision revision changes
+                    (:effect/pong) &unit
+                (:err error) (js/console.error "|Invalid server message:" error)
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
               :args $ [] 'Dynamic
-              :features $ #{} :js-ffi
         'recover-connection! $ %{} 'CodeEntry (:doc "|Apply the typed browser recovery policy to the retained ws-edn client.")
           :code $ quote
             defn recover-connection! () $ let
@@ -190,6 +230,22 @@
               , dispatch!
           :examples $ []
           :schema $ :: 'Dynamic
+        'request-snapshot! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn request-snapshot! () $ ws-send! (%:: schema/ClientMessage :sync/resume @*sync-revision)
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
+        'send-activity! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn send-activity! () $ if (= |visible js/document.visibilityState)
+              ws-send! $ %:: schema/ClientMessage :sync/active @*sync-revision
+              ws-send! $ %:: schema/ClientMessage :sync/idle @*sync-revision
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
         'simulate-login! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn simulate-login! () $ let
@@ -204,6 +260,57 @@
             {} (:return 'Unit)
               :args $ []
               :features $ #{} :js-ffi
+        'validate-server-patch $ %{} 'CodeEntry (:doc "|Apply one validated patch batch only when its base revision matches the local state.")
+          :code $ quote
+            defn validate-server-patch (store local-revision base-revision changes)
+              if (= base-revision local-revision)
+                match
+                  .apply-to
+                    assert-traits (patch-batch changes) PatchBatchOps
+                    , store
+                  (:ok next-store) (%ok next-store)
+                  (:err error)
+                    %err $ %:: ClientPatchError :invalid-patch error
+                %err $ %:: ClientPatchError :revision-mismatch base-revision local-revision
+          :examples $ []
+          :schema $ :: 'Fn
+            {}
+              :args $ [] 'T 'Number 'Number (:: 'List 'recollect.schema/change-op)
+              :generics $ [] 'T
+              :return $ :: 'Result 'T 'app.client/ClientPatchError
+          :tests $ []
+            %{} 'TestEntry (:name |accepts-valid-revisioned-patch)
+              :code $ quote
+                let
+                    store $ {} (:value 1)
+                    changes $ [] (%:: patch-schema/change-op :assoc :value 2)
+                  assert=
+                    %ok $ {} (:value 2)
+                    validate-server-patch store 7 7 changes
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-revision-mismatch)
+              :code $ quote
+                let
+                    store $ {} (:value 1)
+                    changes $ []
+                  assert=
+                    %err $ %:: ClientPatchError :revision-mismatch 8 7
+                    validate-server-patch store 7 8 changes
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-invalid-patch-atomically)
+              :code $ quote
+                let
+                    store $ {} (:stable 1)
+                    changes $ [] (%:: patch-schema/change-op :assoc :temporary 2)
+                      %:: patch-schema/change-op :update :missing $ %:: patch-schema/change-op :replace 3
+                    expected $ %err
+                      %:: ClientPatchError :invalid-patch $ %:: PatchError :missing-node
+                        [] $ %:: PatchPathSegment :field :missing
+                  assert= expected $ validate-server-patch store 9 9 changes
+                  assert=
+                    {} $ :stable 1
+                    , store
+              :tags $ #{} :client
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.client $ :require
@@ -213,13 +320,14 @@
             app.schema :as schema
             app.config :as config
             ws-edn.client :refer $ ws-connect! ws-send! ws-set-on-data! WsClientOps
-            recollect.patch :refer $ patch-twig
+            recollect.patch :refer $ patch-batch PatchBatchOps PatchError PatchPathSegment patch-error-message
             cumulo-util.core :refer $ on-page-touch visibility-heartbeat
             |url-parse :default url-parse
             |bottom-tip :default hud!
             |./calcit.build-errors :default client-errors
             |dayjs :default dayjs
             |dayjs/plugin/weekOfYear :default week-of-year
+            recollect.schema :as patch-schema
     'app.comp.container $ %{} 'FileEntry
       :defs $ {}
         'comp-container $ %{} 'CodeEntry (:doc |)
@@ -1175,6 +1283,28 @@
         :code $ quote (ns app.config)
     'app.schema $ %{} 'FileEntry
       :defs $ {}
+        'ClientMessage $ %{} 'CodeEntry (:doc "|Typed browser-to-server synchronization and business envelope.")
+          :code $ quote
+            defenum ClientMessage (:sync/active 'Number) (:sync/heartbeat 'Number) (:sync/idle 'Number) (:sync/resume 'Number) (:sync/ack 'Number) (:dispatch 'app.schema/Op)
+          :examples $ []
+          :schema $ :: 'Enum
+        'MessageDecodeError $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defenum MessageDecodeError $ :invalid 'String
+          :examples $ []
+          :schema $ :: 'Enum
+        'Op $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defenum Op (:today 'Dynamic) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic) (:user/log-in 'Dynamic) (:user/sign-up 'Dynamic) (:user/log-out) (:router/change 'Dynamic) (:task/create-working 'Dynamic) (:task/remove-working 'Dynamic) (:task/finish-working 'Dynamic) (:task/update-working 'Dynamic) (:task/touch-working 'Dynamic) (:task/put-back 'Dynamic) (:task/pend 'Dynamic) (:note/add 'Dynamic) (:note/edit 'Dynamic) (:note/remove 'Dynamic) (:effect/persist) (:effect/ping) (:effect/pong) (:effect/connect) (:states 'Dynamic 'Dynamic)
+          :examples $ []
+          :schema $ :: 'Enum
+        'ServerMessage $ %{} 'CodeEntry (:doc "|Typed server snapshot, patch, and heartbeat envelope.")
+          :code $ quote
+            defenum ServerMessage (:snapshot 'Number 'Map)
+              :patch 'Number 'Number $ :: 'List 'recollect.schema/change-op
+              :effect/pong
+          :examples $ []
+          :schema $ :: 'Enum
         'complain $ %{} 'CodeEntry (:doc |)
           :code $ quote
             def complain $ {} (:id nil) (:text |) (:time nil)
@@ -1188,6 +1318,214 @@
               :today |2018-08-07
           :examples $ []
           :schema $ :: 'Dynamic
+        'decode-client-message $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn decode-client-message (data)
+              let
+                  message $ if (enum? data)
+                    assoc data 0 $ turn-tag
+                      option:unwrap $ nth data 0
+                    , data
+                match message
+                  (:sync/active revision)
+                    if (number? revision)
+                      %ok $ %:: ClientMessage :sync/active revision
+                      invalid-message $ str "|Expected numeric active revision, got: " revision
+                  (:sync/heartbeat revision)
+                    if (number? revision)
+                      %ok $ %:: ClientMessage :sync/heartbeat revision
+                      invalid-message $ str "|Expected numeric heartbeat revision, got: " revision
+                  (:sync/idle revision)
+                    if (number? revision)
+                      %ok $ %:: ClientMessage :sync/idle revision
+                      invalid-message $ str "|Expected numeric idle revision, got: " revision
+                  (:sync/resume revision)
+                    if (number? revision)
+                      %ok $ %:: ClientMessage :sync/resume revision
+                      invalid-message $ str "|Expected numeric resume revision, got: " revision
+                  (:sync/ack revision)
+                    if (number? revision)
+                      %ok $ %:: ClientMessage :sync/ack revision
+                      invalid-message $ str "|Expected numeric acknowledgement revision, got: " revision
+                  (:dispatch op)
+                    match (decode-operation op)
+                      (:ok typed-op)
+                        %ok $ %:: ClientMessage :dispatch typed-op
+                      (:err error) (%err error)
+                  _ $ match (decode-operation message)
+                    (:ok typed-op)
+                      %ok $ %:: ClientMessage :dispatch typed-op
+                    (:err error) (%err error)
+          :examples $ []
+          :schema $ :: 'Fn
+            {}
+              :args $ [] 'Dynamic
+              :return $ :: 'Result 'app.schema/MessageDecodeError 'app.schema/ClientMessage
+          :tests $ []
+            %{} 'TestEntry (:name |decodes-sync-control)
+              :code $ quote
+                assert=
+                  %:: Result :ok $ %:: ClientMessage :sync/ack 7
+                  decode-client-message $ :: :sync/ack 7
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-legacy-direct-op)
+              :code $ quote
+                assert=
+                  %:: Result :ok $ %:: ClientMessage :dispatch (%:: Op :effect/ping)
+                  decode-client-message $ %:: Op :effect/ping
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-invalid-revision)
+              :code $ quote
+                match
+                  decode-client-message $ :: :sync/active |bad
+                  (:err error)
+                    match error $
+                      :invalid detail
+                      starts-with? detail "|Expected numeric active revision"
+                  _ false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |decodes-named-wire-operation)
+              :code $ quote
+                assert=
+                  %:: Result :ok $ %:: ClientMessage :dispatch (%:: Op :effect/ping)
+                  decode-client-message $ parse-cirru-edn "|%:: 'ClientMessage 'dispatch $ %:: 'Op 'effect/ping"
+              :tags $ #{} :server
+        'decode-operation $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn decode-operation (data)
+              let
+                  op $ if (enum? data)
+                    assoc data 0 $ turn-tag
+                      option:unwrap $ nth data 0
+                    , data
+                match op
+                  (:today value)
+                    %ok $ %:: Op :today value
+                  (:session/connect)
+                    %ok $ %:: Op :session/connect
+                  (:session/disconnect)
+                    %ok $ %:: Op :session/disconnect
+                  (:session/remove-message value)
+                    %ok $ %:: Op :session/remove-message value
+                  (:user/log-in value)
+                    %ok $ %:: Op :user/log-in value
+                  (:user/sign-up value)
+                    %ok $ %:: Op :user/sign-up value
+                  (:user/log-out)
+                    %ok $ %:: Op :user/log-out
+                  (:router/change value)
+                    %ok $ %:: Op :router/change value
+                  (:task/create-working value)
+                    %ok $ %:: Op :task/create-working value
+                  (:task/remove-working value)
+                    %ok $ %:: Op :task/remove-working value
+                  (:task/finish-working value)
+                    %ok $ %:: Op :task/finish-working value
+                  (:task/update-working value)
+                    %ok $ %:: Op :task/update-working value
+                  (:task/touch-working value)
+                    %ok $ %:: Op :task/touch-working value
+                  (:task/put-back value)
+                    %ok $ %:: Op :task/put-back value
+                  (:task/pend value)
+                    %ok $ %:: Op :task/pend value
+                  (:note/add value)
+                    %ok $ %:: Op :note/add value
+                  (:note/edit value)
+                    %ok $ %:: Op :note/edit value
+                  (:note/remove value)
+                    %ok $ %:: Op :note/remove value
+                  (:effect/persist)
+                    %ok $ %:: Op :effect/persist
+                  (:effect/ping)
+                    %ok $ %:: Op :effect/ping
+                  (:effect/pong)
+                    %ok $ %:: Op :effect/pong
+                  (:effect/connect)
+                    %ok $ %:: Op :effect/connect
+                  (:states cursor state)
+                    %ok $ %:: Op :states cursor state
+                  _ $ invalid-message (str "|Unknown application operation: " op)
+          :examples $ []
+          :schema $ :: 'Fn
+            {}
+              :args $ [] 'Dynamic
+              :return $ :: 'Result 'app.schema/MessageDecodeError 'app.schema/Op
+        'decode-server-message $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn decode-server-message (data)
+              let
+                  message $ if (enum? data)
+                    assoc data 0 $ turn-tag
+                      option:unwrap $ nth data 0
+                    , data
+                match message
+                  (:snapshot revision store)
+                    if
+                      and (number? revision) (map? store)
+                      %ok $ %:: ServerMessage :snapshot revision (unsafe-coerce store 'Map)
+                      invalid-message $ str "|Invalid snapshot envelope: " message
+                  (:patch base-revision revision changes)
+                    let
+                        valid-changes? $ if (list? changes)
+                          every? (unsafe-coerce changes 'List)
+                            fn (change)
+                              = (%some recollect.schema/change-op) (enum-definition change)
+                          , false
+                      if
+                        and (number? base-revision) (number? revision) valid-changes?
+                        %ok $ %:: ServerMessage :patch base-revision revision
+                          unsafe-coerce changes $ :: 'List 'recollect.schema/change-op
+                        invalid-message $ str "|Invalid patch envelope: " message
+                  (:effect/pong)
+                    %ok $ %:: ServerMessage :effect/pong
+                  _ $ invalid-message (str "|Unknown server message: " message)
+          :examples $ []
+          :schema $ :: 'Fn
+            {}
+              :args $ [] 'Dynamic
+              :return $ :: 'Result 'app.schema/MessageDecodeError 'app.schema/ServerMessage
+          :tests $ []
+            %{} 'TestEntry (:name |decodes-pong)
+              :code $ quote
+                assert=
+                  %:: Result :ok $ %:: ServerMessage :effect/pong
+                  decode-server-message $ :: :effect/pong
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-invalid-patch-payload)
+              :code $ quote
+                match
+                  decode-server-message $ :: :patch 1 2 :bad
+                  (:err error)
+                    match error $
+                      :invalid detail
+                      starts-with? detail "|Invalid patch envelope"
+                  _ false
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |decodes-named-wire-pong)
+              :code $ quote
+                assert=
+                  %:: Result :ok $ %:: ServerMessage :effect/pong
+                  decode-server-message $ parse-cirru-edn "|%:: 'ServerMessage 'effect/pong"
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |validates-nominal-patch-list)
+              :code $ quote
+                assert=
+                  %:: Result :ok $ %:: ServerMessage :patch 3 4
+                    [] $ %:: recollect.schema/change-op :replace 1
+                  decode-server-message $ %:: ServerMessage :patch 3 4
+                    [] $ %:: recollect.schema/change-op :replace 1
+              :tags $ #{} :client
+        'invalid-message $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn invalid-message (detail)
+              %:: Result :err $ %:: MessageDecodeError :invalid detail
+          :examples $ []
+          :schema $ :: 'Fn
+            {}
+              :args $ [] 'String
+              :generics $ [] 'T
+              :return $ :: 'Result 'app.schema/MessageDecodeError 'T
         'note $ %{} 'CodeEntry (:doc |)
           :code $ quote
             def note $ {} (:id nil) (:time nil) (:updated-time nil) (:text nil)
@@ -1254,14 +1592,25 @@
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
-        :code $ quote (ns app.schema)
+        :code $ quote
+          ns app.schema $ :require (recollect.schema :as patch-schema)
     'app.server $ %{} 'FileEntry
       :defs $ {}
         '*client-caches $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defatom *client-caches $ {}
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref (:: 'Map 'Number 'Dynamic)
+        '*client-states $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defatom *client-states $ {}
+          :examples $ []
+          :schema $ :: 'Ref (:: 'Map 'Number 'Dynamic)
+        '*dirty-clients $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defatom *dirty-clients $ #{}
+          :examples $ []
+          :schema $ :: 'Ref (:: 'Set 'Number)
         '*initial-db $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defatom *initial-db $ if
@@ -1270,17 +1619,60 @@
                 merge schema/database $ parse-cirru-edn (read-file storage-file)
               do (println "|Found no data") schema/database
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'Map
         '*reader-reel $ %{} 'CodeEntry (:doc |)
           :code $ quote (defatom *reader-reel @*reel)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'cumulo-reel.core/ReelState
         '*reel $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defatom *reel $ merge reel-schema
               {} (:base @*initial-db) (:db @*initial-db)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'cumulo-reel.core/ReelState
+        '*sync-metrics $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defatom *sync-metrics $ %{} SyncMetrics (:last-diff-latency-ms 0) (:last-patch-bytes 0) (:pending-clients 0) (:slow-clients 0) (:resync-count 0) (:patch-attempts 0) (:snapshot-attempts 0) (:last-revision 0)
+          :examples $ []
+          :schema $ :: 'Ref 'app.server/SyncMetrics
+        '*sync-retry-scheduled? $ %{} 'CodeEntry (:doc |)
+          :code $ quote (defatom *sync-retry-scheduled? false)
+          :examples $ []
+          :schema $ :: 'Ref 'Bool
+        '*sync-revision $ %{} 'CodeEntry (:doc |)
+          :code $ quote (defatom *sync-revision 0)
+          :examples $ []
+          :schema $ :: 'Ref 'Number
+        '*sync-scheduled? $ %{} 'CodeEntry (:doc |)
+          :code $ quote (defatom *sync-scheduled? false)
+          :examples $ []
+          :schema $ :: 'Ref 'Bool
+        'SyncMetrics $ %{} 'CodeEntry (:doc "|Process-lifetime synchronization counters with read-time client gauges.")
+          :code $ quote
+            defstruct SyncMetrics (:last-diff-latency-ms 'Number) (:last-patch-bytes 'Number) (:pending-clients 'Number) (:slow-clients 'Number) (:resync-count 'Number) (:patch-attempts 'Number) (:snapshot-attempts 'Number) (:last-revision 'Number)
+          :examples $ []
+          :schema $ :: 'Enum
+        'acknowledge-client! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn acknowledge-client! (sid revision)
+              let
+                  state $ option:unwrap (get @*client-states sid)
+                when
+                  = revision $ option:unwrap-or (get state :sent-rev) -1
+                  let
+                      sent-store $ option:unwrap (get state :sent-store)
+                    swap! *client-caches assoc sid sent-store
+                  swap! *client-states update sid $ fn (current) (next-sync-ack-state current revision)
+                  when
+                    >
+                      option:unwrap-or (get state :dirty-rev) 0
+                      , revision
+                    swap! *dirty-clients include sid
+                    request-sync!
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Number 'Number
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn dispatch! (op sid)
@@ -1291,10 +1683,14 @@
                 match op
                   (:effect/persist) (persist-db!)
                   (:effect/ping)
-                    wss-send! sid $ format-cirru-edn (:: :effect/pong)
-                  _ $ reset! *reel (reel-reducer @*reel updater op sid op-id op-time config/dev?)
+                    wss-send! sid $ format-cirru-edn (%:: schema/ServerMessage :effect/pong)
+                  _ $ do
+                    reset! *reel $ reel-reducer @*reel updater op sid op-id op-time config/dev?
+                    request-sync!
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'app.schema/Op 'Number
         'get-backup-path! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn get-backup-path! () $ let
@@ -1303,7 +1699,61 @@
                 str $ &map:get now :month
                 str (&map:get now :day) |-snapshot.cirru
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'String)
+              :args $ []
+        'handle-client-message! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn handle-client-message! (message sid)
+              match message
+                (:sync/active client-revision) (mark-client-active! sid client-revision false)
+                (:sync/heartbeat client-revision)
+                  do (touch-client! sid client-revision)
+                    wss-send! sid $ format-cirru-edn (%:: schema/ServerMessage :effect/pong)
+                    , &unit
+                (:sync/idle client-revision) (mark-client-idle! sid client-revision)
+                (:sync/resume client-revision)
+                  do (record-resync!) (mark-client-active! sid client-revision true)
+                (:sync/ack revision) (acknowledge-client! sid revision)
+                (:dispatch op) (dispatch! op sid)
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'app.schema/ClientMessage 'Number
+        'handle-sync-send! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn handle-sync-send! (sid revision new-store outcome)
+              swap! *client-states update sid $ fn (current) (next-sync-send-state current revision new-store outcome)
+              match outcome
+                (:accepted) &unit
+                (:backpressured)
+                  do (swap! *dirty-clients include sid) (request-sync-retry!)
+                (:too-large) (println "|WebSocket sync payload is too large for client:" sid)
+                (:closed) &unit
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Number 'Number 'Dynamic 'wss.core/WssSendOutcome
+        'invalidate-sync-caches! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn invalidate-sync-caches! ()
+              reset! *client-caches $ {}
+              each (keys @*client-states)
+                fn (sid)
+                  swap! *client-states update sid $ fn (state)
+                    dissoc
+                      merge state $ {} (:needs-snapshot? true) (:in-flight? false)
+                      , :sent-rev :sent-store
+                  when
+                    = :active $ option:unwrap
+                      get
+                        option:unwrap $ get @*client-states sid
+                        , :status
+                    swap! *dirty-clients include sid
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn main! ()
@@ -1317,102 +1767,435 @@
                 run-server! port
                 println $ str "|Server started on port:" port
               do (; "|init it before doing multi-threading") (identity @*reader-reel)
-              set-interval 200 $ fn () (render-loop!)
               on-control-c on-exit!
               set-interval 600000 $ fn () (persist-db!)
               set-interval 60000 $ fn () (set-today!)
           :examples $ []
           :schema $ :: 'Dynamic
+        'mark-client-active! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn mark-client-active! (sid client-revision force-snapshot?)
+              let
+                  state $ option:unwrap-or (get @*client-states sid) ({})
+                  resumed? $ or force-snapshot?
+                    not= :active $ option:unwrap-or (get state :status) :idle
+                  next-state-base $ merge
+                    {} (:status :active)
+                      :last-heartbeat $ now-ms
+                      :acked-rev client-revision
+                      :dirty-rev @*sync-revision
+                      :in-flight? false
+                      :needs-snapshot? true
+                    , state
+                      {} (:status :active)
+                        :last-heartbeat $ now-ms
+                        :acked-rev $ if resumed? client-revision
+                          option:unwrap-or (get state :acked-rev) client-revision
+                        :in-flight? $ if resumed? false
+                          option:unwrap-or (get state :in-flight?) false
+                        :needs-snapshot? $ or resumed?
+                          option:unwrap-or (get state :needs-snapshot?) false
+                  next-state $ if resumed? (dissoc next-state-base :sent-rev :sent-store) next-state-base
+                swap! *client-states assoc sid next-state
+                when resumed? (swap! *client-caches dissoc sid) (swap! *dirty-clients include sid) (request-sync!)
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Number 'Number 'Bool
+        'mark-client-idle! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn mark-client-idle! (sid client-revision)
+              when
+                option:some? $ get @*client-states sid
+                swap! *client-states update sid $ fn (state)
+                  dissoc
+                    merge state $ {} (:status :idle) (:acked-rev client-revision) (:in-flight? false) (:needs-snapshot? true)
+                    , :sent-rev :sent-store
+                swap! *client-caches dissoc sid
+                swap! *dirty-clients exclude sid
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Number 'Number
+        'mark-clients-dirty! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn mark-clients-dirty! (revision)
+              each (keys @*client-states)
+                fn (sid)
+                  let
+                      state $ option:unwrap (get @*client-states sid)
+                    swap! *client-states assoc-in ([] sid :dirty-rev) revision
+                    when
+                      = :active $ option:unwrap (get state :status)
+                      swap! *dirty-clients include sid
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Number
+        'next-sync-ack-state $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn next-sync-ack-state (current revision)
+              dissoc
+                merge current $ {} (:acked-rev revision) (:in-flight? false)
+                , :sent-rev :sent-store
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'C)
+              :args $ [] 'C 'Number
+              :generics $ [] 'C
+          :tests $ []
+            %{} 'TestEntry (:name |repeated-backpressure-converges-to-latest-revision)
+              :code $ quote
+                let
+                    initial $ {} (:status :active) (:acked-rev 3) (:dirty-rev 4) (:in-flight? false) (:needs-snapshot? false)
+                    after-first-backpressure $ next-sync-send-state initial 4
+                      {} $ :value 4
+                      %:: wss.core/WssSendOutcome :backpressured
+                    after-latest-backpressure $ next-sync-send-state (assoc after-first-backpressure :dirty-rev 7) 7
+                      {} $ :value 7
+                      %:: wss.core/WssSendOutcome :backpressured
+                    accepted-latest $ next-sync-send-state (assoc after-latest-backpressure :dirty-rev 9) 9
+                      {} $ :value 9
+                      %:: wss.core/WssSendOutcome :accepted
+                  assert=
+                    {} (:status :active) (:acked-rev 9) (:dirty-rev 9) (:in-flight? false) (:needs-snapshot? false) (:slow-client? false) (:last-send-outcome :accepted)
+                    next-sync-ack-state accepted-latest 9
+              :tags $ #{} :server
+        'next-sync-metrics $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn next-sync-metrics (metrics message-kind revision diff-latency payload)
+              merge metrics $ {} (:last-diff-latency-ms diff-latency)
+                :last-patch-bytes $ if (= message-kind :patch) payload.utf8-byte-count (:last-patch-bytes metrics)
+                :patch-attempts $ if (= message-kind :patch)
+                  inc $ :patch-attempts metrics
+                  :patch-attempts metrics
+                :snapshot-attempts $ if (= message-kind :snapshot)
+                  inc $ :snapshot-attempts metrics
+                  :snapshot-attempts metrics
+                :last-revision revision
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'app.server/SyncMetrics)
+              :args $ [] 'app.server/SyncMetrics 'Tag 'Number 'Number 'String
+          :tests $ []
+            %{} 'TestEntry (:name |advances-patch-and-snapshot-counters)
+              :code $ quote
+                let
+                    initial $ %{} SyncMetrics (:last-diff-latency-ms 0) (:last-patch-bytes 0) (:pending-clients 0) (:slow-clients 0) (:resync-count 0) (:patch-attempts 0) (:snapshot-attempts 0) (:last-revision 0)
+                    after-patch $ next-sync-metrics initial :patch 7 3 "|A😀"
+                  assert=
+                    %{} SyncMetrics (:last-diff-latency-ms 2) (:last-patch-bytes 5) (:pending-clients 0) (:slow-clients 0) (:resync-count 0) (:patch-attempts 1) (:snapshot-attempts 1) (:last-revision 8)
+                    next-sync-metrics after-patch :snapshot 8 2 |ignored
+              :tags $ #{} :server
+        'next-sync-send-state $ %{} 'CodeEntry (:doc "|Advance one client synchronization state from a typed transport admission outcome.")
+          :code $ quote
+            defn next-sync-send-state (current revision new-store outcome)
+              match outcome
+                (:accepted)
+                  merge current $ {} (:sent-rev revision) (:sent-store new-store) (:in-flight? true) (:needs-snapshot? false) (:slow-client? false) (:last-send-outcome :accepted)
+                (:backpressured)
+                  merge current $ {}
+                    :dirty-rev $ let
+                        current-dirty $ option:unwrap-or (get current :dirty-rev) 0
+                      if (> revision current-dirty) revision current-dirty
+                    :slow-client? true
+                    :last-send-outcome :backpressured
+                (:too-large)
+                  merge current $ {} (:needs-snapshot? true) (:slow-client? true) (:last-send-outcome :too-large)
+                (:closed)
+                  dissoc
+                    merge current $ {} (:status :idle) (:in-flight? false) (:last-send-outcome :closed)
+                    , :sent-rev :sent-store
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'C)
+              :args $ [] 'C 'Number 'U 'wss.core/WssSendOutcome
+              :generics $ [] 'C 'U
+          :tests $ []
+            %{} 'TestEntry (:name |accepted-records-pending-store)
+              :code $ quote
+                assert=
+                  {} (:status :active) (:sent-rev 7)
+                    :sent-store $ {} (:value 1)
+                    :in-flight? true
+                    :needs-snapshot? false
+                    :slow-client? false
+                    :last-send-outcome :accepted
+                  next-sync-send-state
+                    {} $ :status :active
+                    , 7
+                      {} $ :value 1
+                      %:: wss.core/WssSendOutcome :accepted
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |oversized-payload-requires-snapshot)
+              :code $ quote
+                assert=
+                  {} (:status :active) (:needs-snapshot? true) (:slow-client? true) (:last-send-outcome :too-large)
+                  next-sync-send-state
+                    {} $ :status :active
+                    , 7
+                      {} $ :value 1
+                      %:: wss.core/WssSendOutcome :too-large
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |closed-clears-pending-send)
+              :code $ quote
+                assert=
+                  {} (:status :idle) (:in-flight? false) (:last-send-outcome :closed)
+                  next-sync-send-state
+                    {} (:status :active) (:in-flight? true) (:sent-rev 7)
+                      :sent-store $ {} (:value 1)
+                    , 7
+                      {} $ :value 1
+                      %:: wss.core/WssSendOutcome :closed
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |backpressure-preserves-latest-dirty-revision)
+              :code $ quote
+                assert=
+                  {} (:status :active) (:acked-rev 5) (:dirty-rev 7) (:slow-client? true) (:last-send-outcome :backpressured)
+                  next-sync-send-state
+                    {} (:status :active) (:acked-rev 5) (:dirty-rev 6)
+                    , 7
+                      {} $ :value 1
+                      %:: wss.core/WssSendOutcome :backpressured
+              :tags $ #{} :server
+        'now-ms $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn now-ms () $ get-timestamp (get-time!)
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Number)
+              :args $ []
         'on-exit! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn on-exit! () (persist-db!) (; println "|exit code is...") (quit! 0)
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
+        'patch-operation-limit $ %{} 'CodeEntry (:doc |)
+          :code $ quote (def patch-operation-limit 64)
           :examples $ []
           :schema $ :: 'Dynamic
         'persist-db! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn persist-db! () $ let
                 file-content $ format-cirru-edn
-                  assoc (&map:get @*reel :db) :sessions $ {}
+                  assoc
+                    :db $ unsafe-coerce @*reel 'cumulo-reel.core/ReelState
+                    , :sessions $ {}
                 storage-path storage-file
                 backup-path $ get-backup-path!
-              check-write-file! storage-path file-content
-              check-write-file! backup-path file-content
+              do (check-write-file! storage-path file-content) (check-write-file! backup-path file-content)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
+        'read-sync-metrics $ %{} 'CodeEntry (:doc "|Read synchronization counters plus current pending and slow-client gauges.")
+          :code $ quote
+            defn read-sync-metrics () $ let
+                states $ vals @*client-states
+                pending-clients $ count
+                  filter states $ fn (state)
+                    option:unwrap-or (get state :in-flight?) false
+                slow-clients $ count
+                  filter states $ fn (state)
+                    option:unwrap-or (get state :slow-client?) false
+              merge @*sync-metrics $ {} (:pending-clients pending-clients) (:slow-clients slow-clients)
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'app.server/SyncMetrics)
+              :args $ []
+        'record-resync! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn record-resync! () $ swap! *sync-metrics update :resync-count inc
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
+        'record-sync-send! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn record-sync-send! (message-kind revision diff-latency payload)
+              swap! *sync-metrics $ fn (metrics) (next-sync-metrics metrics message-kind revision diff-latency payload)
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Tag 'Number 'Number 'String
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn reload! () (println "|Code updated..")
               if (not config/dev?) (raise "|reloading only happens in dev mode")
               clear-twig-caches!
               reset! *reel $ refresh-reel @*reel @*initial-db updater
-              sync-clients! @*reader-reel
+              invalidate-sync-caches!
+              request-sync!
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
         'render-loop! $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defn render-loop! () $ when
-              not $ identical? @*reader-reel @*reel
-              reset! *reader-reel @*reel
+            defn render-loop! ()
+              when
+                not $ identical? @*reader-reel @*reel
+                reset! *reader-reel @*reel
+                swap! *sync-revision inc
+                mark-clients-dirty! @*sync-revision
               sync-clients! @*reader-reel
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
+        'request-sync! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn request-sync! () $ if @*sync-scheduled? &unit
+              do (reset! *sync-scheduled? true)
+                set-timeout sync-coalesce-delay $ fn () (reset! *sync-scheduled? false) (render-loop!)
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
+        'request-sync-retry! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn request-sync-retry! () $ if @*sync-retry-scheduled? &unit
+              do (reset! *sync-retry-scheduled? true)
+                set-timeout sync-retry-delay $ fn () (reset! *sync-retry-scheduled? false)
+                  when
+                    not $ empty? @*dirty-clients
+                    request-sync!
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
         'run-server! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn run-server! (port)
-              wss-serve! (&{} :port port)
+              wss-serve!
+                {} $ :port port
                 fn (data)
                   match data
                     (:connect sid)
                       do
-                        dispatch! (:: :session/connect) sid
+                        swap! *client-states assoc sid $ {} (:status :idle)
+                          :last-heartbeat $ now-ms
+                          :acked-rev 0
+                          :dirty-rev @*sync-revision
+                          :in-flight? false
+                          :needs-snapshot? true
+                        dispatch! (%:: schema/Op :session/connect) sid
                         println "|New client."
                     (:message sid msg)
-                      let
-                          action $ parse-cirru-edn msg
-                        dispatch! action sid
+                      match
+                        schema/decode-client-message $ parse-cirru-edn msg
+                        (:ok message) (handle-client-message! message sid)
+                        (:err error) (eprintln "|Invalid client message:" sid error)
                     (:disconnect sid)
                       do (println "|Client closed!")
-                        dispatch! (:: :session/disconnect) sid
+                        dispatch! (%:: schema/Op :session/disconnect) sid
+                        swap! *client-caches dissoc sid
+                        swap! *client-states dissoc sid
+                        swap! *dirty-clients exclude sid
                     _ $ println "|unknown data:" data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Number
         'set-today! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn set-today! () $ let
                 today $ wo-log
                   format-time (get-time!) (%some |%Y-%m-%d)
-                old-today $ &map:get (&map:get @*reel :db) :today
+                reel $ unsafe-coerce @*reel 'cumulo-reel.core/ReelState
+                old-today $ &map:get (:db reel) :today
               when (not= today old-today)
-                dispatch! (:: :today today) |system
+                dispatch! (%:: schema/Op :today today) 0
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
         'storage-file $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            def storage-file $ if (empty? calcit-dirname)
-              str calcit-dirname $ :storage-file config/site
-              str calcit-dirname |/ $ :storage-file config/site
+            def storage-file $ if (empty? calcit-dirname) (&map:get config/site :storage-file)
+              join-path calcit-dirname $ &map:get config/site :storage-file
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
+        'sync-client! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn sync-client! (sid reel revision) (swap! *dirty-clients exclude sid)
+              let
+                  state $ option:unwrap (get @*client-states sid)
+                when
+                  and
+                    = :active $ option:unwrap (get state :status)
+                    not $ option:unwrap-or (get state :in-flight?) false
+                  let
+                      db $ :db reel
+                      records $ :records reel
+                      session $ schema/read-path db ([] :sessions sid)
+                      old-store-option $ get @*client-caches sid
+                      new-store $ twig-container db session records
+                      needs-snapshot? $ or
+                        option:unwrap-or (get state :needs-snapshot?) true
+                        option:none? old-store-option
+                      diff-start $ now-ms
+                      changes $ if needs-snapshot? ([])
+                        diff-twig (option:unwrap old-store-option) new-store $ {} (:key :id)
+                      diff-latency $ - (now-ms) diff-start
+                      send-snapshot? $ or needs-snapshot?
+                        > (count changes) patch-operation-limit
+                      base-revision $ option:unwrap-or (get state :acked-rev) 0
+                    if send-snapshot?
+                      let
+                          payload $ format-cirru-edn (%:: schema/ServerMessage :snapshot revision new-store)
+                        record-sync-send! :snapshot revision diff-latency payload
+                        handle-sync-send! sid revision new-store $ wss-send! sid payload
+                      if
+                        not= changes $ []
+                        let
+                            payload $ format-cirru-edn (%:: schema/ServerMessage :patch base-revision revision changes)
+                          record-sync-send! :patch revision diff-latency payload
+                          handle-sync-send! sid revision new-store $ wss-send! sid payload
+                        , &unit
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Number 'cumulo-reel.core/ReelState 'Number
         'sync-clients! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn sync-clients! (reel)
-              wss-each! $ fn (sid)
+              when
+                not $ empty? @*dirty-clients
                 let
-                    db $ &map:get reel :db
-                    records $ &map:get reel :records
-                    session $ schema/read-path db ([] :sessions sid)
-                    old-store $ or (&map:get @*client-caches sid) nil
-                    new-store $ twig-container db session records
-                    changes $ diff-twig old-store new-store
-                      {} $ :key :id
-                  ; when config/dev? $ println "|Changes for" sid |: changes (count records)
-                  if
-                    not= changes $ []
-                    do
-                      wss-send! sid $ format-cirru-edn (:: :patch changes)
-                      swap! *client-caches assoc sid new-store
+                    revision @*sync-revision
+                    clients @*dirty-clients
+                  each clients $ fn (sid)
+                    when
+                      option:some? $ get @*client-states sid
+                      sync-client! sid reel revision
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'cumulo-reel.core/ReelState
+        'sync-coalesce-delay $ %{} 'CodeEntry (:doc |)
+          :code $ quote (def sync-coalesce-delay 16)
           :examples $ []
           :schema $ :: 'Dynamic
+        'sync-retry-delay $ %{} 'CodeEntry (:doc |)
+          :code $ quote (def sync-retry-delay 200)
+          :examples $ []
+          :schema $ :: 'Dynamic
+        'touch-client! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn touch-client! (sid client-revision)
+              let
+                  state $ option:unwrap (get @*client-states sid)
+                if
+                  = :active $ option:unwrap (get state :status)
+                  swap! *client-states assoc-in ([] sid :last-heartbeat) (now-ms)
+                  mark-client-active! sid client-revision true
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ [] 'Number 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.server $ :require (app.schema :as schema)
@@ -1421,11 +2204,11 @@
             app.config :as config
             app.twig.container :refer $ twig-container
             recollect.diff :refer $ diff-twig
-            wss.core :refer $ wss-serve! wss-send! wss-each!
+            wss.core :refer $ WssSendOutcome wss-serve! wss-send!
             recollect.twig :refer $ clear-twig-caches!
             app.$meta :refer $ calcit-dirname
             calcit.std.fs :refer $ path-exists? check-write-file!
-            calcit.std.time :refer $ set-interval
+            calcit.std.time :refer $ set-interval set-timeout
             calcit.std.date :refer $ get-time! extract-time format-time get-timestamp
             calcit.std.path :refer $ join-path
     'app.style $ %{} 'FileEntry

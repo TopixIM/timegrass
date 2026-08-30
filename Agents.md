@@ -12,9 +12,16 @@
 
 **Core Architecture** (already in template):
 
-- **Server**: `*reel` atom → `updater` (pure fn) → `twig-container` → `diff-twig` → patches
-- **Client**: WebSocket → `patch-twig` → `*store` atom → Respo render
+- **Server**: `*reel` atom → pure `updater` → coalesced `twig-container` projection → revisioned `diff-twig` patch
+- **Client**: typed WebSocket envelope → revision validation → atomic `patch-batch` → ACK → `*store` → Respo render
 - **Key libs**: `recollect` (diff/patch), `cumulo-reel` (time-travel), `ws-edn` (WebSocket)
+
+The synchronization baseline is the last ACKed projection, not the last
+attempted send. Never update `*client-caches` before `:sync/ack`. On mismatch,
+invalid patch, reconnect, or foreground resume, request a snapshot. Keep
+updaters serial and deterministic; transport backpressure may delay projection
+delivery but must retain the newest dirty revision. Protocol details and
+validation evidence live in `docs/realtime-sync.md`.
 
 **Project structure** (from template):
 
