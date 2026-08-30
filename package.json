@@ -15,12 +15,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git@github.com:TopixIM/cumulo-workflow.git"
+    "url": "git@github.com:TopixIM/timegrass.git"
   },
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "@calcit/procs": "^0.13.29",
+    "@calcit/procs": "0.13.66",
     "dayjs": "^1.11.19",
     "nanoid": "^5.1.16"
   },
