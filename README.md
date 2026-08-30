@@ -30,13 +30,35 @@ Cirru EDN and is loaded with `parse-cirru-edn` then written with
 `format-cirru-edn`; its existing on-disk shape is preserved, with only runtime
 sessions omitted as before.
 
-Calcit 0.12.59 currently requires `recollect` 0.0.19 here. Newer recollect
-releases have an upstream schema issue that blocks JS code generation; see
-https://github.com/calcit-lang/recollect/issues/25 before removing the pin.
+The browser keeps the nominal `ws-edn` client and applies a small typed recovery
+policy on page-touch, visibility, and online events. A reconnect receives a new
+server session; login then rebuilds the client cache from an empty server-side
+cache, so the legacy patch protocol still converges without changing persisted
+application data.
 
 Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
+
+### Upgrade validation
+
+Use released module tags and validate the full graph before committing:
+
+```bash
+caps --strict --ci
+calcit edit format
+calcit --check-only
+calcit --entry server --check-only
+calcit analyze deprecated
+calcit test app.client/choose-recovery-action --tag client --require-match
+yarn compile-page
+yarn release-page
+```
+
+Never test a migration against the live `storage.cirru`. Copy it outside the
+repository, then verify the same parse/persist/format/parse path used by the
+server. The committed upgrade was checked against a read-only copy of the real
+state; the source file's size and SHA-256 remained unchanged.
 
 ### License
 

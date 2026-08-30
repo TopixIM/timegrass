@@ -31,10 +31,6 @@ app.comp.*          # ← ADD your UI components here
 
 ## Development Workflow - Adding Features
 
----
-
-## Development Workflow - Adding Features
-
 ### Standard Process (5 Steps)
 
 **Example**: Add a "tasks" feature where users can create/manage tasks.
@@ -43,7 +39,7 @@ app.comp.*          # ← ADD your UI components here
 
 ```bash
 calcit query def app.schema/user
-calcit tree append-child app.schema/user --path "1" --code ':tasks (noted task ({}))'
+calcit tree append-child app.schema/user --path "1" --code 'quote $ :tasks (noted task $ {})'
 ```
 
 Add to `app.schema` namespace if needed:
@@ -61,7 +57,7 @@ def task
 
 ```bash
 calcit edit def app.updater.task/add-task --code \
-  'defn add-task (db title sid op-id op-time)
+  'quote $ defn add-task (db title sid op-id op-time)
     let
         user-id $ get-in db ([] :sessions sid :user-id)
         task $ {}
@@ -83,7 +79,7 @@ calcit tree show app.updater/updater --path "2"
 
 # Add new branch
 calcit tree insert-before app.updater/updater --path "2,8" --code \
-  '(:task/add title) (task/add-task db title sid op-id op-time)'
+  'quote $ (:task/add title) (task/add-task db title sid op-id op-time)'
 ```
 
 #### 4. **Update Twig** (Control what clients see)
@@ -178,13 +174,13 @@ defn twig-your-feature (db session)
 
 ```bash
 calcit query def app.updater/updater
-calcit tree show app.updater/updater --path "2"  # tag-match cases
+calcit tree show app.updater/updater --path "2"  # match cases
 ```
 
 **Add case** (use same structure as existing ones):
 
 ```cirru
-tag-match op
+match op
   ; Existing cases...
   (:your-op/action arg1 arg2)
     your-updater db arg1 arg2 sid op-id op-time
@@ -197,7 +193,7 @@ tag-match op
 ### A. Add Field to Existing Schema
 
 ```bash
-calcit tree append-child app.schema/user --path "1" --code ':new-field default-value'
+calcit tree append-child app.schema/user --path "1" --code 'quote $ :new-field default-value'
 ```
 
 ### B. Modify Updater Logic
@@ -210,14 +206,14 @@ calcit query def app.updater.user/log-in
 calcit tree show app.updater.user/log-in --path "2"
 
 # 3. Replace specific node
-calcit tree replace app.updater.user/log-in --path "2,1,0" --code 'new-logic here'
+calcit tree replace app.updater.user/log-in --path "2,1,0" --code 'quote $ new-logic here'
 ```
 
 ### C. Add New Twig Projection
 
 ```bash
 calcit edit def app.twig.user/twig-user-profile --code \
-  'defn twig-user-profile (user)
+  'quote $ defn twig-user-profile (user)
     {}
       :id $ :id user
       :name $ :name user
@@ -228,7 +224,7 @@ calcit edit def app.twig.user/twig-user-profile --code \
 
 ```bash
 calcit tree insert-after app.updater/updater --path "2,5" --code \
-  '(:new/operation data) (new-updater db data sid op-id op-time)'
+  'quote $ (:new/operation data) (new-updater db data sid op-id op-time)'
 ```
 
 ---
@@ -307,7 +303,7 @@ calcit query usages app.updater/updater
 calcit query find your-function-name
 
 # See all operations
-calcit query search app.updater/updater --pattern "tag-match" --limit 100
+calcit query search 'match' --filter app.updater/updater
 ```
 
 ### Test Changes
@@ -428,8 +424,8 @@ calcit query find symbol-name
 
 # Code modification
 calcit tree show path/to/func --path "2,1"
-calcit tree replace path/to/func --path "2,1,0" --code 'new-code'
-calcit edit def new/function --code 'defn ...'
+calcit tree replace path/to/func --path "2,1,0" --code 'quote $ new-code'
+calcit edit def new/function --code 'quote $ defn ...'
 ```
 
 ### Common Code Patterns
@@ -573,7 +569,7 @@ When adding a feature:
 
 1. ✅ **Schema** - Define data structure in `app.schema`
 2. ✅ **Updater** - Pure function `(db ...) → new-db` in `app.updater.*`
-3. ✅ **Wire** - Add case to `app.updater/updater` tag-match
+3. ✅ **Wire** - Add a `match` case to `app.updater/updater`
 4. ✅ **Twig** - Filter data by session in `app.twig.*`
 5. ✅ **UI** - Create Respo component in `app.comp.*`
 6. ✅ **Test** - `calcit calcit.cirru --check-only` before commit

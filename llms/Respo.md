@@ -37,10 +37,10 @@ Respo library.
 Use `calcit edit` and `calcit tree` for Snapshot changes. After editing, run:
 
 ```bash
-calcit calcit.cirru edit format
+calcit edit format
 calcit calcit.cirru --check-only
 calcit calcit.cirru js
-caps --ci
+caps --strict --ci
 yarn install --immutable
 yarn vite build --base=./
 ```
