@@ -32,12 +32,12 @@ jobs:
 
     - name: Validate Calcit snapshot
       run: |
-        calcit calcit.cirru edit format
+        calcit edit format
         git diff --exit-code -- calcit.cirru
-        calcit calcit.cirru --check-only
-        calcit calcit.cirru --entry server --check-only
-        calcit calcit.cirru analyze deprecated
-        calcit calcit.cirru test app.client/choose-recovery-action --tag client --require-match
+        calcit --check-only
+        calcit --entry server --check-only
+        calcit analyze deprecated
+        calcit --entry server test --require-match
 
     - name: Build browser client
       run: yarn compile-page && yarn release-page

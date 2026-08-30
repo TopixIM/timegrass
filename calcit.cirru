@@ -1201,14 +1201,29 @@
         'read-path $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn read-path (base path)
-              if (nil? base) nil $ list-match path
+              list-match path
                 () base
                 (field tail)
-                  recur (&map:get base field) tail
+                  if (map? base)
+                    recur (&map:get base field) tail
+                    , nil
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Dynamic)
               :args $ [] 'Dynamic 'List
+          :tests $ []
+            %{} 'TestEntry (:name |handles-non-map-boundaries)
+              :code $ quote
+                do
+                  assert= 1 $ read-path
+                    {} $ :a
+                      {} $ :b 1
+                    [] :a :b
+                  assert= nil $ read-path
+                    {} $ :a |not-a-map
+                    [] :a :b
+                  assert= |leaf $ read-path |leaf ([])
+              :tags $ #{} :server
         'router $ %{} 'CodeEntry (:doc |)
           :code $ quote
             def router $ {} (:name nil) (:title nil)
@@ -1439,12 +1454,13 @@
           :code $ quote
             defn twig-container (db session records)
               let
-                  logged-in? $ some? (&map:get session :user-id)
-                  router $ &map:get session :router
-                  base-data $ {} (:logged-in? logged-in?) (:session session) (:router router)
+                  session-data $ if (map? session) session schema/session
+                  logged-in? $ some? (&map:get session-data :user-id)
+                  router $ &map:get session-data :router
+                  base-data $ {} (:logged-in? logged-in?) (:session session-data) (:router router)
                     :reel-length $ count records
                   user $ schema/read-path db
-                    [] :users $ &map:get session :user-id
+                    [] :users $ &map:get session-data :user-id
                 merge base-data $ if logged-in?
                   {}
                     :user $ twig-user user
@@ -1464,6 +1480,17 @@
                   {}
           :examples $ []
           :schema $ :: 'Dynamic
+          :tests $ []
+            %{} 'TestEntry (:name |defaults-missing-session)
+              :code $ quote
+                let
+                    init-db $ {}
+                    init-records $ []
+                    result $ twig-container init-db nil init-records
+                  do
+                    assert= true $ map? result
+                    assert= schema/session $ &map:get result :session
+              :tags $ #{} :server
         'twig-members $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn twig-members (sessions users)
