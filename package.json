@@ -8,6 +8,9 @@
   },
   "main": "index.js",
   "scripts": {
+    "check-client": "calcit --check-only && calcit test --tag :client --require-match",
+    "check-server": "calcit --entry server --check-only && calcit --entry server test --require-match",
+    "check-sync": "yarn check-client && yarn check-server && calcit analyze deprecated",
     "compile-page": "calcit calcit.cirru js",
     "dev-page": "vite --force",
     "release-page": "vite build --base=./",
@@ -20,7 +23,7 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "@calcit/procs": "0.13.66",
+    "@calcit/procs": "0.13.67",
     "dayjs": "^1.11.19",
     "nanoid": "^5.1.16"
   },
