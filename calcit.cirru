@@ -123,9 +123,11 @@
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn dispatch! (op ? op-data)
-              when
-                and config/dev? $ not= op :states
-                js/console.log |Dispatch op op-data
+              when config/dev? $ if (tag? op)
+                when (not= op :states) (js/console.log |Dispatch op op-data)
+                match op
+                  (:states _ _) &unit
+                  _ $ js/console.log |Dispatch op op-data
               if (tag? op)
                 recur $ :: op op-data
                 match op
@@ -239,7 +241,7 @@
               :args $ []
         'send-activity! $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defn send-activity! () $ if (= |visible js/document.visibilityState)
+            defn send-activity! () $ if (activity/page-visible?)
               ws-send! $ %:: schema/ClientMessage :sync/active @*sync-revision
               ws-send! $ %:: schema/ClientMessage :sync/idle @*sync-revision
           :examples $ []
@@ -328,6 +330,7 @@
             |dayjs :default dayjs
             |dayjs/plugin/weekOfYear :default week-of-year
             recollect.schema :as patch-schema
+            cumulo-util.activity :as activity
     'app.comp.container $ %{} 'FileEntry
       :defs $ {}
         'comp-container $ %{} 'CodeEntry (:doc |)
@@ -404,9 +407,7 @@
           :schema $ :: 'Dynamic
         'css-offline $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defstyle css-offline $ {}
-              |$0 $ merge ui/global ui/fullscreen ui/column-dispersive
-                {} $ :background-color (:theme config/site)
+            defstyle css-offline $ {} (|$0 offline-style)
           :examples $ []
           :schema $ :: 'Dynamic
         'css-status-color $ %{} 'CodeEntry (:doc |)
@@ -416,6 +417,12 @@
               |$0:hover $ {} (:opacity 0.7)
           :examples $ []
           :schema $ :: 'Dynamic
+        'offline-style $ %{} 'CodeEntry (:doc "|Composes the heterogeneous offline page style before defstyle expansion.")
+          :code $ quote
+            def offline-style $ merge-styles ui/global ui/fullscreen ui/column-dispersive
+              {} $ :background-color (:theme config/site)
+          :examples $ []
+          :schema $ :: 'Map 'Tag 'Dynamic
         'style-body $ %{} 'CodeEntry (:doc |)
           :code $ quote
             def style-body $ {} (:padding "|8px 16px")
@@ -442,6 +449,7 @@
             app.config :as config
             app.comp.history :refer $ comp-history
             app.comp.notes-page :refer $ comp-notes-page
+            app.style :refer $ merge-styles
     'app.comp.history $ %{} 'FileEntry
       :defs $ {}
         'comp-done-task $ %{} 'CodeEntry (:doc |)
@@ -456,7 +464,7 @@
                     , 'JsObject
                 div
                   {} (:class-name css-done-task)
-                    :style $ merge
+                    :style $ merge-styles
                       {} $ :padding "|4px 8px"
                       if (&map:get state :show-menu?)
                         {} $ :background-color (hsl 0 0 94)
@@ -472,7 +480,7 @@
                   =< 4 nil
                   span
                     {} $ :style
-                      merge ui/flex $ {} (:line-height |24px)
+                      merge-styles ui/flex $ {} (:line-height |24px)
                     <> $ &map:get task :text
                   comp-modal-menu
                     {} (:title |Operations)
@@ -613,6 +621,7 @@
             respo-alerts.core :refer $ comp-modal-menu
             |dayjs :default dayjs
             feather.core :refer $ comp-icon
+            app.style :refer $ merge-styles
     'app.comp.login $ %{} 'FileEntry
       :defs $ {}
         'comp-login $ %{} 'CodeEntry (:doc |)
@@ -622,7 +631,7 @@
                   cursor $ &map:get states :cursor
                   state $ or (&map:get states :data) initial-state
                 div
-                  {} $ :style (merge ui/flex ui/center)
+                  {} $ :style (style/merge-styles ui/flex ui/center)
                   div ({})
                     div
                       {} $ :style ({})
@@ -751,9 +760,11 @@
             defn render-entry (title get-route highlighted?)
               div
                 {} (:class-name css-entry)
-                  :style $ merge
+                  :style $ merge-styles
                     {} $ :cursor :pointer
-                    if highlighted? $ {} (:opacity 1)
+                    if highlighted?
+                      {} $ :opacity 1
+                      {}
                   :on-click $ fn (e d!)
                     d! :router/change $ get-route
                   :tab-index 0
@@ -772,6 +783,7 @@
             app.config :as config
             respo-alerts.core :refer $ comp-prompt
             |dayjs :default dayjs
+            app.style :refer $ merge-styles
     'app.comp.notes-page $ %{} 'FileEntry
       :defs $ {}
         'comp-note $ %{} 'CodeEntry (:doc |)
@@ -980,10 +992,16 @@
               let
                   working-tasks $ -> tasks (.to-map)
                     filter $ fn (pair)
-                      not $ &map:get (last pair) :pending?
+                      not $ &map:get
+                          last pair
+                          , .unwrap
+                        , :pending?
                   pending-tasks $ -> tasks (.to-map)
                     filter $ fn (pair)
-                      &map:get (last pair) :pending?
+                      &map:get
+                          last pair
+                          , .unwrap
+                        , :pending?
                   create-plugin $ use-prompt (>> states :create)
                     {} $ :text "|Create new task:"
                   cursor $ &map:get states :cursor
@@ -1025,7 +1043,9 @@
                         -> working-tasks (.to-list)
                           .sort-by $ fn (pair)
                             let
-                                task $ last pair
+                                task $
+                                  last pair
+                                  , .unwrap
                               negate $ or (&map:get task :touched-time) (&map:get task :created-time)
                           .map-pair $ fn (k task)
                             [] k $ comp-task
@@ -1042,7 +1062,9 @@
                             -> pending-tasks (.to-list)
                               .sort-by $ fn (pair)
                                 let
-                                    task $ last pair
+                                    task $
+                                      last pair
+                                      , .unwrap
                                   negate $ or (&map:get task :touched-time) (&map:get task :created-time)
                               .map-pair $ fn (k task)
                                 [] k $ comp-task
@@ -1470,7 +1492,7 @@
                         valid-changes? $ if (list? changes)
                           every? (unsafe-coerce changes 'List)
                             fn (change)
-                              = (%some recollect.schema/change-op) (enum-definition change)
+                              = (enum-definition change) (%some recollect.schema/change-op)
                           , false
                       if
                         and (number? base-revision) (number? revision) valid-changes?
@@ -1626,8 +1648,7 @@
           :schema $ :: 'Ref 'cumulo-reel.core/ReelState
         '*reel $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defatom *reel $ merge reel-schema
-              {} (:base @*initial-db) (:db @*initial-db)
+            defatom *reel $ struct-with reel-schema (:base @*initial-db) (:db @*initial-db)
           :examples $ []
           :schema $ :: 'Ref 'cumulo-reel.core/ReelState
         '*sync-metrics $ %{} 'CodeEntry (:doc |)
@@ -1651,7 +1672,7 @@
           :code $ quote
             defstruct SyncMetrics (:last-diff-latency-ms 'Number) (:last-patch-bytes 'Number) (:pending-clients 'Number) (:slow-clients 'Number) (:resync-count 'Number) (:patch-attempts 'Number) (:snapshot-attempts 'Number) (:last-revision 'Number)
           :examples $ []
-          :schema $ :: 'Enum
+          :schema $ :: 'StructDef
         'acknowledge-client! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn acknowledge-client! (sid revision)
@@ -1669,6 +1690,7 @@
                       , revision
                     swap! *dirty-clients include sid
                     request-sync!
+              , &unit
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
@@ -1677,7 +1699,7 @@
           :code $ quote
             defn dispatch! (op sid)
               let
-                  op-id $ generate-id!
+                  op-id $ turn-string (generate-id!)
                   op-time $ get-timestamp (get-time!)
                 if config/dev? $ println |Dispatch! (str op) sid
                 match op
@@ -1798,6 +1820,7 @@
                   next-state $ if resumed? (dissoc next-state-base :sent-rev :sent-store) next-state-base
                 swap! *client-states assoc sid next-state
                 when resumed? (swap! *client-caches dissoc sid) (swap! *dirty-clients include sid) (request-sync!)
+              , &unit
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
@@ -1864,7 +1887,7 @@
         'next-sync-metrics $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn next-sync-metrics (metrics message-kind revision diff-latency payload)
-              merge metrics $ {} (:last-diff-latency-ms diff-latency)
+              struct-with metrics (:last-diff-latency-ms diff-latency)
                 :last-patch-bytes $ if (= message-kind :patch) payload.utf8-byte-count (:last-patch-bytes metrics)
                 :patch-attempts $ if (= message-kind :patch)
                   inc $ :patch-attempts metrics
@@ -2062,6 +2085,7 @@
                   when
                     not $ empty? @*dirty-clients
                     request-sync!
+                  , &unit
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
@@ -2095,19 +2119,22 @@
                         swap! *client-states dissoc sid
                         swap! *dirty-clients exclude sid
                     _ $ println "|unknown data:" data
+              , &unit
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
               :args $ [] 'Number
         'set-today! $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defn set-today! () $ let
-                today $ wo-log
-                  format-time (get-time!) (%some |%Y-%m-%d)
-                reel $ unsafe-coerce @*reel 'cumulo-reel.core/ReelState
-                old-today $ &map:get (:db reel) :today
-              when (not= today old-today)
-                dispatch! (%:: schema/Op :today today) 0
+            defn set-today! ()
+              let
+                  today $ wo-log
+                    format-time (get-time!) (%some |%Y-%m-%d)
+                  reel $ unsafe-coerce @*reel 'cumulo-reel.core/ReelState
+                  old-today $ &map:get (:db reel) :today
+                when (not= today old-today)
+                  dispatch! (%:: schema/Op :today today) 0
+              , &unit
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
@@ -2155,6 +2182,7 @@
                           record-sync-send! :patch revision diff-latency payload
                           handle-sync-send! sid revision new-store $ wss-send! sid payload
                         , &unit
+              , &unit
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
@@ -2171,6 +2199,7 @@
                     when
                       option:some? $ get @*client-states sid
                       sync-client! sid reel revision
+              , &unit
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
@@ -2226,6 +2255,13 @@
               :font-family ui/font-fancy
           :examples $ []
           :schema $ :: 'Dynamic
+        'merge-styles $ %{} 'CodeEntry (:doc "|Combines heterogeneous Respo style maps at the rendering boundary.")
+          :code $ quote
+            defn merge-styles (x0 & xs) (reduce xs x0 &merge)
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:rest 'Map) (:return 'Map)
+              :args $ [] 'Map
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.style $ :require
@@ -2602,7 +2638,8 @@
                     [] username password
                     , op-data
                   maybe-user $ find
-                    vals $ &map:get db :users
+                      vals $ &map:get db :users
+                      , .to-list
                     fn (user)
                       = username $ &map:get user :name
                 match maybe-user

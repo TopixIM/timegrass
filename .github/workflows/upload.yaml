@@ -6,6 +6,9 @@ on:
       - main
   pull_request: {}
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -37,6 +40,7 @@ jobs:
         calcit --check-only
         calcit --entry server --check-only
         calcit analyze deprecated
+        calcit calcit.cirru analyze quality --baseline config/calcit-quality.cirru
         calcit --entry server test --require-match
 
     - name: Build browser client
