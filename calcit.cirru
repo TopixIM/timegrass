@@ -126,7 +126,7 @@
               when config/dev? $ if (tag? op)
                 when (not= op :states) (js/console.log |Dispatch op op-data)
                 match op
-                  (:states _ _) &unit
+                  (:states ignored-cursor ignored-state) &unit
                   _ $ js/console.log |Dispatch op op-data
               if (tag? op)
                 recur $ :: op op-data

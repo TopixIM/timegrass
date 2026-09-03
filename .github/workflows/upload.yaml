@@ -44,7 +44,7 @@ jobs:
         calcit --entry server test --require-match
 
     - name: Build browser client
-      run: yarn compile-page && yarn release-page
+      run: calcit calcit.cirru js && yarn release-page
 
     - run: mkdir -p dist-server && cp calcit.cirru dist-server && cp package.json dist-server/
       name: Copy server scripts
