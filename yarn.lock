@@ -5,14 +5,14 @@ __metadata:
   version: 8
   cacheKey: 10c0
 
-"@calcit/procs@npm:0.13.67":
-  version: 0.13.67
-  resolution: "@calcit/procs@npm:0.13.67"
+"@calcit/procs@npm:0.13.76":
+  version: 0.13.76
+  resolution: "@calcit/procs@npm:0.13.76"
   dependencies:
     "@calcit/ternary-tree": "npm:0.0.26"
     "@cirru/parser.ts": "npm:^0.0.9"
     "@cirru/writer.ts": "npm:^0.1.9"
-  checksum: 10c0/70c3cbfd8ec7efe0c779fb505b8cb6dc59b15fe1cca60ab914728ca6513c30be34b9a889474c11df98dc77d1e8907ebe006a658b4761c43884ac57177c09b393
+  checksum: 10c0/1a4a5559ee188f765396e35474489721c7c6a46be2299895682346defa934d08fa6a67dd707eb0489db750258526b9f29030122a1e524847a431c824c5f3b025
   languageName: node
   linkType: hard
 
@@ -769,6 +769,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"nanoid@npm:^5.1.16":
+  version: 5.1.16
+  resolution: "nanoid@npm:5.1.16"
+  bin:
+    nanoid: bin/nanoid.js
+  checksum: 10c0/04b4f96237f5639716da0e98f453361b313bebaf458bb67dea2d384724fc8b3340a28f032a4373052150bcf3b801d122e291d81ae4fc522969f55c134f4401a3
+  languageName: node
+  linkType: hard
+
 "negotiator@npm:^1.0.0":
   version: 1.0.0
   resolution: "negotiator@npm:1.0.0"
@@ -1047,11 +1056,12 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "timegrass@workspace:."
   dependencies:
-    "@calcit/procs": "npm:0.13.67"
+    "@calcit/procs": "npm:0.13.76"
     bottom-tip: "npm:^0.1.5"
     copy-text-to-clipboard: "npm:^3.2.2"
     dayjs: "npm:^1.11.19"
     feather-icons: "npm:^4.29.2"
+    nanoid: "npm:^5.1.16"
     url-parse: "npm:^1.5.10"
     vite: "npm:^8.0.16"
   languageName: unknown

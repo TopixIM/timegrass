@@ -2,3 +2,4 @@
 yarn.lock -diff linguist-generated
 .pnp.* -diff linguist-generated
 llms/*.md -diff linguist-generated
+config/calcit-quality.cirru text -diff linguist-generated
