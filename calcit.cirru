@@ -492,7 +492,7 @@
                     fn (item d!)
                       d! cursor $ assoc state :show-menu? false
                       when
-                        = :put-back $ option:unwrap-or (nth item 1) nil
+                        = :put-back $ option:unwrap-or (nth item 1) :unknown
                         d! :task/put-back $ &map:get task :id
           :examples $ []
           :schema $ :: 'Dynamic
