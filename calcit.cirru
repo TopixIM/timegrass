@@ -231,7 +231,9 @@
               comp-container (&map:get @*states :states) @*store
               , dispatch!
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
         'request-snapshot! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn request-snapshot! () $ ws-send! (%:: schema/ClientMessage :sync/resume @*sync-revision)
@@ -391,32 +393,36 @@
                     if (= :initial state) |Loading... "|Socket broken! Click to retry."
                     {} (:font-family ui/font-fancy) (:font-weight 100) (:font-size 24)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'respo.schema/Component)
+              :args $ [] 'Tag
         'comp-status-color $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defcomp comp-status-color (color)
               div $ {} (:class-name css-status-color)
                 :style $ {} (:background-color color)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'respo.schema/Component)
+              :args $ [] 'String
         'css-container $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defstyle css-container $ {}
               |$0 $ merge ui/global ui/fullscreen ui/column
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'css-offline $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defstyle css-offline $ {} (|$0 offline-style)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'css-status-color $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defstyle css-status-color $ {}
               |$0 $ {} (:width 16) (:height 16) (:position :absolute) (:bottom 16) (:right 8) (:border-radius |8px) (:opacity 0.8) (:transition-duration |200ms) (:opacity 0.5)
               |$0:hover $ {} (:opacity 0.7)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'offline-style $ %{} 'CodeEntry (:doc "|Composes the heterogeneous offline page style before defstyle expansion.")
           :code $ quote
             def offline-style $ merge-styles ui/global ui/fullscreen ui/column-dispersive
@@ -607,7 +613,7 @@
               |$0:hover $ {}
                 :background-color $ hsl 0 0 80 0.2
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.comp.history $ :require
@@ -667,7 +673,7 @@
           :code $ quote
             def initial-state $ {} (:username |) (:password |)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Map 'Tag 'String
         'on-submit $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn on-submit (username password signup?)
@@ -743,7 +749,7 @@
               |$0 $ {} (:opacity 0.6) (:user-select :none) (:transition-duration |200ms)
               |$0:hover $ {} (:opacity 0.8)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'css-navbar $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defstyle css-navbar $ {}
@@ -754,7 +760,7 @@
                   :background-color $ :theme config/site
                   :color :white
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'render-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn render-entry (title get-route highlighted?)
@@ -952,7 +958,7 @@
               |$0:hover $ {}
                 :background-color $ hsl 0 0 80 0.2
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.comp.notes-page $ :require
@@ -985,7 +991,9 @@
                   :color $ hsl 0 0 80
               <> "|No tasks"
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'respo.schema/Component)
+              :args $ []
         'comp-overview $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defcomp comp-overview (states today tasks)
@@ -1188,7 +1196,7 @@
               |$0:hover $ {}
                 :background-color $ hsl 0 0 80 0.1
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'css-title $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defstyle css-title $ {}
@@ -1198,7 +1206,7 @@
                   :font-size 16
                   :font-weight 300
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'effect-focus $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defeffect effect-focus () (action el *local)
@@ -1276,7 +1284,7 @@
                 :border-radius |16px
                 :margin "|0 4px"
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.comp.profile $ :require
@@ -1295,7 +1303,7 @@
             def dev? $ = |dev
               option:unwrap-or (get-env |mode) |release
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Bool
         'site $ %{} 'CodeEntry (:doc |)
           :code $ quote
             def site $ {} (:port 11009) (:title |Timegrass) (:icon |http://cdn.tiye.me/logo/timegrass.png) (:dev-ui |http://localhost:8100/main.css) (:release-ui |http://cdn.tiye.me/favored-fonts/main.css) (:cdn-url |http://cdn.tiye.me/timegrass/) (:theme |#51C766) (:storage-key |timegrass) (:storage-file |storage.cirru)
@@ -1804,7 +1812,9 @@
               set-interval 600000 $ fn () (persist-db!)
               set-interval 60000 $ fn () (set-today!)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'FfiTask)
+              :args $ []
         'mark-client-active! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn mark-client-active! (sid client-revision force-snapshot?)
@@ -2009,7 +2019,7 @@
         'patch-operation-limit $ %{} 'CodeEntry (:doc |)
           :code $ quote (def patch-operation-limit 64)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Number
         'persist-db! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn persist-db! () $ let
@@ -2218,11 +2228,11 @@
         'sync-coalesce-delay $ %{} 'CodeEntry (:doc |)
           :code $ quote (def sync-coalesce-delay 16)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Number
         'sync-retry-delay $ %{} 'CodeEntry (:doc |)
           :code $ quote (def sync-retry-delay 200)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Number
         'touch-client! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn touch-client! (sid client-revision)
@@ -2382,7 +2392,7 @@
           :code $ quote
             def week-millis $ * 7 24 3600 1000
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.twig.container $ :require
