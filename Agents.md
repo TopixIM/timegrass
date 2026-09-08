@@ -2,7 +2,7 @@
 
 **🤖 This guide helps LLM agents add features to Cumulo applications based on [calcium-workflow](https://github.com/Cumulo/calcium-workflow) template.**
 
-📚 **Related**: [Respo UI](./llms/Respo.md)
+📚 **Related**: run `calcit docs search respo` and `calcit docs read <topic>` for documentation matching the installed toolchain.
 
 ---
 
@@ -112,7 +112,7 @@ defn twig-user (user)
 
 #### 5. **Create/Update UI** (Respo component)
 
-See [Respo.md](./llms/Respo.md) for UI development.
+Run `calcit docs search respo` for UI guidance matching the installed toolchain.
 
 ```cirru
 defn comp-task-list (tasks)
@@ -578,7 +578,7 @@ When adding a feature:
 2. ✅ **Updater** - Pure function `(db ...) → new-db` in `app.updater.*`
 3. ✅ **Wire** - Add a `match` case to `app.updater/updater`
 4. ✅ **Twig** - Filter data by session in `app.twig.*`
-5. ✅ **UI** - Create Respo component in `app.comp.*`
+5. ✅ **UI** - Create Respo components in `app.comp.*`; query current guidance with `calcit docs search respo`.
 6. ✅ **Test** - `calcit calcit.cirru --check-only` before commit
 
 **Key Rules**:

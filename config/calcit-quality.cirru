@@ -163,13 +163,13 @@
       :unresolved 1
       :unsafeCoerce 0
     |app.comp.history/comp-done-task $ {} (:codeDynamic 0)
-      :codeNil 2
+      :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
       :schemaDynamic 1
       :typeNone 1
       :typeNotFull 1
-      :unresolved 3
+      :unresolved 2
       :unsafeCoerce 2
     |app.comp.history/comp-history $ {} (:codeDynamic 0)
       :codeNil 3
@@ -522,6 +522,15 @@
       :typeNotFull 1
       :unresolved 2
       :unsafeCoerce 0
+    |app.server/current-date! $ {} (:codeDynamic 0)
+      :codeNil 0
+      :declaredOptional 0
+      :deprecatedCalls 0
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 0
+      :unsafeCoerce 1
     |app.server/handle-sync-send! $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
@@ -612,6 +621,15 @@
       :typeNotFull 1
       :unresolved 6
       :unsafeCoerce 0
+    |app.twig.container/parse-date $ {} (:codeDynamic 0)
+      :codeNil 0
+      :declaredOptional 0
+      :deprecatedCalls 0
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 0
+      :unsafeCoerce 1
     |app.twig.container/twig-container $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
@@ -838,14 +856,14 @@
       :unresolved 1
       :unsafeCoerce 0
   :metrics $ {} (:codeDynamic 0)
-    :codeNil 63
+    :codeNil 62
     :declaredOptional 0
     :deprecatedCalls 0
     :schemaDynamic 96
     :typeNone 58
     :typeNotFull 72
-    :unresolved 159
-    :unsafeCoerce 53
+    :unresolved 158
+    :unsafeCoerce 55
   :scope $ {} (:includeDependencies false)
     :namespace nil
     :namespacePrefix nil
