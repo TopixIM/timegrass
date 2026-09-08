@@ -72,15 +72,6 @@
       :typeNotFull 0
       :unresolved 1
       :unsafeCoerce 0
-    |app.client/render-app! $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
     |app.client/simulate-login! $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
@@ -103,45 +94,9 @@
       :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 2
-      :unsafeCoerce 0
-    |app.comp.container/comp-status-color $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.comp.container/css-container $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.comp.container/css-offline $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.comp.container/css-status-color $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
       :unresolved 1
       :unsafeCoerce 0
     |app.comp.container/offline-style $ {} (:codeDynamic 0)
@@ -163,13 +118,13 @@
       :unresolved 1
       :unsafeCoerce 0
     |app.comp.history/comp-done-task $ {} (:codeDynamic 0)
-      :codeNil 2
+      :codeNil 1
       :declaredOptional 0
       :deprecatedCalls 0
       :schemaDynamic 1
       :typeNone 1
       :typeNotFull 1
-      :unresolved 3
+      :unresolved 2
       :unsafeCoerce 2
     |app.comp.history/comp-history $ {} (:codeDynamic 0)
       :codeNil 3
@@ -180,15 +135,6 @@
       :typeNotFull 1
       :unresolved 4
       :unsafeCoerce 19
-    |app.comp.history/css-done-task $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
     |app.comp.login/comp-login $ {} (:codeDynamic 0)
       :codeNil 3
       :declaredOptional 0
@@ -197,15 +143,6 @@
       :typeNone 1
       :typeNotFull 1
       :unresolved 4
-      :unsafeCoerce 0
-    |app.comp.login/initial-state $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 0
-      :typeNotFull 0
-      :unresolved 1
       :unsafeCoerce 0
     |app.comp.login/on-submit $ {} (:codeDynamic 0)
       :codeNil 0
@@ -225,24 +162,6 @@
       :typeNotFull 1
       :unresolved 4
       :unsafeCoerce 7
-    |app.comp.navigation/css-entry $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.comp.navigation/css-navbar $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
     |app.comp.navigation/render-entry $ {} (:codeDynamic 0)
       :codeNil 1
       :declaredOptional 0
@@ -270,25 +189,7 @@
       :typeNotFull 1
       :unresolved 6
       :unsafeCoerce 6
-    |app.comp.notes-page/css-note $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
     |app.comp.overview/comp-global-keydown $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.comp.overview/comp-no-tasks $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
@@ -324,24 +225,6 @@
       :typeNotFull 1
       :unresolved 2
       :unsafeCoerce 0
-    |app.comp.overview/css-task-base $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.comp.overview/css-title $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
     |app.comp.overview/effect-focus $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
@@ -359,24 +242,6 @@
       :typeNone 1
       :typeNotFull 1
       :unresolved 6
-      :unsafeCoerce 0
-    |app.comp.profile/css-member-label $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.config/dev? $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
       :unsafeCoerce 0
     |app.config/site $ {} (:codeDynamic 0)
       :codeNil 0
@@ -522,6 +387,15 @@
       :typeNotFull 1
       :unresolved 2
       :unsafeCoerce 0
+    |app.server/current-date! $ {} (:codeDynamic 0)
+      :codeNil 0
+      :declaredOptional 0
+      :deprecatedCalls 0
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 0
+      :unsafeCoerce 1
     |app.server/handle-sync-send! $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
@@ -529,24 +403,6 @@
       :schemaDynamic 1
       :typeNone 0
       :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.server/main! $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.server/patch-operation-limit $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 0
-      :typeNotFull 0
       :unresolved 1
       :unsafeCoerce 0
     |app.server/persist-db! $ {} (:codeDynamic 0)
@@ -567,24 +423,6 @@
       :typeNotFull 0
       :unresolved 0
       :unsafeCoerce 1
-    |app.server/sync-coalesce-delay $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 0
-      :typeNotFull 0
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.server/sync-retry-delay $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 0
-      :typeNotFull 0
-      :unresolved 1
-      :unsafeCoerce 0
     |app.style/button $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
@@ -612,6 +450,15 @@
       :typeNotFull 1
       :unresolved 6
       :unsafeCoerce 0
+    |app.twig.container/parse-date $ {} (:codeDynamic 0)
+      :codeNil 0
+      :declaredOptional 0
+      :deprecatedCalls 0
+      :schemaDynamic 0
+      :typeNone 0
+      :typeNotFull 0
+      :unresolved 0
+      :unsafeCoerce 1
     |app.twig.container/twig-container $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
@@ -640,15 +487,6 @@
       :unresolved 1
       :unsafeCoerce 0
     |app.twig.container/twig-tasks-by-week $ {} (:codeDynamic 0)
-      :codeNil 0
-      :declaredOptional 0
-      :deprecatedCalls 0
-      :schemaDynamic 1
-      :typeNone 1
-      :typeNotFull 1
-      :unresolved 1
-      :unsafeCoerce 0
-    |app.twig.container/week-millis $ {} (:codeDynamic 0)
       :codeNil 0
       :declaredOptional 0
       :deprecatedCalls 0
@@ -838,14 +676,14 @@
       :unresolved 1
       :unsafeCoerce 0
   :metrics $ {} (:codeDynamic 0)
-    :codeNil 63
+    :codeNil 62
     :declaredOptional 0
     :deprecatedCalls 0
-    :schemaDynamic 96
-    :typeNone 58
-    :typeNotFull 72
-    :unresolved 159
-    :unsafeCoerce 53
+    :schemaDynamic 75
+    :typeNone 41
+    :typeNotFull 55
+    :unresolved 137
+    :unsafeCoerce 55
   :scope $ {} (:includeDependencies false)
     :namespace nil
     :namespacePrefix nil

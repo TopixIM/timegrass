@@ -11,9 +11,10 @@ https://github.com/Cumulo/calcium-workflow
 ### Local development
 
 ```bash
+fnm use 24
 corepack enable
 corepack prepare yarn@4.12.0 --activate
-caps
+caps --ci
 yarn install --immutable
 
 # browser client and static assets
@@ -21,7 +22,7 @@ yarn watch-page
 yarn dev-page
 
 # realtime server
-mode=dev calcit -w calcit.cirru --entry server
+mode=dev calcit calcit.cirru --entry server --compat-types -w
 ```
 
 `calcit.cirru` now uses explicit entries: the default browser entry runs in
@@ -47,16 +48,22 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
+Calcit 0.14 enables strict preprocessing by default. This existing project uses
+`--compat-types` while its recorded quality baseline is reduced incrementally;
+both browser and server entries already enforce zero dynamic method dispatch.
+
 ### Upgrade validation
 
 Use released module tags and validate the full graph before committing:
 
 ```bash
-caps --strict --ci
+caps --ci
+caps verify --toolchain
 calcit edit format
-calcit --check-only
-calcit --entry server --check-only
-calcit analyze deprecated
+calcit calcit.cirru --compat-types --check-only
+calcit calcit.cirru --entry server --compat-types --check-only
+calcit calcit.cirru --compat-types analyze deprecated
+calcit calcit.cirru --compat-types analyze dynamic-methods --max 0
 yarn check-sync
 yarn compile-page
 yarn release-page

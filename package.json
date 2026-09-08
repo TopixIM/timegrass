@@ -4,18 +4,18 @@
   "packageManager": "yarn@4.12.0",
   "description": "Cumulo Workflow",
   "engines": {
-    "node": ">=22.12.0"
+    "node": ">=24"
   },
   "main": "index.js",
   "scripts": {
-    "check-client": "calcit --check-only && calcit test --tag :client --require-match",
-    "check-server": "calcit --entry server --check-only && calcit --entry server test --require-match",
-    "check-sync": "yarn check-client && yarn check-server && calcit analyze deprecated && yarn check-quality",
-    "check-quality": "calcit calcit.cirru analyze quality --baseline config/calcit-quality.cirru",
-    "compile-page": "calcit calcit.cirru js",
+    "check-client": "calcit calcit.cirru --compat-types --check-only && calcit calcit.cirru --compat-types test --tag :client --require-match",
+    "check-server": "calcit calcit.cirru --entry server --compat-types --check-only && calcit calcit.cirru --entry server --compat-types test --require-match",
+    "check-sync": "yarn check-client && yarn check-server && calcit calcit.cirru --compat-types analyze deprecated && yarn check-quality",
+    "check-quality": "calcit calcit.cirru --compat-types analyze quality --baseline config/calcit-quality.cirru",
+    "compile-page": "calcit calcit.cirru --compat-types js",
     "dev-page": "vite --force",
     "release-page": "vite build --base=./",
-    "watch-page": "calcit -w calcit.cirru js"
+    "watch-page": "calcit calcit.cirru --compat-types -w js"
   },
   "repository": {
     "type": "git",
@@ -24,7 +24,7 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "@calcit/procs": "0.13.77",
+    "@calcit/procs": "0.14.4",
     "dayjs": "^1.11.19",
     "nanoid": "^5.1.16"
   },

@@ -27,7 +27,7 @@
           :code $ quote
             defatom *store $ :: :initial
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref
         '*sync-revision $ %{} 'CodeEntry (:doc |)
           :code $ quote (defatom *sync-revision 0)
           :examples $ []
@@ -231,7 +231,9 @@
               comp-container (&map:get @*states :states) @*store
               , dispatch!
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'Unit)
+              :args $ []
         'request-snapshot! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn request-snapshot! () $ ws-send! (%:: schema/ClientMessage :sync/resume @*sync-revision)
@@ -267,7 +269,7 @@
             defn validate-server-patch (store local-revision base-revision changes)
               if (= base-revision local-revision)
                 match
-                  .apply-to
+                  patch-batch:apply-to
                     assert-traits (patch-batch changes) PatchBatchOps
                     , store
                   (:ok next-store) (%ok next-store)
@@ -322,7 +324,6 @@
             app.schema :as schema
             app.config :as config
             ws-edn.client :refer $ ws-connect! ws-send! ws-set-on-data! WsClientOps
-            recollect.patch :refer $ patch-batch PatchBatchOps PatchError PatchPathSegment patch-error-message
             cumulo-util.core :refer $ on-page-touch visibility-heartbeat
             |url-parse :default url-parse
             |bottom-tip :default hud!
@@ -331,6 +332,7 @@
             |dayjs/plugin/weekOfYear :default week-of-year
             recollect.schema :as patch-schema
             cumulo-util.activity :as activity
+            recollect.patch :refer $ patch-batch patch-batch:apply-to PatchBatchOps PatchError PatchPathSegment patch-error-message
     'app.comp.container $ %{} 'FileEntry
       :defs $ {}
         'comp-container $ %{} 'CodeEntry (:doc |)
@@ -391,32 +393,36 @@
                     if (= :initial state) |Loading... "|Socket broken! Click to retry."
                     {} (:font-family ui/font-fancy) (:font-weight 100) (:font-size 24)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'respo.schema/Component)
+              :args $ [] 'Tag
         'comp-status-color $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defcomp comp-status-color (color)
               div $ {} (:class-name css-status-color)
                 :style $ {} (:background-color color)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'respo.schema/Component)
+              :args $ [] 'String
         'css-container $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defstyle css-container $ {}
               |$0 $ merge ui/global ui/fullscreen ui/column
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'css-offline $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defstyle css-offline $ {} (|$0 offline-style)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'css-status-color $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defstyle css-status-color $ {}
               |$0 $ {} (:width 16) (:height 16) (:position :absolute) (:bottom 16) (:right 8) (:border-radius |8px) (:opacity 0.8) (:transition-duration |200ms) (:opacity 0.5)
               |$0:hover $ {} (:opacity 0.7)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'offline-style $ %{} 'CodeEntry (:doc "|Composes the heterogeneous offline page style before defstyle expansion.")
           :code $ quote
             def offline-style $ merge-styles ui/global ui/fullscreen ui/column-dispersive
@@ -560,7 +566,7 @@
                         <> "|No tasks." $ {} (:font-family ui/font-fancy)
                           :color $ hsl 0 0 80
                       let
-                          grouped-tasks $ -> finished-tasks (.to-list) (.map last)
+                          grouped-tasks $ -> finished-tasks (&map:to-list) (map last)
                             group-by $ fn (task)
                               unsafe-coerce
                                 .!format
@@ -570,12 +576,12 @@
                                   , |YYYY-MM-DD
                                 , 'String
                         list-> ({})
-                          -> grouped-tasks (.to-list)
-                            .sort $ fn (x y)
+                          -> grouped-tasks (&map:to-list)
+                            sort $ fn (x y)
                               &compare
                                 option:unwrap-or (first y) |
                                 option:unwrap-or (first x) |
-                            .map-pair $ fn (date-string task-list)
+                            &list:map-pair $ fn (date-string task-list)
                               [] date-string $ div
                                 {} (:class-name css/column)
                                   :style $ {} (:margin-top 16)
@@ -591,9 +597,9 @@
                                 =< nil 4
                                 list-> ({})
                                   -> task-list
-                                    .sort-by $ fn (task)
+                                    &list:sort-by $ fn (task)
                                       negate $ &map:get task :finished-time
-                                    .map $ fn (task)
+                                    map $ fn (task)
                                       [] (&map:get task :id)
                                         comp-done-task
                                           >> states $ &map:get task :id
@@ -607,7 +613,7 @@
               |$0:hover $ {}
                 :background-color $ hsl 0 0 80 0.2
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.comp.history $ :require
@@ -667,7 +673,7 @@
           :code $ quote
             def initial-state $ {} (:username |) (:password |)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Map 'Tag 'String
         'on-submit $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn on-submit (username password signup?)
@@ -743,7 +749,7 @@
               |$0 $ {} (:opacity 0.6) (:user-select :none) (:transition-duration |200ms)
               |$0:hover $ {} (:opacity 0.8)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'css-navbar $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defstyle css-navbar $ {}
@@ -754,7 +760,7 @@
                   :background-color $ :theme config/site
                   :color :white
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'render-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn render-entry (title get-route highlighted?)
@@ -899,8 +905,8 @@
                         <> "|No notes" $ {} (:font-family ui/font-fancy)
                           :color $ hsl 0 0 80
                       let
-                          grouped-notes $ -> notes (.to-list)
-                            .group-by $ fn (pair)
+                          grouped-notes $ -> notes (&map:to-list)
+                            group-by $ fn (pair)
                               let
                                   pair-value $ unsafe-coerce (nth pair 1) 'Dynamic
                                   note-time $ &map:get pair-value :time
@@ -909,14 +915,14 @@
                                     unsafe-coerce (dayjs note-time) 'JsObject
                                     , |MM-DD
                                   , 'String
-                            .to-list
-                            .sort $ fn (x y)
+                            &map:to-list
+                            sort $ fn (x y)
                               &compare
                                 option:unwrap-or (first y) |
                                 option:unwrap-or (first x) |
                         list-> ({})
-                          -> grouped-notes (.to-list)
-                            .map-pair $ fn (date notes-in-day)
+                          -> grouped-notes (identity)
+                            &list:map-pair $ fn (date notes-in-day)
                               [] date $ div
                                 {} $ :style
                                   {} $ :margin-top 16
@@ -935,11 +941,11 @@
                                 list->
                                   {} $ :class-name css/column
                                   -> notes-in-day
-                                    .sort-by $ fn (pair)
+                                    &list:sort-by $ fn (pair)
                                       let
                                           note-value $ unsafe-coerce (nth pair 1) 'Dynamic
                                         negate $ &map:get note-value :time
-                                    .map-pair $ fn (k note)
+                                    &list:map-pair $ fn (k note)
                                       [] k $ comp-note (>> states k) note
                     =< nil 160
                   .render add-plugin
@@ -952,7 +958,7 @@
               |$0:hover $ {}
                 :background-color $ hsl 0 0 80 0.2
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.comp.notes-page $ :require
@@ -985,18 +991,20 @@
                   :color $ hsl 0 0 80
               <> "|No tasks"
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'respo.schema/Component)
+              :args $ []
         'comp-overview $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defcomp comp-overview (states today tasks)
               let
-                  working-tasks $ -> tasks (.to-map)
+                  working-tasks $ -> tasks (identity)
                     filter $ fn (pair)
                       not $ &map:get
                           last pair
                           , .unwrap
                         , :pending?
-                  pending-tasks $ -> tasks (.to-map)
+                  pending-tasks $ -> tasks (identity)
                     filter $ fn (pair)
                       &map:get
                           last pair
@@ -1040,14 +1048,14 @@
                         <> today
                     if (empty? working-tasks) (comp-no-tasks)
                       list-> ({})
-                        -> working-tasks (.to-list)
-                          .sort-by $ fn (pair)
+                        -> working-tasks (&map:to-list)
+                          &list:sort-by $ fn (pair)
                             let
                                 task $
                                   last pair
                                   , .unwrap
                               negate $ or (&map:get task :touched-time) (&map:get task :created-time)
-                          .map-pair $ fn (k task)
+                          &list:map-pair $ fn (k task)
                             [] k $ comp-task
                               >> states $ &map:get task :id
                               , task :working
@@ -1059,14 +1067,14 @@
                           , &unit
                         if (&map:get state :show-later?)
                           list-> ({})
-                            -> pending-tasks (.to-list)
-                              .sort-by $ fn (pair)
+                            -> pending-tasks (&map:to-list)
+                              &list:sort-by $ fn (pair)
                                 let
                                     task $
                                       last pair
                                       , .unwrap
                                   negate $ or (&map:get task :touched-time) (&map:get task :created-time)
-                              .map-pair $ fn (k task)
+                              &list:map-pair $ fn (k task)
                                 [] k $ comp-task
                                   >> states $ &map:get task :id
                                   , task :pending
@@ -1188,7 +1196,7 @@
               |$0:hover $ {}
                 :background-color $ hsl 0 0 80 0.1
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'css-title $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defstyle css-title $ {}
@@ -1198,7 +1206,7 @@
                   :font-size 16
                   :font-weight 300
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
         'effect-focus $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defeffect effect-focus () (action el *local)
@@ -1245,8 +1253,8 @@
                     =< 8 nil
                     list->
                       {} $ :class-name css/row
-                      -> members (.to-list)
-                        .map-pair $ fn (k username)
+                      -> members (&map:to-list)
+                        &list:map-pair $ fn (k username)
                           [] k $ div
                             {} $ :class-name css-member-label
                             <> username
@@ -1276,7 +1284,7 @@
                 :border-radius |16px
                 :margin "|0 4px"
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'String
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.comp.profile $ :require
@@ -1295,7 +1303,7 @@
             def dev? $ = |dev
               option:unwrap-or (get-env |mode) |release
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Bool
         'site $ %{} 'CodeEntry (:doc |)
           :code $ quote
             def site $ {} (:port 11009) (:title |Timegrass) (:icon |http://cdn.tiye.me/logo/timegrass.png) (:dev-ui |http://localhost:8100/main.css) (:release-ui |http://cdn.tiye.me/favored-fonts/main.css) (:cdn-url |http://cdn.tiye.me/timegrass/) (:theme |#51C766) (:storage-key |timegrass) (:storage-file |storage.cirru)
@@ -1382,7 +1390,7 @@
           :schema $ :: 'Fn
             {}
               :args $ [] 'Dynamic
-              :return $ :: 'Result 'app.schema/MessageDecodeError 'app.schema/ClientMessage
+              :return $ :: 'Result 'app.schema/ClientMessage 'app.schema/MessageDecodeError
           :tests $ []
             %{} 'TestEntry (:name |decodes-sync-control)
               :code $ quote
@@ -1472,7 +1480,7 @@
           :schema $ :: 'Fn
             {}
               :args $ [] 'Dynamic
-              :return $ :: 'Result 'app.schema/MessageDecodeError 'app.schema/Op
+              :return $ :: 'Result 'app.schema/Op 'app.schema/MessageDecodeError
         'decode-server-message $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn decode-server-message (data)
@@ -1506,7 +1514,7 @@
           :schema $ :: 'Fn
             {}
               :args $ [] 'Dynamic
-              :return $ :: 'Result 'app.schema/MessageDecodeError 'app.schema/ServerMessage
+              :return $ :: 'Result 'app.schema/ServerMessage 'app.schema/MessageDecodeError
           :tests $ []
             %{} 'TestEntry (:name |decodes-pong)
               :code $ quote
@@ -1695,12 +1703,23 @@
           :schema $ :: 'Fn
             {} (:return 'Unit)
               :args $ [] 'Number 'Number
+        'current-date! $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn current-date! () $ unsafe-coerce
+              %{} Date $ :date
+                &call-dylib-edn (get-dylib-path |/dylibs/libcalcit_std) |now_bang
+              , 'calcit.std.date/Date0
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'calcit.std.date/Date0)
+              :args $ []
+              :features $ #{} :js-ffi
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn dispatch! (op sid)
               let
                   op-id $ turn-string (generate-id!)
-                  op-time $ get-timestamp (get-time!)
+                  op-time $ get-timestamp (current-date!)
                 if config/dev? $ println |Dispatch! (str op) sid
                 match op
                   (:effect/persist) (persist-db!)
@@ -1716,7 +1735,7 @@
         'get-backup-path! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn get-backup-path! () $ let
-                now $ extract-time (get-time!)
+                now $ extract-time (current-date!)
               join-path calcit-dirname |backups
                 str $ &map:get now :month
                 str (&map:get now :day) |-snapshot.cirru
@@ -1793,7 +1812,9 @@
               set-interval 600000 $ fn () (persist-db!)
               set-interval 60000 $ fn () (set-today!)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'FfiTask)
+              :args $ []
         'mark-client-active! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn mark-client-active! (sid client-revision force-snapshot?)
@@ -1983,7 +2004,7 @@
               :tags $ #{} :server
         'now-ms $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defn now-ms () $ get-timestamp (get-time!)
+            defn now-ms () $ get-timestamp (current-date!)
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Number)
@@ -1998,7 +2019,7 @@
         'patch-operation-limit $ %{} 'CodeEntry (:doc |)
           :code $ quote (def patch-operation-limit 64)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Number
         'persist-db! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn persist-db! () $ let
@@ -2129,7 +2150,7 @@
             defn set-today! ()
               let
                   today $ wo-log
-                    format-time (get-time!) (%some |%Y-%m-%d)
+                    format-time (current-date!) (%some |%Y-%m-%d)
                   reel $ unsafe-coerce @*reel 'cumulo-reel.core/ReelState
                   old-today $ &map:get (:db reel) :today
                 when (not= today old-today)
@@ -2207,11 +2228,11 @@
         'sync-coalesce-delay $ %{} 'CodeEntry (:doc |)
           :code $ quote (def sync-coalesce-delay 16)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Number
         'sync-retry-delay $ %{} 'CodeEntry (:doc |)
           :code $ quote (def sync-retry-delay 200)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Number
         'touch-client! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn touch-client! (sid client-revision)
@@ -2238,8 +2259,9 @@
             app.$meta :refer $ calcit-dirname
             calcit.std.fs :refer $ path-exists? check-write-file!
             calcit.std.time :refer $ set-interval set-timeout
-            calcit.std.date :refer $ get-time! extract-time format-time get-timestamp
             calcit.std.path :refer $ join-path
+            calcit.std.date :refer $ extract-time Date format-time get-timestamp
+            calcit.std.util :refer $ get-dylib-path
     'app.style $ %{} 'FileEntry
       :defs $ {}
         'button $ %{} 'CodeEntry (:doc |)
@@ -2269,6 +2291,18 @@
             [] respo-ui.core :as ui
     'app.twig.container $ %{} 'FileEntry
       :defs $ {}
+        'parse-date $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn parse-date (time format)
+              unsafe-coerce
+                %{} Date $ :date
+                  &call-dylib-edn (get-dylib-path |/dylibs/libcalcit_std) |parse_time time format
+                , 'calcit.std.date/Date0
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'calcit.std.date/Date0)
+              :args $ [] 'String 'String
+              :features $ #{} :js-ffi
         'twig-container $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn twig-container (db session records)
@@ -2313,9 +2347,9 @@
         'twig-members $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn twig-members (sessions users)
-              -> sessions $ .map-kv
+              -> sessions $ filter-map-kv
                 fn (k session)
-                  [] k $ schema/read-path users
+                  %:: MapEntryDecision :keep k $ schema/read-path users
                     [] (&map:get session :user-id) :name
           :examples $ []
           :schema $ :: 'Dynamic
@@ -2325,8 +2359,8 @@
               let
                   year $ &map:get data :year
                   month $ inc (&map:get data :month)
-                -> notes (.to-map)
-                  .filter-kv $ fn (k task)
+                -> notes (identity)
+                  &map:filter-kv $ fn (k task)
                     let
                         time $ extract-time
                           :: Date $ &map:get task :time
@@ -2341,12 +2375,12 @@
               let
                   filter-year $ &map:get data :year
                   filter-week $ dec (&map:get data :week)
-                  start-time $ parse-time (&map:get data :start) "|%Y-%m-%dT%H:%M:%S %z"
-                  end-time $ parse-time (&map:get data :end) "|%Y-%m-%dT%H:%M:%S %z"
+                  start-time $ parse-date (&map:get data :start) "|%Y-%m-%dT%H:%M:%S %z"
+                  end-time $ parse-date (&map:get data :end) "|%Y-%m-%dT%H:%M:%S %z"
                 ; println |start: $ format-time start-time "|%Y-%m-%dT%H:%M:%S %z"
                 ; println "|end " $ format-time end-time "|%Y-%m-%dT%H:%M:%S %z"
-                -> tasks (.to-map)
-                  .filter-kv $ fn (k task)
+                -> tasks (identity)
+                  &map:filter-kv $ fn (k task)
                     let
                         t $ &map:get task :finished-time
                       and
@@ -2358,14 +2392,15 @@
           :code $ quote
             def week-millis $ * 7 24 3600 1000
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.twig.container $ :require
             [] app.twig.user :refer $ [] twig-user
             calcit.std.rand :refer $ rand-hex-color!
-            calcit.std.date :refer $ Date extract-time get-time! from-ywd from-ymd parse-time format-time get-timestamp
             app.schema :as schema
+            calcit.std.date :refer $ Date extract-time from-ywd from-ymd format-time get-timestamp
+            calcit.std.util :refer $ get-dylib-path
     'app.twig.user $ %{} 'FileEntry
       :defs $ {}
         'twig-user $ %{} 'CodeEntry (:doc |)
