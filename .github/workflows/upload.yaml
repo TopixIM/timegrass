@@ -53,7 +53,7 @@ jobs:
     - name: Build browser client
       run: yarn compile-page && yarn release-page
 
-    - run: mkdir -p dist-server && cp calcit.cirru dist-server && cp package.json dist-server/
+    - run: mkdir -p dist-server && cp calcit.cirru package.json deps.cirru dist-server/
       name: Copy server scripts
 
     - name: Check deploy key availability
