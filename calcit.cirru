@@ -354,12 +354,20 @@
                       case-default (&map:get router :name)
                         <> $ str "|404 page:" router
                         :home $ comp-overview (>> states :overview) (&map:get store :today)
-                          get-in router $ [] :data :tasks
+                          option:unwrap-or
+                            get-in router $ [] :data :tasks
+                            {}
                         :history $ comp-history (>> states :history)
-                          get-in router $ [] :data :week
-                          get-in router $ [] :data :tasks
+                          option:unwrap-or
+                            get-in router $ [] :data :week
+                            {}
+                          option:unwrap-or
+                            get-in router $ [] :data :tasks
+                            {}
                         :notes $ comp-notes-page (>> states :notes) (&map:get router :data)
-                          get-in session $ [] :router :data
+                          option:unwrap-or
+                            get-in session $ [] :router :data
+                            {}
                         :profile $ comp-profile (&map:get store :user) (&map:get router :data)
                       comp-login $ >> states :login
                     comp-status-color $ &map:get store :color
