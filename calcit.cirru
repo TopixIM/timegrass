@@ -1145,7 +1145,7 @@
                     fn (item d!)
                       let
                           new-state $ assoc state :menu? false
-                          result $ nth item 1
+                          result $ task-menu-action item
                         js/console.log item
                         case-default result (d! cursor new-state)
                           :done $ do
@@ -1223,6 +1223,22 @@
                 do
           :examples $ []
           :schema $ :: 'Dynamic
+        'task-menu-action $ %{} 'CodeEntry (:doc |)
+          :code $ quote
+            defn task-menu-action (item) (&enum:nth item 1)
+          :examples $ []
+          :schema $ :: 'Fn
+            {} (:return 'Tag)
+              :args $ [] 'Enum
+          :tests $ []
+            %{} 'TestEntry (:name |decodes-task-menu-actions)
+              :code $ quote
+                do
+                  assert |remove-action-should-be-decoded $ &= :remove
+                    task-menu-action $ :: :item :remove |Remove
+                  assert |done-action-should-be-decoded $ &= :done
+                    task-menu-action $ :: :item :done |Done
+              :tags $ #{} :client
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote
           ns app.comp.overview $ :require
@@ -1586,7 +1602,7 @@
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Dynamic)
-              :args $ [] 'Dynamic 'List
+              :args $ [] 'Dynamic 'Dynamic
           :tests $ []
             %{} 'TestEntry (:name |handles-non-map-boundaries)
               :code $ quote
@@ -2603,13 +2619,42 @@
             defn remove-working (db op-data sid op-id op-time)
               let
                   user-id $ schema/read-path db ([] :sessions sid :user-id)
-                update-in db ([] :users user-id :tasks :working)
-                  fn (tasks-option)
-                    let
-                        tasks $ option:unwrap-or tasks-option ({})
-                      dissoc tasks op-data
+                  working-path $ [] :users user-id :tasks :working
+                  raw-tasks $ schema/read-path db working-path
+                if (map? raw-tasks)
+                  let
+                      tasks $ assert-type raw-tasks (:: 'Map 'String 'Dynamic)
+                    assoc-in db working-path $ dissoc tasks op-data
+                  , db
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn
+            {} (:return 'T)
+              :args $ [] 'T 'String 'Number 'String 'Number
+              :generics $ [] 'T
+          :tests $ []
+            %{} 'TestEntry (:name |removes-only-new-fixture-task)
+              :code $ quote
+                let
+                    sid 990001
+                    user-id |timegrass-test-user
+                    target-id |timegrass-test-delete-target
+                    keep-id |timegrass-test-keep
+                    target-task $ {} (:id target-id) (:text |delete-me)
+                    keep-task $ {} (:id keep-id) (:text |keep-me)
+                    db $ {}
+                      :sessions $ {}
+                        sid $ {} (:user-id user-id)
+                      :users $ {}
+                        user-id $ {}
+                          :tasks $ {}
+                            :working $ {} (target-id target-task) (keep-id keep-task)
+                    updated $ remove-working db target-id sid |timegrass-test-op 1
+                  do
+                    assert |fresh-target-must-be-removed $ nil?
+                      schema/read-path updated $ [] :users user-id :tasks :working target-id
+                    assert |unrelated-fixture-must-remain $ &= keep-task
+                      schema/read-path updated $ [] :users user-id :tasks :working keep-id
+              :tags $ #{} :server
         'touch-working $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn touch-working (db op-data sid op-id op-time)
