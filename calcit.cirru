@@ -253,7 +253,7 @@
         'simulate-login! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn simulate-login! () $ let
-                raw $ js/localStorage.getItem (:storage-key config/site)
+                raw $ js/localStorage.getItem (&map:get config/site :storage-key)
               if (js-present? raw)
                 do (println "|Found storage.")
                   dispatch! $ :: :user/log-in
@@ -354,12 +354,20 @@
                       case-default (&map:get router :name)
                         <> $ str "|404 page:" router
                         :home $ comp-overview (>> states :overview) (&map:get store :today)
-                          get-in router $ [] :data :tasks
+                          option:unwrap-or
+                            get-in router $ [] :data :tasks
+                            {}
                         :history $ comp-history (>> states :history)
-                          get-in router $ [] :data :week
-                          get-in router $ [] :data :tasks
+                          option:unwrap-or
+                            get-in router $ [] :data :week
+                            {}
+                          option:unwrap-or
+                            get-in router $ [] :data :tasks
+                            {}
                         :notes $ comp-notes-page (>> states :notes) (&map:get router :data)
-                          get-in session $ [] :router :data
+                          option:unwrap-or
+                            get-in session $ [] :router :data
+                            {}
                         :profile $ comp-profile (&map:get store :user) (&map:get router :data)
                       comp-login $ >> states :login
                     comp-status-color $ &map:get store :color
@@ -381,7 +389,7 @@
                   :style $ {} (:height 0)
                 div $ {}
                   :style $ {}
-                    :background-image $ str "|url(" (:icon config/site) "|)"
+                    :background-image $ str "|url(" (&map:get config/site :icon) "|)"
                     :width 128
                     :height 128
                     :background-size :contain
@@ -426,7 +434,7 @@
         'offline-style $ %{} 'CodeEntry (:doc "|Composes the heterogeneous offline page style before defstyle expansion.")
           :code $ quote
             def offline-style $ merge-styles ui/global ui/fullscreen ui/column-dispersive
-              {} $ :background-color (:theme config/site)
+              {} $ :background-color (&map:get config/site :theme)
           :examples $ []
           :schema $ :: 'Map 'Tag 'Dynamic
         'style-body $ %{} 'CodeEntry (:doc |)
@@ -679,7 +687,7 @@
             defn on-submit (username password signup?)
               fn (e dispatch!)
                 dispatch! (if signup? :user/sign-up :user/log-in) ([] username password)
-                js/localStorage.setItem (:storage-key config/site)
+                js/localStorage.setItem (&map:get config/site :storage-key)
                   format-cirru-edn $ [] username password
           :examples $ []
           :schema $ :: 'Dynamic
@@ -757,7 +765,7 @@
                 {} (:height 48) (:padding "|0 16px") (:font-size 16)
                   :border-bottom $ str "|1px solid " (hsl 0 0 0 0.1)
                   :font-family ui/font-fancy
-                  :background-color $ :theme config/site
+                  :background-color $ &map:get config/site :theme
                   :color :white
           :examples $ []
           :schema $ :: 'String
