@@ -36,7 +36,7 @@ jobs:
     - name: Verify Calcit runtime toolchain
       run: |
         caps verify --toolchain
-        test "$(calcit --version)" = "0.14.4"
+        test "$(calcit --version)" = "0.14.7"
 
     - name: Validate Calcit snapshot
       run: |

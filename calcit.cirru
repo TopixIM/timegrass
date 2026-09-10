@@ -4,7 +4,7 @@
     :default $ {} (:description "||Browser client bundle") (:init-fn 'app.client/main!) (:mode :js) (:reload-fn 'app.client/reload!)
       :feature-policy $ {}
       :modules $ [] |recollect/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |respo-feather.calcit/ |alerts.calcit/ |respo-markdown.calcit/ |respo.calcit/ |js-ffi/
-      :type-slots $ {}
+      :type-slots $ {} (:dispatch-op |app.schema/Op)
     :server $ {} (:description "||Realtime server") (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!)
       :feature-policy $ {}
       :modules $ [] |recollect/ |cumulo-util.calcit/ |cumulo-reel.calcit/ |calcit.std/ |calcit-wss/
@@ -122,23 +122,19 @@
               :args $ []
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defn dispatch! (op ? op-data)
-              when config/dev? $ if (tag? op)
-                when (not= op :states) (js/console.log |Dispatch op op-data)
-                match op
-                  (:states ignored-cursor ignored-state) &unit
-                  _ $ js/console.log |Dispatch op op-data
-              if (tag? op)
-                recur $ :: op op-data
-                match op
-                  (:states cursor s)
-                    reset! *states $ update-states @*states cursor s
-                  (:effect/connect) (connect!)
-                  _ $ ws-send! (%:: schema/ClientMessage :dispatch op)
+            defn dispatch! (op)
+              when config/dev? $ match op
+                (:states ignored-cursor ignored-state) &unit
+                _ $ js/console.log |Dispatch op
+              match op
+                (:states cursor s)
+                  reset! *states $ update-states @*states cursor s
+                (:effect/connect) (connect!)
+                _ $ ws-send! (%:: schema/ClientMessage :dispatch op)
           :examples $ []
           :schema $ :: 'Fn
-            {} (:return 'Dynamic)
-              :args $ [] 'app.schema/Op 'Dynamic
+            {} (:return 'Unit)
+              :args $ [] 'app.schema/Op
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn main! () $ do (.!extend dayjs week-of-year)
@@ -152,10 +148,15 @@
                 if
                   = @*store $ :: :offline
                   recover-connection!
+                , &unit
               js/window.addEventListener |visibilitychange $ fn (event)
                 when @*connected? $ send-activity!
-              visibility-heartbeat $ fn ()
-                when @*connected? $ ws-send! (%:: schema/ClientMessage :sync/heartbeat @*sync-revision)
+                , &unit
+              visibility-heartbeat
+                fn ()
+                  when @*connected? $ ws-send! (%:: schema/ClientMessage :sync/heartbeat @*sync-revision)
+                  , &unit
+                , 3000
               println "|App started!"
           :examples $ []
           :schema $ :: 'Fn
@@ -374,7 +375,8 @@
                     when dev? $ comp-inspect |Store store
                       {} (:bottom 0) (:left 0) (:z-index 9999)
                     comp-messages (&map:get session :messages) ({})
-                      fn (info d!) (d! :session/remove-message info)
+                      fn (info d!)
+                        d! $ :: :session/remove-message info
                     when dev? $ comp-reel (&map:get store :reel-length) ({})
                 (:: :initial) (comp-offline :initial)
                 (:: :offline) (comp-offline :offline)
@@ -396,7 +398,8 @@
                 span
                   {}
                     :style $ {} (:cursor :pointer)
-                    :on-click $ fn (e d!) (d! :effect/connect nil)
+                    :on-click $ fn (e d!)
+                      d! $ :: :effect/connect
                   <>
                     if (= :initial state) |Loading... "|Socket broken! Click to retry."
                     {} (:font-family ui/font-fancy) (:font-weight 100) (:font-size 24)
@@ -484,7 +487,7 @@
                         {} $ :background-color (hsl 0 0 94)
                         {}
                     :on-click $ fn (e d!)
-                      d! cursor $ assoc state :show-menu? true
+                      d! $ :: :states cursor (assoc state :show-menu? true)
                   <>
                     unsafe-coerce (.!format finished-day |HH:mm) 'String
                     {} (:min-width 32)
@@ -502,12 +505,12 @@
                       :items $ [] (:: :item :put-back "|Put back")
                     &map:get state :show-menu?
                     fn (d!)
-                      d! cursor $ assoc state :show-menu? false
+                      d! $ :: :states cursor (assoc state :show-menu? false)
                     fn (item d!)
-                      d! cursor $ assoc state :show-menu? false
+                      d! $ :: :states cursor (assoc state :show-menu? false)
                       when
                         = :put-back $ option:unwrap-or (nth item 1) :unknown
-                        d! :task/put-back $ &map:get task :id
+                        d! $ :: :task/put-back (&map:get task :id)
           :examples $ []
           :schema $ :: 'Dynamic
         'comp-history $ %{} 'CodeEntry (:doc |)
@@ -535,38 +538,40 @@
                             :color $ hsl 200 80 80
                             :cursor :pointer
                           fn (e d!)
-                            d! :router/change $ {} (:name :history)
-                              :data $ let
-                                  change-year? $ <= week 1
-                                  y $ if change-year? (dec year) year
-                                  w $ if change-year? 53 (dec week)
-                                  base-day $ unsafe-coerce (dayjs) 'JsObject
-                                  year-day $ unsafe-coerce (.!year base-day y) 'JsObject
-                                  d $ unsafe-coerce (.!week year-day w) 'JsObject
-                                  start-day $ unsafe-coerce (.!startOf d |week) 'JsObject
-                                  end-day $ unsafe-coerce (.!endOf d |week) 'JsObject
-                                {} (:year y) (:week w)
-                                  :start $ unsafe-coerce (.!format start-day |week) 'String
-                                  :end $ unsafe-coerce (.!format end-day |week) 'String
+                            d! $ :: :router/change
+                              {} (:name :history)
+                                :data $ let
+                                    change-year? $ <= week 1
+                                    y $ if change-year? (dec year) year
+                                    w $ if change-year? 53 (dec week)
+                                    base-day $ unsafe-coerce (dayjs) 'JsObject
+                                    year-day $ unsafe-coerce (.!year base-day y) 'JsObject
+                                    d $ unsafe-coerce (.!week year-day w) 'JsObject
+                                    start-day $ unsafe-coerce (.!startOf d |week) 'JsObject
+                                    end-day $ unsafe-coerce (.!endOf d |week) 'JsObject
+                                  {} (:year y) (:week w)
+                                    :start $ unsafe-coerce (.!format start-day |week) 'String
+                                    :end $ unsafe-coerce (.!format end-day |week) 'String
                         =< 8 nil
                         comp-icon :arrow-right
                           {} (:font-size 16)
                             :color $ hsl 200 80 80
                             :cursor :pointer
                           fn (e d!)
-                            d! :router/change $ {} (:name :history)
-                              :data $ let
-                                  change-year? $ >= week 53
-                                  y $ if change-year? (inc year) year
-                                  w $ if change-year? 1 (inc week)
-                                  base-day $ unsafe-coerce (dayjs) 'JsObject
-                                  year-day $ unsafe-coerce (.!year base-day y) 'JsObject
-                                  d $ unsafe-coerce (.!week year-day w) 'JsObject
-                                  start-day $ unsafe-coerce (.!startOf d |week) 'JsObject
-                                  end-day $ unsafe-coerce (.!endOf d |week) 'JsObject
-                                {} (:year y) (:week w)
-                                  :start $ unsafe-coerce (.!format start-day |week) 'String
-                                  :end $ unsafe-coerce (.!format end-day |week) 'String
+                            d! $ :: :router/change
+                              {} (:name :history)
+                                :data $ let
+                                    change-year? $ >= week 53
+                                    y $ if change-year? (inc year) year
+                                    w $ if change-year? 1 (inc week)
+                                    base-day $ unsafe-coerce (dayjs) 'JsObject
+                                    year-day $ unsafe-coerce (.!year base-day y) 'JsObject
+                                    d $ unsafe-coerce (.!week year-day w) 'JsObject
+                                    start-day $ unsafe-coerce (.!startOf d |week) 'JsObject
+                                    end-day $ unsafe-coerce (.!endOf d |week) 'JsObject
+                                  {} (:year y) (:week w)
+                                    :start $ unsafe-coerce (.!format start-day |week) 'String
+                                    :end $ unsafe-coerce (.!format end-day |week) 'String
                     if (empty? finished-tasks)
                       div
                         {} (:class-name css/center)
@@ -654,16 +659,16 @@
                           :value $ &map:get state :username
                           :style ui/input
                           :on-input $ fn (e d!)
-                            d! cursor $ assoc state :username
-                              str $ &map:get e :value
+                            d! $ :: :states cursor
+                              assoc state :username $ str (&map:get e :value)
                       =< nil 8
                       div ({})
                         input $ {} (:placeholder |Password)
                           :value $ &map:get state :password
                           :style ui/input
                           :on-input $ fn (e d!)
-                            d! cursor $ assoc state :password
-                              str $ &map:get e :value
+                            d! $ :: :states cursor
+                              assoc state :password $ str (&map:get e :value)
                     =< nil 8
                     div
                       {} $ :style
@@ -686,7 +691,9 @@
           :code $ quote
             defn on-submit (username password signup?)
               fn (e dispatch!)
-                dispatch! (if signup? :user/sign-up :user/log-in) ([] username password)
+                dispatch! $ if signup?
+                  :: :user/sign-up $ [] username password
+                  :: :user/log-in $ [] username password
                 js/localStorage.setItem (&map:get config/site :storage-key)
                   format-cirru-edn $ [] username password
           :examples $ []
@@ -745,7 +752,8 @@
                       :style $ {} (:cursor |pointer) (:user-select :none)
                       :tab-index 0
                       :on-click $ fn (e d!)
-                        d! :router/change $ {} (:name :profile)
+                        d! $ :: :router/change
+                          {} $ :name :profile
                     <> $ if logged-in? |Me |Guest
                     =< 8 nil
                     <> count-members
@@ -780,7 +788,7 @@
                       {} $ :opacity 1
                       {}
                   :on-click $ fn (e d!)
-                    d! :router/change $ get-route
+                    d! $ :: :router/change (get-route)
                   :tab-index 0
                 <> title nil
           :examples $ []
@@ -832,15 +840,16 @@
                         &{} :font-size 16 :curspr :pointer :color $ hsl 200 80 80
                         fn (e d!)
                           .show edit-plugin d! $ fn (result)
-                            d! :note/edit $ {}
-                              :id $ &map:get note :id
-                              :text result
+                            d! $ :: :note/edit
+                              {}
+                                :id $ &map:get note :id
+                                :text result
                       =< 8 nil
                       comp-icon :delete
                         &{} :font-size 16 :cursor :pointer :color $ hsl 10 80 60
                         fn (e d!)
                           .show remove-plugin d! $ fn ()
-                            d! :note/remove $ &map:get note :id
+                            d! $ :: :note/remove (&map:get note :id)
                   <> $ &map:get note :text
                   .render edit-plugin
                   .render remove-plugin
@@ -873,7 +882,8 @@
                         comp-icon :plus
                           &{} :font-size 16 :color (hsl 200 80 80) :cursor :pointer
                           fn (e d!)
-                            .show add-plugin d! $ fn (result) (d! :note/add result)
+                            .show add-plugin d! $ fn (result)
+                              d! $ :: :note/add result
                       div
                         {} $ :class-name css/row-middle
                         comp-icon :arrow-left
@@ -881,26 +891,28 @@
                             :color $ hsl 200 80 80
                             :cursor :pointer
                           fn (e d!)
-                            d! :router/change $ {} (:name :notes)
-                              :data $ if (<= month 0)
-                                {}
-                                  :year $ dec year
-                                  :month 11
-                                {} (:year year)
-                                  :month $ dec month
+                            d! $ :: :router/change
+                              {} (:name :notes)
+                                :data $ if (<= month 0)
+                                  {}
+                                    :year $ dec year
+                                    :month 11
+                                  {} (:year year)
+                                    :month $ dec month
                         =< 8 nil
                         comp-icon :arrow-right
                           {} (:font-size 16)
                             :color $ hsl 200 80 80
                             :cursor :pointer
                           fn (e d!)
-                            d! :router/change $ {} (:name :notes)
-                              :data $ if (>= month 11)
-                                {}
-                                  :year $ inc year
-                                  :month 0
-                                {} (:year year)
-                                  :month $ inc month
+                            d! $ :: :router/change
+                              {} (:name :notes)
+                                :data $ if (>= month 11)
+                                  {}
+                                    :year $ inc year
+                                    :month 0
+                                  {} (:year year)
+                                    :month $ inc month
                         =< 8 nil
                         <>
                           str (inc month) "|th month of " year |.
@@ -1035,14 +1047,18 @@
                       comp-title |Doing $ comp-icon :plus
                         &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
-                          .show create-plugin d! $ fn (result) (d! :task/create-working result) &unit
+                          .show create-plugin d! $ fn (result)
+                            d! $ :: :task/create-working result
+                            , &unit
                           , &unit
                       comp-global-keydown ({})
                         fn (e d!)
                           when
                             and (&map:get e :meta?)
                               = |i $ &map:get e :key
-                            .show create-plugin d! $ fn (result) (d! :task/create-working result) &unit
+                            .show create-plugin d! $ fn (result)
+                              d! $ :: :task/create-working result
+                              , &unit
                           , &unit
                       div
                         {}
@@ -1071,7 +1087,7 @@
                       not $ empty? pending-tasks
                       div ({})
                         comp-title |Later nil $ fn (e d!)
-                          d! cursor $ update state :show-later? not
+                          d! $ :: :states cursor (update state :show-later? not)
                           , &unit
                         if (&map:get state :show-later?)
                           list-> ({})
@@ -1090,7 +1106,7 @@
                             {}
                               :style $ {} (:font-size 16)
                               :on-click $ fn (e d!)
-                                d! cursor $ update state :show-later? not
+                                d! $ :: :states cursor (update state :show-later? not)
                                 , &unit
                             <>
                               str (count pending-tasks) "| future tasks. Click to show."
@@ -1119,11 +1135,11 @@
                         {} $ :background-color (hsl 0 0 94)
                         {}
                     :on-click $ fn (e d!)
-                      d! cursor $ assoc state :menu? true
+                      d! $ :: :states cursor (assoc state :menu? true)
                       , &unit
                     :on $ {}
                       :dragend $ fn (e d!)
-                        d! :task/touch-working $ &map:get task :id
+                        d! $ :: :task/touch-working (&map:get task :id)
                         , &unit
                     :draggable true
                   div
@@ -1140,37 +1156,41 @@
                         :: :item :remove |Remove
                     &map:get state :menu?
                     fn (d!)
-                      d! cursor $ assoc state :menu? false
+                      d! $ :: :states cursor (assoc state :menu? false)
                       , &unit
                     fn (item d!)
                       let
                           new-state $ assoc state :menu? false
                           result $ task-menu-action item
                         js/console.log item
-                        case-default result (d! cursor new-state)
+                        case-default result
+                          d! $ :: :states cursor new-state
                           :done $ do
-                            d! :task/finish-working $ &map:get task :id
-                            d! cursor new-state
-                          :edit $ do (d! cursor new-state)
+                            d! $ :: :task/finish-working (&map:get task :id)
+                            d! $ :: :states cursor new-state
+                          :edit $ do
+                            d! $ :: :states cursor new-state
                             .show update-plugin d! $ fn (text)
-                              d! :task/update-working $ {}
-                                :id $ &map:get task :id
-                                :text text
+                              d! $ :: :task/update-working
+                                {}
+                                  :id $ &map:get task :id
+                                  :text text
                               , &unit
                           :copy $ do
                             copy! $ &map:get task :text
-                            d! cursor new-state
-                          :remove $ do (d! cursor new-state)
+                            d! $ :: :states cursor new-state
+                          :remove $ do
+                            d! $ :: :states cursor new-state
                             .show delete-plugin d! $ fn ()
-                              d! :task/remove-working $ &map:get task :id
+                              d! $ :: :task/remove-working (&map:get task :id)
                               , &unit
                             , &unit
                           :pend $ do
-                            d! :task/pend $ &map:get task :id
-                            d! cursor new-state
+                            d! $ :: :task/pend (&map:get task :id)
+                            d! $ :: :states cursor new-state
                           :touch $ do
-                            d! :task/touch-working $ &map:get task :id
-                            d! cursor new-state
+                            d! $ :: :task/touch-working (&map:get task :id)
+                            d! $ :: :states cursor new-state
                         , &unit
                   .render update-plugin
                   .render delete-plugin
@@ -1294,7 +1314,8 @@
                     button
                       {} (:class-name css/button)
                         :style $ {} (:color :red) (:border-color :red)
-                        :on-click $ fn (e d!) (d! :user/log-out nil)
+                        :on-click $ fn (e d!)
+                          d! $ :: :user/log-out
                           js/localStorage.removeItem $ &map:get config/site :storage-key
                           , &unit
                       <> "|Log out"
