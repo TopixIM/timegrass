@@ -103,19 +103,18 @@
                 host $ if (js-present? host-value) (unsafe-coerce host-value 'String) (unsafe-coerce js/location.hostname 'String)
                 port $ if (js-present? port-value) (unsafe-coerce port-value 'String)
                   str $ &map:get config/site :port
+                ws-url $ if config/dev? (str |ws:// host |: port) |wss://timegrass.topix.im/ws
+              js/console.info |[connection] |opening ws-url
               reset! *store $ :: :loading
               reset! *ws-client $ %some
-                ws-connect!
-                  if config/dev? (str |ws:// host |: port) |wss://timegrass.topix.im/ws
-                  {}
-                    :on-open $ fn (event)
-                      do (reset! *connected? true) (request-snapshot!) (send-activity!) (simulate-login!)
-                    :on-close $ fn (event) (reset! *connected? false)
-                      reset! *store $ :: :offline
-                      js/console.error "|Lost connection!"
-                    :on-data on-server-data
-                    :heartbeat-timeout-ms 75000
-                    :class-mapper $ {} (:ServerMessage schema/ServerMessage) (:change-op patch-schema/change-op)
+                ws-connect! ws-url $ {}
+                  :on-open $ fn (event) (js/console.info |[connection] |open ws-url) (reset! *connected? true) (request-snapshot!) (send-activity!) (simulate-login!)
+                  :on-close $ fn (event) (reset! *connected? false)
+                    reset! *store $ :: :offline
+                    js/console.error |[connection] |closed ws-url
+                  :on-data on-server-data
+                  :heartbeat-timeout-ms 75000
+                  :class-mapper $ {} (:ServerMessage schema/ServerMessage) (:change-op patch-schema/change-op)
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
@@ -123,14 +122,16 @@
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote
             defn dispatch! (op)
-              when config/dev? $ match op
-                (:states ignored-cursor ignored-state) &unit
-                _ $ js/console.log |Dispatch op
-              match op
-                (:states cursor s)
-                  reset! *states $ update-states @*states cursor s
-                (:effect/connect) (connect!)
-                _ $ ws-send! (%:: schema/ClientMessage :dispatch op)
+              do
+                match op
+                  (:states ignored-cursor ignored-state) &unit
+                  _ $ js/console.info |[operation] |sending
+                    str $ &enum:nth op 0
+                match op
+                  (:states cursor s)
+                    reset! *states $ update-states @*states cursor s
+                  (:effect/connect) (connect!)
+                  _ $ ws-send! (%:: schema/ClientMessage :dispatch op)
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
@@ -1688,11 +1689,15 @@
           :schema $ :: 'Ref (:: 'Set 'Number)
         '*initial-db $ %{} 'CodeEntry (:doc |)
           :code $ quote
-            defatom *initial-db $ if
-              path-exists? $ w-log storage-file
-              do (println "|Found local EDN data")
-                merge schema/database $ parse-cirru-edn (read-file storage-file)
-              do (println "|Found no data") schema/database
+            defatom *initial-db $ if (path-exists? storage-file)
+              let
+                  raw-data $ read-file storage-file
+                  loaded-db $ merge schema/database (parse-cirru-edn raw-data)
+                println |[storage] |loading storage-file |bytes $ count raw-data
+                println |[storage] |loaded storage-file |users $ count
+                  option:unwrap-or (get loaded-db :users) ({})
+                , loaded-db
+              do (println |[storage] |missing storage-file) schema/database
           :examples $ []
           :schema $ :: 'Ref 'Map
         '*reader-reel $ %{} 'CodeEntry (:doc |)
@@ -1765,13 +1770,18 @@
               let
                   op-id $ turn-string (generate-id!)
                   op-time $ get-timestamp (current-date!)
-                if config/dev? $ println |Dispatch! (str op) sid
+                  op-tag $ &enum:nth op 0
+                println |[operation] |received op-tag |sid sid |id op-id
                 match op
                   (:effect/persist) (persist-db!)
                   (:effect/ping)
                     wss-send! sid $ format-cirru-edn (%:: schema/ServerMessage :effect/pong)
-                  _ $ do
-                    reset! *reel $ reel-reducer @*reel updater op sid op-id op-time config/dev?
+                  _ $ let
+                      previous-reel @*reel
+                      next-reel $ reel-reducer previous-reel updater op sid op-id op-time config/dev?
+                      changed? $ not= (:db previous-reel) (:db next-reel)
+                    reset! *reel next-reel
+                    println |[operation] |applied op-tag |sid sid |id op-id |changed changed?
                     request-sync!
           :examples $ []
           :schema $ :: 'Fn
@@ -2074,7 +2084,10 @@
                     , :sessions $ {}
                 storage-path storage-file
                 backup-path $ get-backup-path!
-              do (check-write-file! storage-path file-content) (check-write-file! backup-path file-content)
+              println |[storage] |persisting storage-path |backup backup-path |bytes $ count file-content
+              check-write-file! storage-path file-content
+              check-write-file! backup-path file-content
+              println |[storage] |persisted storage-path |backup backup-path
           :examples $ []
           :schema $ :: 'Fn
             {} (:return 'Unit)
