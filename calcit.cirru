@@ -632,7 +632,8 @@
           :code $ quote $ defstyle css-done-task
             {}
               |$0 $ {} $ :transition-duration |200ms
-              |$0:hover $ {} $ :background-color (hsl 0 0 80 0.2)
+              |$0:hover $ {} $ :background-color
+                hsl 0 0 80 $ %some 0.2
           :examples $ []
           :schema $ :: 'String
       :ns $ %{} 'NsEntry (:doc |)
@@ -774,7 +775,7 @@
           :code $ quote $ defstyle css-navbar
             {} $ |$0 $ merge ui/row-center
               {} (:height 48) (:padding "|0 16px") (:font-size 16)
-                :border-bottom $ str "|1px solid " $ hsl 0 0 0 0.1
+                :border-bottom $ str "|1px solid " $ hsl 0 0 0 (%some 0.1)
                 :font-family ui/font-fancy
                 :background-color $ &map:get config/site :theme
                 :color :white
@@ -972,7 +973,8 @@
           :code $ quote $ defstyle css-note
             {}
               |$0 $ {} $ :transition-duration |200ms
-              |$0:hover $ {} $ :background-color (hsl 0 0 80 0.2)
+              |$0:hover $ {} $ :background-color
+                hsl 0 0 80 $ %some 0.2
           :examples $ []
           :schema $ :: 'String
       :ns $ %{} 'NsEntry (:doc |)
@@ -1208,7 +1210,8 @@
                 :overflow :auto
                 :user-select :none
                 :transition-duration |200ms
-              |$0:hover $ {} $ :background-color (hsl 0 0 80 0.1)
+              |$0:hover $ {} $ :background-color
+                hsl 0 0 80 $ %some 0.1
           :examples $ []
           :schema $ :: 'String
         'css-title $ %{} 'CodeEntry (:doc |)
@@ -1752,7 +1755,7 @@
         'current-date! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn current-date! ()
             unsafe-coerce
-              %{} Date $ :date $ &call-dylib-edn
+              %{} Date0 $ :date $ &call-dylib-edn
                 get-dylib-path |/dylibs/libcalcit_std
                 , |now_bang
               , 'calcit.std.date/Date0
@@ -2304,7 +2307,7 @@
             calcit.std.fs :refer $ path-exists? check-write-file!
             calcit.std.time :refer $ set-interval set-timeout
             calcit.std.path :refer $ join-path
-            calcit.std.date :refer $ extract-time Date format-time get-timestamp
+            calcit.std.date :refer $ extract-time Date0 format-time get-timestamp
             calcit.std.util :refer $ get-dylib-path
     'app.style $ %{} 'FileEntry
       :defs $ {}
@@ -2336,7 +2339,7 @@
         'parse-date $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn parse-date (time format)
             unsafe-coerce
-              %{} Date $ :date $ &call-dylib-edn
+              %{} Date0 $ :date $ &call-dylib-edn
                 get-dylib-path |/dylibs/libcalcit_std
                 , |parse_time time format
               , 'calcit.std.date/Date0
@@ -2396,7 +2399,7 @@
               -> notes (identity)
                 &map:filter-kv $ fn (k task)
                   let
-                      time $ extract-time $ :: Date (&map:get task :time)
+                      time $ extract-time $ :: Date0 (&map:get task :time)
                     and
                       = year $ &map:get time :year
                       = month $ &map:get time :month
@@ -2430,7 +2433,7 @@
             [] app.twig.user :refer $ [] twig-user
             calcit.std.rand :refer $ rand-hex-color!
             app.schema :as schema
-            calcit.std.date :refer $ Date extract-time from-ywd from-ymd format-time get-timestamp
+            calcit.std.date :refer $ Date0 extract-time from-ywd from-ymd format-time get-timestamp
             calcit.std.util :refer $ get-dylib-path
     'app.twig.user $ %{} 'FileEntry
       :defs $ {} $ 'twig-user
