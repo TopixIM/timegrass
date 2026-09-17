@@ -3,27 +3,18 @@
   :about "|Machine-generated snapshot. Do not edit directly — changes will be overwritten. Use `calcit query` to inspect and `calcit edit`/`calcit tree` to modify. Run `calcit docs agents --contract` before mutations; use `--full` for first orientation or changed contract digest. Manual edits must follow format and schema conventions, then run `calcit edit format`."
   :package |app
   :entries $ {}
-    :default $ {}
-      :description "||Browser client bundle"
-      :init-fn 'app.client/main!
-      :mode :js
-      :reload-fn 'app.client/reload!
+    :default $ {} (:description "||Browser client bundle") (:init-fn 'app.client/main!) (:mode :js) (:reload-fn 'app.client/reload!)
       :feature-policy $ {}
       :modules $ [] |recollect/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |respo-feather.calcit/ |alerts.calcit/ |respo-markdown.calcit/ |respo.calcit/ |js-ffi/
       :type-slots $ {} $ :dispatch-op |app.schema/Op
-    :server $ {}
-      :description "||Realtime server"
-      :init-fn 'app.server/main!
-      :mode :native
-      :reload-fn 'app.server/reload!
+    :server $ {} (:description "||Realtime server") (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!)
       :feature-policy $ {}
       :modules $ [] |recollect/ |cumulo-util.calcit/ |cumulo-reel.calcit/ |calcit.std/ |calcit-wss/
       :type-slots $ {}
   :files $ {}
     'app.client $ %{} 'FileEntry
       :defs $ {}
-        '*connected? $ %{} 'CodeEntry
-          :doc "|Whether the active ws-edn generation is open."
+        '*connected? $ %{} 'CodeEntry (:doc "|Whether the active ws-edn generation is open.")
           :code $ quote $ defatom *connected? false
           :examples $ []
           :schema $ :: 'Ref 'Bool
@@ -47,16 +38,22 @@
           :examples $ []
           :schema $ :: 'Ref $ :: 'Option 'ws-edn.client/WsClient
         'ClientPatchError $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum ClientPatchError
-            :revision-mismatch 'Number 'Number
-            :invalid-patch 'recollect.patch/PatchError
+          :code $ quote $ defenum ClientPatchError (:revision-mismatch 'Number 'Number) (:invalid-patch 'recollect.patch/PatchError)
           :examples $ []
           :schema $ :: 'EnumDef
-        'ConnectionRecoveryAction $ %{} 'CodeEntry
-          :doc "|Deterministic browser recovery choice."
+        'ConnectionRecoveryAction $ %{} 'CodeEntry (:doc "|Deterministic browser recovery choice.")
           :code $ quote $ defenum ConnectionRecoveryAction (:none) (:reconnect) (:connect)
           :examples $ []
           :schema $ :: 'EnumDef
+        'DayjsFactoryHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait DayjsFactoryHost
+            .extend! $ :: 'Fn $ {}
+              :args $ [] 'app.client/DayjsFactoryHost 'JsObject
+              :return 'Unit
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
+            :names $ {} $ :extend! |extend
+          :schema $ :: 'Trait
         'ack-sync! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn ack-sync! (revision)
             ws-send! $ %:: schema/ClientMessage :sync/ack revision
@@ -65,15 +62,13 @@
             :args $ [] 'Number
         'apply-server-patch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn apply-server-patch! (base-revision revision changes)
-            match
-              validate-server-patch @*store @*sync-revision base-revision changes
+            match (validate-server-patch @*store @*sync-revision base-revision changes)
               (:ok next-store)
                 do (reset! *store next-store) (reset! *sync-revision revision) (ack-sync! revision)
               (:err error)
                 do
                   match error
-                    (:revision-mismatch expected actual)
-                      js/console.warn |Sync-revision-mismatch expected actual
+                    (:revision-mismatch expected actual) (js/console.warn |Sync-revision-mismatch expected actual)
                     (:invalid-patch patch-error)
                       js/console.error |Failed-to-apply-server-patch $ patch-error-message patch-error
                   request-snapshot!
@@ -84,34 +79,19 @@
           :doc "|Choose whether a visible online page should reconnect or create a client."
           :code $ quote $ defn choose-recovery-action (connected? has-client? visible? online?)
             if (and visible? online?)
-              if connected?
-                ConnectionRecoveryAction :none
-                if has-client?
-                  ConnectionRecoveryAction :reconnect
-                  ConnectionRecoveryAction :connect
+              if connected? (ConnectionRecoveryAction :none)
+                if has-client? (ConnectionRecoveryAction :reconnect) (ConnectionRecoveryAction :connect)
               ConnectionRecoveryAction :none
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :return 'ConnectionRecoveryAction
+          :schema $ :: 'Fn $ {} (:return 'ConnectionRecoveryAction)
             :args $ [] 'Bool 'Bool 'Bool 'Bool
-          :tests $ [] $ %{} 'TestEntry
-            :name |selects-deterministic-browser-recovery
+          :tests $ [] $ %{} 'TestEntry (:name |selects-deterministic-browser-recovery)
             :code $ quote $ do
-              assert=
-                ConnectionRecoveryAction :none
-                choose-recovery-action true true true true
-              assert=
-                ConnectionRecoveryAction :none
-                choose-recovery-action false true false true
-              assert=
-                ConnectionRecoveryAction :none
-                choose-recovery-action false true true false
-              assert=
-                ConnectionRecoveryAction :reconnect
-                choose-recovery-action false true true true
-              assert=
-                ConnectionRecoveryAction :connect
-                choose-recovery-action false false true true
+              assert= (ConnectionRecoveryAction :none) (choose-recovery-action true true true true)
+              assert= (ConnectionRecoveryAction :none) (choose-recovery-action false true false true)
+              assert= (ConnectionRecoveryAction :none) (choose-recovery-action false true true false)
+              assert= (ConnectionRecoveryAction :reconnect) (choose-recovery-action false true true true)
+              assert= (ConnectionRecoveryAction :connect) (choose-recovery-action false false true true)
             :tags $ #{} :client
         'connect! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn connect! ()
@@ -120,8 +100,7 @@
                 query $ unsafe-coerce (.-query url-obj) 'JsObject
                 host-value $ .-host query
                 port-value $ .-port query
-                host $ if (js-present? host-value) (unsafe-coerce host-value 'String)
-                  unsafe-coerce js/location.hostname 'String
+                host $ if (js-present? host-value) (unsafe-coerce host-value 'String) (unsafe-coerce js/location.hostname 'String)
                 port $ if (js-present? port-value) (unsafe-coerce port-value 'String)
                   str $ &map:get config/site :port
                 ws-url $ if config/dev? (str |ws:// host |: port) |wss://timegrass.topix.im/ws
@@ -129,18 +108,13 @@
               reset! *store $ :: :loading
               reset! *ws-client $ %some $ ws-connect! ws-url
                 {}
-                  :on-open $ fn (event) (js/console.info |[connection] |open ws-url) (reset! *connected? true)
-                    request-snapshot!
-                    send-activity!
-                    simulate-login!
+                  :on-open $ fn (event) (js/console.info |[connection] |open ws-url) (reset! *connected? true) (request-snapshot!) (send-activity!) (simulate-login!)
                   :on-close $ fn (event) (reset! *connected? false)
                     reset! *store $ :: :offline
                     js/console.error |[connection] |closed ws-url
                   :on-data on-server-data
                   :heartbeat-timeout-ms 75000
-                  :class-mapper $ {}
-                    :ServerMessage schema/ServerMessage
-                    :change-op patch-schema/change-op
+                  :class-mapper $ {} (:ServerMessage schema/ServerMessage) (:change-op patch-schema/change-op)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -160,7 +134,11 @@
             :args $ [] 'app.schema/Op
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! ()
-            do (.!extend dayjs week-of-year)
+            do
+              let
+                  dayjs-host $ unsafe-coerce dayjs DayjsFactoryHost
+                  plugin $ unsafe-coerce week-of-year JsObject
+                dayjs-host .extend! plugin
               println "|Running mode:" $ if config/dev? |dev |release
               if config/dev? $ load-console-formatter!
               render-app!
@@ -186,14 +164,12 @@
             :args $ []
             :features $ #{} :js-ffi
         'mount-target $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def mount-target
-            js/document.querySelector |.app
+          :code $ quote $ def mount-target (query-selector |.app)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Option 'js-ffi.browser/DomElementHost
         'on-server-data $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-server-data (data)
-            match
-              schema/decode-server-message data
+            match (schema/decode-server-message data)
               (:ok message)
                 match message
                   (:snapshot revision store)
@@ -203,8 +179,7 @@
                       when config/dev? $ js/console.log |Changes changes
                       apply-server-patch! base-revision revision changes
                   (:effect/pong) &unit
-              (:err error)
-                js/console.error "|Invalid server message:" error
+              (:err error) (js/console.error "|Invalid server message:" error)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Dynamic
@@ -214,9 +189,7 @@
             let
                 document-node $ unsafe-coerce js/document 'JsObject
                 navigator-node $ unsafe-coerce js/navigator 'JsObject
-                visible? $ = |visible $ unsafe-coerce
-                  .-visibilityState document-node
-                  , 'String
+                visible? $ = |visible $ unsafe-coerce (.-visibilityState document-node) 'String
                 online? $ unsafe-coerce (.-onLine navigator-node) 'Bool
                 client-option @*ws-client
                 has-client? $ match client-option
@@ -264,8 +237,7 @@
             :args $ []
         'send-activity! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn send-activity! ()
-            if
-              activity/page-visible?
+            if (activity/page-visible?)
               ws-send! $ %:: schema/ClientMessage :sync/active @*sync-revision
               ws-send! $ %:: schema/ClientMessage :sync/idle @*sync-revision
           :examples $ []
@@ -301,8 +273,7 @@
             :generics $ [] 'T
             :return $ :: 'Result 'T 'app.client/ClientPatchError
           :tests $ []
-            %{} 'TestEntry
-              :name |accepts-valid-revisioned-patch
+            %{} 'TestEntry (:name |accepts-valid-revisioned-patch)
               :code $ quote $ let
                   store $ {} $ :value 1
                   changes $ [] $ %:: patch-schema/change-op :assoc :value 2
@@ -310,8 +281,7 @@
                   %ok $ {} $ :value 2
                   validate-server-patch store 7 7 changes
               :tags $ #{} :client
-            %{} 'TestEntry
-              :name |rejects-revision-mismatch
+            %{} 'TestEntry (:name |rejects-revision-mismatch)
               :code $ quote $ let
                   store $ {} $ :value 1
                   changes $ []
@@ -319,12 +289,10 @@
                   %err $ %:: ClientPatchError :revision-mismatch 8 7
                   validate-server-patch store 7 8 changes
               :tags $ #{} :client
-            %{} 'TestEntry
-              :name |rejects-invalid-patch-atomically
+            %{} 'TestEntry (:name |rejects-invalid-patch-atomically)
               :code $ quote $ let
                   store $ {} $ :stable 1
-                  changes $ []
-                    %:: patch-schema/change-op :assoc :temporary 2
+                  changes $ [] (%:: patch-schema/change-op :assoc :temporary 2)
                     %:: patch-schema/change-op :update :missing $ %:: patch-schema/change-op :replace 3
                   expected $ %err $ %:: ClientPatchError :invalid-patch
                     %:: PatchError :missing-node $ [] $ %:: PatchPathSegment :field :missing
@@ -351,10 +319,11 @@
             recollect.schema :as patch-schema
             cumulo-util.activity :as activity
             recollect.patch :refer $ patch-batch patch-batch:apply-to PatchBatchOps PatchError PatchPathSegment patch-error-message
+            js-ffi.browser :refer $ query-selector
     'app.comp.container $ %{} 'FileEntry
       :defs $ {}
         'comp-container $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn comp-container (states store)
+          :code $ quote $ defcomp comp-container (states store)
             case-default store
               let
                   state $ &map:get states :data
@@ -396,7 +365,8 @@
               (:: :initial) (comp-offline :initial)
               (:: :offline) (comp-offline :offline)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'Dynamic 'Dynamic
         'comp-offline $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-offline (state)
             div
@@ -418,16 +388,14 @@
                   if (= :initial state) |Loading... "|Socket broken! Click to retry."
                   {} (:font-family ui/font-fancy) (:font-weight 100) (:font-size 24)
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :return 'respo.schema/Component
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
             :args $ [] 'Tag
         'comp-status-color $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-status-color (color)
             div $ {} (:class-name css-status-color)
               :style $ {} $ :background-color color
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :return 'respo.schema/Component
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
             :args $ [] 'String
         'css-container $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-container
@@ -442,9 +410,7 @@
         'css-status-color $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-status-color
             {}
-              |$0 $ {} (:width 16) (:height 16) (:position :absolute) (:bottom 16) (:right 8) (:border-radius |8px) (:opacity 0.8)
-                :transition-duration |200ms
-                :opacity 0.5
+              |$0 $ {} (:width 16) (:height 16) (:position :absolute) (:bottom 16) (:right 8) (:border-radius |8px) (:opacity 0.8) (:transition-duration |200ms) (:opacity 0.5)
               |$0:hover $ {} $ :opacity 0.7
           :examples $ []
           :schema $ :: 'String
@@ -716,6 +682,30 @@
             [] app.config :as config
     'app.comp.navigation $ %{} 'FileEntry
       :defs $ {}
+        'DayjsHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait DayjsHost
+            .month $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost
+              :return 'Number
+            .year $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost
+              :return 'Number
+            .week $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost
+              :return 'Number
+            .start-of $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost 'String
+              :return 'app.comp.navigation/DayjsHost
+            .end-of $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost 'String
+              :return 'app.comp.navigation/DayjsHost
+            .format $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost 'String
+              :return 'String
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
+            :names $ {} (:end-of |endOf) (:start-of |startOf)
+          :schema $ :: 'Trait
         'comp-navigation $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-navigation (logged-in? count-members page)
             div
@@ -729,29 +719,9 @@
                     fn () $ {} $ :name :home
                     = page :home
                   =< 16 nil
-                  render-entry |Finished
-                    fn () $ {} (:name :history)
-                      :data $ let
-                          now $ unsafe-coerce (dayjs) 'JsObject
-                          month $ .!month now
-                          week-date $ unsafe-coerce now 'JsObject
-                          start-day $ unsafe-coerce (.!startOf week-date |week) 'JsObject
-                          end-day $ unsafe-coerce (.!endOf week-date |week) 'JsObject
-                        {}
-                          :year $ .!year now
-                          :week $ .!week week-date
-                          :start $ unsafe-coerce (.!format start-day |week) 'String
-                          :end $ unsafe-coerce (.!format end-day |week) 'String
-                    = page :history
+                  render-entry |Finished current-history-route $ = page :history
                   =< 16 nil
-                  render-entry |Notes
-                    fn () $ {} (:name :notes)
-                      :data $ let
-                          now $ unsafe-coerce (dayjs) 'JsObject
-                        {}
-                          :year $ .!year now
-                          :month $ .!month now
-                    = page :notes
+                  render-entry |Notes current-notes-route $ = page :notes
                 div
                   {}
                     :style $ {} (:cursor |pointer) (:user-select :none)
@@ -760,14 +730,14 @@
                       d! $ :: :router/change $ {} (:name :profile)
                   <> $ if logged-in? |Me |Guest
                   =< 8 nil
-                  <> count-members
+                  <> $ str count-members
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'Bool 'Number 'Tag
         'css-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-entry
             {}
-              |$0 $ {} (:opacity 0.6) (:user-select :none)
-                :transition-duration |200ms
+              |$0 $ {} (:opacity 0.6) (:user-select :none) (:transition-duration |200ms)
               |$0:hover $ {} $ :opacity 0.8
           :examples $ []
           :schema $ :: 'String
@@ -781,6 +751,36 @@
                 :color :white
           :examples $ []
           :schema $ :: 'String
+        'current-history-route $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn current-history-route ()
+            let
+                now $ unsafe-coerce (dayjs) 'app.comp.navigation/DayjsHost
+                start-day $ .start-of now |week
+                end-day $ .end-of now |week
+              {} (:name :history)
+                :data $ {}
+                  :year $ .year now
+                  :week $ .week now
+                  :start $ .format start-day |week
+                  :end $ .format end-day |week
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ []
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
+        'current-notes-route $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn current-notes-route ()
+            let
+                now $ unsafe-coerce (dayjs) 'app.comp.navigation/DayjsHost
+              {} (:name :notes)
+                :data $ {}
+                  :year $ .year now
+                  :month $ .month now
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ []
+            :features $ #{} :js-ffi
+            :return $ :: 'Map 'Tag 'Dynamic
         'render-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-entry (title get-route highlighted?)
             div
@@ -795,7 +795,11 @@
                 :tab-index 0
               <> title nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Element)
+            :args $ [] 'String
+              :: 'Fn $ {} (:return 'Dynamic)
+                :args $ []
+              , 'Bool
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.navigation
           :require
@@ -862,9 +866,7 @@
                 year $ &map:get info :year
                 month $ &map:get info :month
                 add-plugin $ use-prompt (>> states :add)
-                  {}
-                    :text "|Add note about today's work:"
-                    :multiline? true
+                  {} (:text "|Add note about today's work:") (:multiline? true)
               div
                 {} (:class-name css/expand)
                   :style $ {} $ :padding 16
@@ -1007,8 +1009,7 @@
                 :style $ {} $ :color (hsl 0 0 80)
               <> "|No tasks"
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :return 'respo.schema/Component
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
             :args $ []
         'comp-overview $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-overview (states today tasks)
@@ -1235,8 +1236,7 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Tag)
             :args $ [] 'Enum
-          :tests $ [] $ %{} 'TestEntry
-            :name |decodes-task-menu-actions
+          :tests $ [] $ %{} 'TestEntry (:name |decodes-task-menu-actions)
             :code $ quote $ do
               assert |remove-action-should-be-decoded $ &= :remove $ task-menu-action (:: :item :remove |Remove)
               assert |done-action-should-be-decoded $ &= :done $ task-menu-action (:: :item :done |Done)
@@ -1329,14 +1329,7 @@
           :schema $ :: 'Bool
         'site $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def site
-            {} (:port 11009) (:title |Timegrass)
-              :icon |http://cdn.tiye.me/logo/timegrass.png
-              :dev-ui |http://localhost:8100/main.css
-              :release-ui |http://cdn.tiye.me/favored-fonts/main.css
-              :cdn-url |http://cdn.tiye.me/timegrass/
-              :theme |#51C766
-              :storage-key |timegrass
-              :storage-file |storage.cirru
+            {} (:port 11009) (:title |Timegrass) (:icon |http://cdn.tiye.me/logo/timegrass.png) (:dev-ui |http://localhost:8100/main.css) (:release-ui |http://cdn.tiye.me/favored-fonts/main.css) (:cdn-url |http://cdn.tiye.me/timegrass/) (:theme |#51C766) (:storage-key |timegrass) (:storage-file |storage.cirru)
           :examples $ []
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
@@ -1353,28 +1346,7 @@
           :examples $ []
           :schema $ :: 'Enum
         'Op $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum Op (:today 'Dynamic) (:session/connect)
-            :session/disconnect
-            :session/remove-message 'Dynamic
-            :user/log-in 'Dynamic
-            :user/sign-up 'Dynamic
-            :user/log-out
-            :router/change 'Dynamic
-            :task/create-working 'Dynamic
-            :task/remove-working 'Dynamic
-            :task/finish-working 'Dynamic
-            :task/update-working 'Dynamic
-            :task/touch-working 'Dynamic
-            :task/put-back 'Dynamic
-            :task/pend 'Dynamic
-            :note/add 'Dynamic
-            :note/edit 'Dynamic
-            :note/remove 'Dynamic
-            :effect/persist
-            :effect/ping
-            :effect/pong
-            :effect/connect
-            :states 'Dynamic 'Dynamic
+          :code $ quote $ defenum Op (:today 'Dynamic) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic) (:user/log-in 'Dynamic) (:user/sign-up 'Dynamic) (:user/log-out) (:router/change 'Dynamic) (:task/create-working 'Dynamic) (:task/remove-working 'Dynamic) (:task/finish-working 'Dynamic) (:task/update-working 'Dynamic) (:task/touch-working 'Dynamic) (:task/put-back 'Dynamic) (:task/pend 'Dynamic) (:note/add 'Dynamic) (:note/edit 'Dynamic) (:note/remove 'Dynamic) (:effect/persist) (:effect/ping) (:effect/pong) (:effect/connect) (:states 'Dynamic 'Dynamic)
           :examples $ []
           :schema $ :: 'Enum
         'ServerMessage $ %{} 'CodeEntry
@@ -1438,20 +1410,17 @@
             :args $ [] 'Dynamic
             :return $ :: 'Result 'app.schema/ClientMessage 'app.schema/MessageDecodeError
           :tests $ []
-            %{} 'TestEntry
-              :name |decodes-sync-control
+            %{} 'TestEntry (:name |decodes-sync-control)
               :code $ quote $ assert=
                 %:: Result :ok $ %:: ClientMessage :sync/ack 7
                 decode-client-message $ :: :sync/ack 7
               :tags $ #{} :server
-            %{} 'TestEntry
-              :name |accepts-legacy-direct-op
+            %{} 'TestEntry (:name |accepts-legacy-direct-op)
               :code $ quote $ assert=
                 %:: Result :ok $ %:: ClientMessage :dispatch $ %:: Op :effect/ping
                 decode-client-message $ %:: Op :effect/ping
               :tags $ #{} :server
-            %{} 'TestEntry
-              :name |rejects-invalid-revision
+            %{} 'TestEntry (:name |rejects-invalid-revision)
               :code $ quote $ match
                 decode-client-message $ :: :sync/active |bad
                 (:err error)
@@ -1460,8 +1429,7 @@
                     starts-with? detail "|Expected numeric active revision"
                 _ false
               :tags $ #{} :server
-            %{} 'TestEntry
-              :name |decodes-named-wire-operation
+            %{} 'TestEntry (:name |decodes-named-wire-operation)
               :code $ quote $ assert=
                 %:: Result :ok $ %:: ClientMessage :dispatch $ %:: Op :effect/ping
                 decode-client-message $ parse-cirru-edn "|%:: 'ClientMessage 'dispatch $ %:: 'Op 'effect/ping"
@@ -1541,13 +1509,11 @@
                       valid-changes? $ if (list? changes)
                         every? (unsafe-coerce changes 'List)
                           fn (change)
-                            = (enum-definition change)
-                              %some recollect.schema/change-op
+                            = (enum-definition change) (%some recollect.schema/change-op)
                         , false
                     if
                       and (number? base-revision) (number? revision) valid-changes?
-                      %ok $ %:: ServerMessage :patch base-revision revision $ unsafe-coerce changes
-                        :: 'List 'recollect.schema/change-op
+                      %ok $ %:: ServerMessage :patch base-revision revision $ unsafe-coerce changes (:: 'List 'recollect.schema/change-op)
                       invalid-message $ str "|Invalid patch envelope: " message
                 (:effect/pong)
                   %ok $ %:: ServerMessage :effect/pong
@@ -1562,8 +1528,7 @@
                 %:: Result :ok $ %:: ServerMessage :effect/pong
                 decode-server-message $ :: :effect/pong
               :tags $ #{} :client
-            %{} 'TestEntry
-              :name |rejects-invalid-patch-payload
+            %{} 'TestEntry (:name |rejects-invalid-patch-payload)
               :code $ quote $ match
                 decode-server-message $ :: :patch 1 2 :bad
                 (:err error)
@@ -1572,19 +1537,15 @@
                     starts-with? detail "|Invalid patch envelope"
                 _ false
               :tags $ #{} :client
-            %{} 'TestEntry
-              :name |decodes-named-wire-pong
+            %{} 'TestEntry (:name |decodes-named-wire-pong)
               :code $ quote $ assert=
                 %:: Result :ok $ %:: ServerMessage :effect/pong
                 decode-server-message $ parse-cirru-edn "|%:: 'ServerMessage 'effect/pong"
               :tags $ #{} :client
-            %{} 'TestEntry
-              :name |validates-nominal-patch-list
+            %{} 'TestEntry (:name |validates-nominal-patch-list)
               :code $ quote $ assert=
-                %:: Result :ok $ %:: ServerMessage :patch 3 4 $ []
-                  %:: recollect.schema/change-op :replace 1
-                decode-server-message $ %:: ServerMessage :patch 3 4 $ []
-                  %:: recollect.schema/change-op :replace 1
+                %:: Result :ok $ %:: ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
+                decode-server-message $ %:: ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
               :tags $ #{} :client
         'invalid-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn invalid-message (detail)
@@ -1615,8 +1576,7 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
             :args $ [] 'Dynamic 'Dynamic
-          :tests $ [] $ %{} 'TestEntry
-            :name |handles-non-map-boundaries
+          :tests $ [] $ %{} 'TestEntry (:name |handles-non-map-boundaries)
             :code $ quote $ do
               assert= 1 $ read-path
                 {} $ :a $ {} (:b 1)
@@ -1677,13 +1637,13 @@
             if (path-exists? storage-file)
               let
                   raw-data $ read-file storage-file
-                  loaded-db $ merge schema/database $ parse-cirru-edn raw-data
+                  loaded-db $ merge schema/database $ assert-type (parse-cirru-edn raw-data) (:: 'Map 'Tag 'Dynamic)
                 println |[storage] |loading storage-file |bytes $ count raw-data
                 println |[storage] |loaded storage-file |users $ count $ option:unwrap-or (get loaded-db :users) ({})
                 , loaded-db
               do (println |[storage] |missing storage-file) schema/database
           :examples $ []
-          :schema $ :: 'Ref 'Map
+          :schema $ :: 'Ref $ :: 'Map 'Tag 'Dynamic
         '*reader-reel $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *reader-reel @*reel
           :examples $ []
@@ -1695,15 +1655,7 @@
           :schema $ :: 'Ref 'cumulo-reel.core/ReelState
         '*sync-metrics $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *sync-metrics
-            %{} SyncMetrics
-              :last-diff-latency-ms 0
-              :last-patch-bytes 0
-              :pending-clients 0
-              :slow-clients 0
-              :resync-count 0
-              :patch-attempts 0
-              :snapshot-attempts 0
-              :last-revision 0
+            %{} SyncMetrics (:last-diff-latency-ms 0) (:last-patch-bytes 0) (:pending-clients 0) (:slow-clients 0) (:resync-count 0) (:patch-attempts 0) (:snapshot-attempts 0) (:last-revision 0)
           :examples $ []
           :schema $ :: 'Ref 'app.server/SyncMetrics
         '*sync-retry-scheduled? $ %{} 'CodeEntry (:doc |)
@@ -1720,15 +1672,7 @@
           :schema $ :: 'Ref 'Bool
         'SyncMetrics $ %{} 'CodeEntry
           :doc "|Process-lifetime synchronization counters with read-time client gauges."
-          :code $ quote $ defstruct SyncMetrics
-            :last-diff-latency-ms 'Number
-            :last-patch-bytes 'Number
-            :pending-clients 'Number
-            :slow-clients 'Number
-            :resync-count 'Number
-            :patch-attempts 'Number
-            :snapshot-attempts 'Number
-            :last-revision 'Number
+          :code $ quote $ defstruct SyncMetrics (:last-diff-latency-ms 'Number) (:last-patch-bytes 'Number) (:pending-clients 'Number) (:slow-clients 'Number) (:resync-count 'Number) (:patch-attempts 'Number) (:snapshot-attempts 'Number) (:last-revision 'Number)
           :examples $ []
           :schema $ :: 'StructDef
         'acknowledge-client! $ %{} 'CodeEntry (:doc |)
@@ -1740,8 +1684,7 @@
                 let
                     sent-store $ option:unwrap $ get state :sent-store
                   swap! *client-caches assoc sid sent-store
-                swap! *client-states update sid $ fn (current)
-                  next-sync-ack-state current revision
+                swap! *client-states update sid $ fn (current) (next-sync-ack-state current revision)
                 when
                   >
                     option:unwrap-or (get state :dirty-rev) 0
@@ -1755,13 +1698,10 @@
         'current-date! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn current-date! ()
             unsafe-coerce
-              %{} Date0 $ :date $ &call-dylib-edn
-                get-dylib-path |/dylibs/libcalcit_std
-                , |now_bang
+              %{} Date0 $ :date $ &call-dylib-edn (get-dylib-path |/dylibs/libcalcit_std) |now_bang
               , 'calcit.std.date/Date0
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :return 'calcit.std.date/Date0
+          :schema $ :: 'Fn $ {} (:return 'calcit.std.date/Date0)
             :args $ []
             :features $ #{} :js-ffi
         'dispatch! $ %{} 'CodeEntry (:doc |)
@@ -1798,34 +1738,27 @@
         'handle-client-message! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn handle-client-message! (message sid)
             match message
-              (:sync/active client-revision)
-                mark-client-active! sid client-revision false
+              (:sync/active client-revision) (mark-client-active! sid client-revision false)
               (:sync/heartbeat client-revision)
                 do (touch-client! sid client-revision)
                   wss-send! sid $ format-cirru-edn $ %:: schema/ServerMessage :effect/pong
                   , &unit
-              (:sync/idle client-revision)
-                mark-client-idle! sid client-revision
+              (:sync/idle client-revision) (mark-client-idle! sid client-revision)
               (:sync/resume client-revision)
-                do (record-resync!)
-                  mark-client-active! sid client-revision true
-              (:sync/ack revision)
-                acknowledge-client! sid revision
+                do (record-resync!) (mark-client-active! sid client-revision true)
+              (:sync/ack revision) (acknowledge-client! sid revision)
               (:dispatch op) (dispatch! op sid)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'app.schema/ClientMessage 'Number
         'handle-sync-send! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn handle-sync-send! (sid revision new-store outcome)
-            swap! *client-states update sid $ fn (current)
-              next-sync-send-state current revision new-store outcome
+            swap! *client-states update sid $ fn (current) (next-sync-send-state current revision new-store outcome)
             match outcome
               (:accepted) &unit
               (:backpressured)
-                do (swap! *dirty-clients include sid)
-                  request-sync-retry!
-              (:too-large)
-                println "|WebSocket sync payload is too large for client:" sid
+                do (swap! *dirty-clients include sid) (request-sync-retry!)
+              (:too-large) (println "|WebSocket sync payload is too large for client:" sid)
               (:closed) &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -1853,14 +1786,12 @@
             let
                 p? $ get-env |port
                 port $ option:fold p?
-                  fn () $ &map:get config/site :port
+                  fn () 11009
                   fn (raw)
-                    (parse-float raw) .unwrap-or $ &map:get config/site :port
+                    (parse-float raw) .unwrap-or 11009
               run-server! port
               println $ str "|Server started on port:" port
-            do
-              ; "|init it before doing multi-threading"
-              identity @*reader-reel
+            do (; "|init it before doing multi-threading") (identity @*reader-reel)
             on-control-c on-exit!
             set-interval 600000 $ fn () $ persist-db!
             set-interval 60000 $ fn () $ set-today!
@@ -1934,25 +1865,19 @@
                 after-first-backpressure $ next-sync-send-state initial 4
                   {} $ :value 4
                   %:: wss.core/WssSendOutcome :backpressured
-                after-latest-backpressure $ next-sync-send-state
-                  assoc after-first-backpressure :dirty-rev 7
-                  , 7
-                    {} $ :value 7
-                    %:: wss.core/WssSendOutcome :backpressured
-                accepted-latest $ next-sync-send-state
-                  assoc after-latest-backpressure :dirty-rev 9
-                  , 9
-                    {} $ :value 9
-                    %:: wss.core/WssSendOutcome :accepted
+                after-latest-backpressure $ next-sync-send-state (assoc after-first-backpressure :dirty-rev 7) 7
+                  {} $ :value 7
+                  %:: wss.core/WssSendOutcome :backpressured
+                accepted-latest $ next-sync-send-state (assoc after-latest-backpressure :dirty-rev 9) 9
+                  {} $ :value 9
+                  %:: wss.core/WssSendOutcome :accepted
               assert=
-                {} (:status :active) (:acked-rev 9) (:dirty-rev 9) (:in-flight? false) (:needs-snapshot? false) (:slow-client? false)
-                  :last-send-outcome :accepted
+                {} (:status :active) (:acked-rev 9) (:dirty-rev 9) (:in-flight? false) (:needs-snapshot? false) (:slow-client? false) (:last-send-outcome :accepted)
                 next-sync-ack-state accepted-latest 9
             :tags $ #{} :server
         'next-sync-metrics $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn next-sync-metrics (metrics message-kind revision diff-latency payload)
-            struct-with metrics
-              :last-diff-latency-ms diff-latency
+            struct-with metrics (:last-diff-latency-ms diff-latency)
               :last-patch-bytes $ if (= message-kind :patch) payload.utf8-byte-count $ :last-patch-bytes metrics
               :patch-attempts $ if (= message-kind :patch)
                 inc $ :patch-attempts metrics
@@ -1962,32 +1887,14 @@
                 :snapshot-attempts metrics
               :last-revision revision
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :return 'app.server/SyncMetrics
+          :schema $ :: 'Fn $ {} (:return 'app.server/SyncMetrics)
             :args $ [] 'app.server/SyncMetrics 'Tag 'Number 'Number 'String
-          :tests $ [] $ %{} 'TestEntry
-            :name |advances-patch-and-snapshot-counters
+          :tests $ [] $ %{} 'TestEntry (:name |advances-patch-and-snapshot-counters)
             :code $ quote $ let
-                initial $ %{} SyncMetrics
-                  :last-diff-latency-ms 0
-                  :last-patch-bytes 0
-                  :pending-clients 0
-                  :slow-clients 0
-                  :resync-count 0
-                  :patch-attempts 0
-                  :snapshot-attempts 0
-                  :last-revision 0
+                initial $ %{} SyncMetrics (:last-diff-latency-ms 0) (:last-patch-bytes 0) (:pending-clients 0) (:slow-clients 0) (:resync-count 0) (:patch-attempts 0) (:snapshot-attempts 0) (:last-revision 0)
                 after-patch $ next-sync-metrics initial :patch 7 3 "|A😀"
               assert=
-                %{} SyncMetrics
-                  :last-diff-latency-ms 2
-                  :last-patch-bytes 5
-                  :pending-clients 0
-                  :slow-clients 0
-                  :resync-count 0
-                  :patch-attempts 1
-                  :snapshot-attempts 1
-                  :last-revision 8
+                %{} SyncMetrics (:last-diff-latency-ms 2) (:last-patch-bytes 5) (:pending-clients 0) (:slow-clients 0) (:resync-count 0) (:patch-attempts 1) (:snapshot-attempts 1) (:last-revision 8)
                 next-sync-metrics after-patch :snapshot 8 2 |ignored
             :tags $ #{} :server
         'next-sync-send-state $ %{} 'CodeEntry
@@ -1995,8 +1902,7 @@
           :code $ quote $ defn next-sync-send-state (current revision new-store outcome)
             match outcome
               (:accepted)
-                merge current $ {} (:sent-rev revision) (:sent-store new-store) (:in-flight? true) (:needs-snapshot? false) (:slow-client? false)
-                  :last-send-outcome :accepted
+                merge current $ {} (:sent-rev revision) (:sent-store new-store) (:in-flight? true) (:needs-snapshot? false) (:slow-client? false) (:last-send-outcome :accepted)
               (:backpressured)
                 merge current $ {}
                   :dirty-rev $ let
@@ -2005,20 +1911,17 @@
                   :slow-client? true
                   :last-send-outcome :backpressured
               (:too-large)
-                merge current $ {} (:needs-snapshot? true) (:slow-client? true)
-                  :last-send-outcome :too-large
+                merge current $ {} (:needs-snapshot? true) (:slow-client? true) (:last-send-outcome :too-large)
               (:closed)
                 dissoc
-                  merge current $ {} (:status :idle) (:in-flight? false)
-                    :last-send-outcome :closed
+                  merge current $ {} (:status :idle) (:in-flight? false) (:last-send-outcome :closed)
                   , :sent-rev :sent-store
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'C)
             :args $ [] 'C 'Number 'U 'wss.core/WssSendOutcome
             :generics $ [] 'C 'U
           :tests $ []
-            %{} 'TestEntry
-              :name |accepted-records-pending-store
+            %{} 'TestEntry (:name |accepted-records-pending-store)
               :code $ quote $ assert=
                 {} (:status :active) (:sent-rev 7)
                   :sent-store $ {} $ :value 1
@@ -2032,22 +1935,18 @@
                     {} $ :value 1
                     %:: wss.core/WssSendOutcome :accepted
               :tags $ #{} :server
-            %{} 'TestEntry
-              :name |oversized-payload-requires-snapshot
+            %{} 'TestEntry (:name |oversized-payload-requires-snapshot)
               :code $ quote $ assert=
-                {} (:status :active) (:needs-snapshot? true) (:slow-client? true)
-                  :last-send-outcome :too-large
+                {} (:status :active) (:needs-snapshot? true) (:slow-client? true) (:last-send-outcome :too-large)
                 next-sync-send-state
                   {} $ :status :active
                   , 7
                     {} $ :value 1
                     %:: wss.core/WssSendOutcome :too-large
               :tags $ #{} :server
-            %{} 'TestEntry
-              :name |closed-clears-pending-send
+            %{} 'TestEntry (:name |closed-clears-pending-send)
               :code $ quote $ assert=
-                {} (:status :idle) (:in-flight? false)
-                  :last-send-outcome :closed
+                {} (:status :idle) (:in-flight? false) (:last-send-outcome :closed)
                 next-sync-send-state
                   {} (:status :active) (:in-flight? true) (:sent-rev 7)
                     :sent-store $ {} $ :value 1
@@ -2055,11 +1954,9 @@
                     {} $ :value 1
                     %:: wss.core/WssSendOutcome :closed
               :tags $ #{} :server
-            %{} 'TestEntry
-              :name |backpressure-preserves-latest-dirty-revision
+            %{} 'TestEntry (:name |backpressure-preserves-latest-dirty-revision)
               :code $ quote $ assert=
-                {} (:status :active) (:acked-rev 5) (:dirty-rev 7) (:slow-client? true)
-                  :last-send-outcome :backpressured
+                {} (:status :active) (:acked-rev 5) (:dirty-rev 7) (:slow-client? true) (:last-send-outcome :backpressured)
                 next-sync-send-state
                   {} (:status :active) (:acked-rev 5) (:dirty-rev 6)
                   , 7
@@ -2096,6 +1993,7 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
+            :features $ #{} :js-ffi
         'read-sync-metrics $ %{} 'CodeEntry
           :doc "|Read synchronization counters plus current pending and slow-client gauges."
           :code $ quote $ defn read-sync-metrics ()
@@ -2109,8 +2007,7 @@
                     option:unwrap-or (get state :slow-client?) false
               merge @*sync-metrics $ {} (:pending-clients pending-clients) (:slow-clients slow-clients)
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :return 'app.server/SyncMetrics
+          :schema $ :: 'Fn $ {} (:return 'app.server/SyncMetrics)
             :args $ []
         'record-resync! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn record-resync! () (swap! *sync-metrics update :resync-count inc)
@@ -2119,15 +2016,13 @@
             :args $ []
         'record-sync-send! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn record-sync-send! (message-kind revision diff-latency payload)
-            swap! *sync-metrics $ fn (metrics)
-              next-sync-metrics metrics message-kind revision diff-latency payload
+            swap! *sync-metrics $ fn (metrics) (next-sync-metrics metrics message-kind revision diff-latency payload)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Tag 'Number 'Number 'String
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! () (println "|Code updated..")
-            if (not config/dev?)
-              raise "|reloading only happens in dev mode"
+            if (not config/dev?) (raise "|reloading only happens in dev mode")
             clear-twig-caches!
             reset! *reel $ refresh-reel @*reel @*initial-db updater
             invalidate-sync-caches!
@@ -2155,10 +2050,8 @@
             :args $ []
         'request-sync-retry! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn request-sync-retry! ()
-            if @*sync-retry-scheduled? &unit $ do
-              reset! *sync-retry-scheduled? true
-              set-timeout sync-retry-delay $ fn ()
-                reset! *sync-retry-scheduled? false
+            if @*sync-retry-scheduled? &unit $ do (reset! *sync-retry-scheduled? true)
+              set-timeout sync-retry-delay $ fn () (reset! *sync-retry-scheduled? false)
                 when
                   not $ empty? @*dirty-clients
                   request-sync!
@@ -2185,15 +2078,11 @@
                   (:message sid msg)
                     match
                       schema/decode-client-message $ parse-cirru-edn msg
-                      (:ok message)
-                        handle-client-message! message sid
-                      (:err error)
-                        eprintln "|Invalid client message:" sid error
+                      (:ok message) (handle-client-message! message sid)
+                      (:err error) (eprintln "|Invalid client message:" sid error)
                   (:disconnect sid)
                     do (println "|Client closed!")
-                      dispatch!
-                        %:: schema/Op :session/disconnect
-                        , sid
+                      dispatch! (%:: schema/Op :session/disconnect) sid
                       swap! *client-caches dissoc sid
                       swap! *client-states dissoc sid
                       swap! *dirty-clients exclude sid
@@ -2327,8 +2216,10 @@
           :doc "|Combines heterogeneous Respo style maps at the rendering boundary."
           :code $ quote $ defn merge-styles (x0 & xs) (reduce xs x0 &merge)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:rest 'Map) (:return 'Map)
-            :args $ [] 'Map
+          :schema $ :: 'Fn $ {}
+            :args $ [] $ :: 'Map 'Tag 'Dynamic
+            :rest $ :: 'Map 'Tag 'Dynamic
+            :return $ :: 'Map 'Tag 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.style
           :require
@@ -2339,13 +2230,10 @@
         'parse-date $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn parse-date (time format)
             unsafe-coerce
-              %{} Date0 $ :date $ &call-dylib-edn
-                get-dylib-path |/dylibs/libcalcit_std
-                , |parse_time time format
+              %{} Date0 $ :date $ &call-dylib-edn (get-dylib-path |/dylibs/libcalcit_std) |parse_time time format
               , 'calcit.std.date/Date0
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :return 'calcit.std.date/Date0
+          :schema $ :: 'Fn $ {} (:return 'calcit.std.date/Date0)
             :args $ [] 'String 'String
             :features $ #{} :js-ffi
         'twig-container $ %{} 'CodeEntry (:doc |)
@@ -2375,8 +2263,7 @@
                 {}
           :examples $ []
           :schema $ :: 'Dynamic
-          :tests $ [] $ %{} 'TestEntry
-            :name |defaults-missing-session
+          :tests $ [] $ %{} 'TestEntry (:name |defaults-missing-session)
             :code $ quote $ let
                 init-db $ {}
                 init-records $ []
@@ -2452,24 +2339,17 @@
             match op
               (:today op-data) (misc/set-today db op-data sid op-id op-time)
               (:session/connect) (session/connect db sid op-id op-time)
-              (:session/disconnect)
-                session/disconnect db sid op-id op-time
-              (:session/remove-message op-data)
-                session/remove-message db op-data sid op-id op-time
+              (:session/disconnect) (session/disconnect db sid op-id op-time)
+              (:session/remove-message op-data) (session/remove-message db op-data sid op-id op-time)
               (:user/log-in op-data) (user/log-in db op-data sid op-id op-time)
               (:user/sign-up op-data) (user/sign-up db op-data sid op-id op-time)
               (:user/log-out) (user/log-out db sid op-id op-time)
               (:router/change op-data) (router/change db op-data sid op-id op-time)
-              (:task/create-working op-data)
-                task/create-working db op-data sid op-id op-time
-              (:task/remove-working op-data)
-                task/remove-working db op-data sid op-id op-time
-              (:task/finish-working op-data)
-                task/finish-working db op-data sid op-id op-time
-              (:task/update-working op-data)
-                task/update-working db op-data sid op-id op-time
-              (:task/touch-working op-data)
-                task/touch-working db op-data sid op-id op-time
+              (:task/create-working op-data) (task/create-working db op-data sid op-id op-time)
+              (:task/remove-working op-data) (task/remove-working db op-data sid op-id op-time)
+              (:task/finish-working op-data) (task/finish-working db op-data sid op-id op-time)
+              (:task/update-working op-data) (task/update-working db op-data sid op-id op-time)
+              (:task/touch-working op-data) (task/touch-working db op-data sid op-id op-time)
               (:task/put-back op-data) (task/put-back db op-data sid op-id op-time)
               (:task/pend op-data) (task/pend db op-data sid op-id op-time)
               (:note/add op-data) (note/add-note db op-data sid op-id op-time)
@@ -2480,14 +2360,7 @@
           :schema $ :: 'Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater
-          :require
-            [] app.updater.session :as session
-            [] app.updater.user :as user
-            [] app.updater.router :as router
-            [] app.updater.misc :as misc
-            [] app.updater.task :as task
-            [] app.updater.note :as note
-            [] app.schema :as schema
+          :require ([] app.updater.session :as session) ([] app.updater.user :as user) ([] app.updater.router :as router) ([] app.updater.misc :as misc) ([] app.updater.task :as task) ([] app.updater.note :as note) ([] app.schema :as schema)
             [] respo-message.updater :refer $ [] update-messages
     'app.updater.misc $ %{} 'FileEntry
       :defs $ {} $ 'set-today
@@ -2634,11 +2507,8 @@
                   assoc-in db working-path $ dissoc tasks op-data
                 , db
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'T)
-            :args $ [] 'T 'String 'Number 'String 'Number
-            :generics $ [] 'T
-          :tests $ [] $ %{} 'TestEntry
-            :name |removes-only-new-fixture-task
+          :schema $ :: 'Dynamic
+          :tests $ [] $ %{} 'TestEntry (:name |removes-only-new-fixture-task)
             :code $ quote $ let
                 sid 990001
                 user-id |timegrass-test-user
