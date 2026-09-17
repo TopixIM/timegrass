@@ -36,11 +36,11 @@ jobs:
     - name: Verify Calcit runtime toolchain
       run: |
         caps verify --toolchain
-        test "$(calcit --version)" = "0.14.16"
+        test "$(calcit --version)" = "0.15.3"
 
     - name: Validate Calcit snapshot
       run: |
-        calcit edit format
+        calcit calcit.cirru edit format
         git diff --exit-code -- calcit.cirru
         calcit calcit.cirru --compat-types --check-only
         calcit calcit.cirru --entry server --compat-types --check-only
