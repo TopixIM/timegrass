@@ -68,9 +68,10 @@
               (:err error)
                 do
                   match error
-                    (:revision-mismatch expected actual) (js/console.warn |Sync-revision-mismatch expected actual)
+                    (:revision-mismatch expected actual)
+                      console-warn! $ str |Sync-revision-mismatch-expected= expected |,-actual= actual
                     (:invalid-patch patch-error)
-                      js/console.error |Failed-to-apply-server-patch $ patch-error-message patch-error
+                      console-error! $ str |Failed-to-apply-server-patch:_ $ patch-error-message patch-error
                   request-snapshot!
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -320,6 +321,7 @@
             cumulo-util.activity :as activity
             recollect.patch :refer $ patch-batch patch-batch:apply-to PatchBatchOps PatchError PatchPathSegment patch-error-message
             js-ffi.browser :refer $ query-selector
+            js-ffi.shared :refer $ console-warn! console-error!
     'app.comp.container $ %{} 'FileEntry
       :defs $ {}
         'comp-container $ %{} 'CodeEntry (:doc |)

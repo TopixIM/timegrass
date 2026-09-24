@@ -36,7 +36,7 @@ jobs:
     - name: Verify Calcit runtime toolchain
       run: |
         caps verify --toolchain
-        test "$(calcit --version)" = "0.18.1"
+        test "$(calcit --version)" = "0.20.0"
 
     - name: Validate Calcit snapshot
       run: |
@@ -45,8 +45,8 @@ jobs:
         calcit calcit.cirru --compat-types --check-only
         calcit calcit.cirru --entry server --compat-types --check-only
         calcit calcit.cirru --compat-types analyze deprecated
-        calcit calcit.cirru --compat-types analyze dynamic-methods --max 0
-        calcit calcit.cirru --entry server --compat-types analyze dynamic-methods --max 0
+        calcit calcit.cirru --compat-types analyze dynamic-methods --format json | tail -n 1 | jq -e '.data.summary.findings == 0'
+        calcit calcit.cirru --entry server --compat-types analyze dynamic-methods --format json | tail -n 1 | jq -e '.data.summary.findings == 0'
         calcit calcit.cirru --compat-types analyze quality --baseline config/calcit-quality.cirru
         calcit calcit.cirru --entry server --compat-types test --require-match
 
