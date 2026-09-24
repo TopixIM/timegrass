@@ -2387,39 +2387,70 @@
                 base-data $ {} (:logged-in? logged-in?) (:session session-data) (:router router)
                   :reel-length $ count records
                 user $ schema/read-path db $ [] :users (&map:get session-data :user-id)
-              merge base-data $ if logged-in?
-                {}
-                  :user $ twig-user user
-                  :router $ assoc router :data $ case-default (&map:get router :name) ({})
-                    :home $ {} $ :tasks
-                      schema/read-path user $ [] :tasks :working
-                    :history $ {}
-                      :week $ &map:get router :data
-                      :tasks $ twig-tasks-by-week (&map:get router :data)
-                        schema/read-path user $ [] :tasks :finished
-                    :notes $ twig-notes-by-month (&map:get router :data) (&map:get user :notes)
-                    :profile $ twig-members (&map:get db :sessions) (&map:get db :users)
-                  :count $ count $ &map:get db :sessions
-                  :color $ rand-hex-color!
-                  :today $ &map:get db :today
-                {}
+              merge base-data $ decode-map-as
+                if logged-in?
+                  {}
+                    :user $ twig-user $ decode-map-as user (:: 'Map 'Tag 'Dynamic)
+                    :router $ assoc router :data $ case-default (&map:get router :name) ({})
+                      :home $ {} $ :tasks
+                        schema/read-path user $ [] :tasks :working
+                      :history $ {}
+                        :week $ &map:get router :data
+                        :tasks $ twig-tasks-by-week
+                          decode-map-as (&map:get router :data) (:: 'Map 'Tag 'Dynamic)
+                          decode-map-as
+                            schema/read-path user $ [] :tasks :finished
+                            :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                      :notes $ twig-notes-by-month
+                        decode-map-as (&map:get router :data) (:: 'Map 'Tag 'Dynamic)
+                        decode-map-as (&map:get user :notes)
+                          :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                      :profile $ twig-members (&map:get db :sessions) (&map:get db :users)
+                    :count $ count $ &map:get db :sessions
+                    :color $ rand-hex-color!
+                    :today $ &map:get db :today
+                  {}
+                :: 'Map 'Tag 'Dynamic
           :examples $ []
-          :schema $ :: 'Dynamic
-          :tests $ [] $ %{} 'TestEntry (:name |defaults-missing-session)
-            :code $ quote $ let
-                init-db $ {}
-                init-records $ []
-                result $ twig-container init-db nil init-records
-              do
-                assert= true $ map? result
-                assert= schema/session $ &map:get result :session
-            :tags $ #{} :server
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'D) 'S $ :: 'List 'R
+            :generics $ [] 'D 'S 'R
+            :return $ :: 'Map 'Tag 'Dynamic
+          :tests $ []
+            %{} 'TestEntry (:name |defaults-missing-session)
+              :code $ quote $ let
+                  init-db $ decode-map-as ({}) (:: 'Map 'Tag 'Dynamic)
+                  init-records $ []
+                  result $ twig-container init-db nil init-records
+                do
+                  assert= true $ map? result
+                  assert= schema/session $ &map:get result :session
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |omits-private-fields-for-logged-in-user)
+              :code $ quote $ let
+                  user $ -> schema/user (assoc :id |u) (assoc :name |Alice) (assoc :password |secret)
+                  db $ assoc-in schema/database ([] :users |u) user
+                  session $ assoc schema/session :user-id |u
+                  twig $ twig-container
+                    decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                    , session $ []
+                  visible-user $ &map:get twig :user
+                do
+                  assert= |Alice $ &map:get visible-user :name
+                  assert= false $ contains? visible-user :password
+                  assert= false $ contains? visible-user :tasks
+              :tags $ #{} :server
         'twig-members $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-members (sessions users)
             -> sessions $ filter-map-kv $ fn (k session)
               %:: MapEntryDecision :keep k $ schema/read-path users $ [] (&map:get session :user-id) :name
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ []
+              :: 'Map 'K $ :: 'Map 'Tag 'S
+              :: 'Map 'String $ :: 'Map 'Tag 'U
+            :generics $ [] 'K 'S 'U
+            :return $ :: 'Map 'K 'Dynamic
         'twig-notes-by-month $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-notes-by-month (data notes)
             let
@@ -2433,7 +2464,10 @@
                       = year $ &map:get time :year
                       = month $ &map:get time :month
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'D) (:: 'Map 'K 'N)
+            :generics $ [] 'D 'K 'N
+            :return $ :: 'Map 'K 'N
         'twig-tasks-by-week $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-tasks-by-week (data tasks)
             let
@@ -2451,7 +2485,10 @@
                       &> t $ get-timestamp start-time
                       &< t $ get-timestamp end-time
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'D) (:: 'Map 'K 'T)
+            :generics $ [] 'D 'K 'T
+            :return $ :: 'Map 'K 'T
         'week-millis $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def week-millis (* 7 24 3600 1000)
           :examples $ []
@@ -2470,7 +2507,16 @@
           :code $ quote $ defn twig-user (user)
             -> user (dissoc :password) (dissoc :tasks)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] $ :: 'Map 'Tag 'V
+            :generics $ [] 'V
+            :return $ :: 'Map 'Tag 'V
+          :tests $ [] $ %{} 'TestEntry (:name |omits-private-and-task-fields)
+            :code $ quote $ assert=
+              {} $ :name |Alice
+              twig-user $ {} (:name |Alice) (:password |secret)
+                :tasks $ {}
+            :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.twig.user
           :require $ [] recollect.twig :refer $ [] deftwig
@@ -2499,7 +2545,10 @@
               (:note/remove op-data) (note/remove-note db op-data sid op-id op-time)
               _ $ do (eprintln "|Unknown op:" op) db
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'D) 'app.schema/Op 'Number 'String 'Number
+            :generics $ [] 'D
+            :return $ :: 'Map 'Tag 'D
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater
           :require ([] app.updater.session :as session) ([] app.updater.user :as user) ([] app.updater.router :as router) ([] app.updater.misc :as misc) ([] app.updater.task :as task) ([] app.updater.note :as note) ([] app.schema :as schema)
