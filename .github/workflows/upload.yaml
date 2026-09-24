@@ -53,6 +53,9 @@ jobs:
     - name: Build browser client
       run: yarn compile-page && yarn release-page
 
+    - name: Verify typed dayjs adapter in generated JavaScript
+      run: yarn check-dayjs-adapter
+
     - run: mkdir -p dist-server && cp calcit.cirru package.json deps.cirru dist-server/
       name: Copy server scripts
 

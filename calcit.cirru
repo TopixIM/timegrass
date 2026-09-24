@@ -457,9 +457,10 @@
                 cursor $ &map:get states :cursor
                 state $ or (&map:get states :data)
                   {} $ :show-menu? false
-                finished-day $ unsafe-coerce
-                  dayjs $ &map:get task :finished-time
-                  , 'JsObject
+                finished-time $ match
+                  decode-timestamp $ &map:get task :finished-time
+                  (:ok value) value
+                  (:err message) (raise message)
               div
                 {} (:class-name css-done-task)
                   :style $ merge-styles
@@ -469,8 +470,7 @@
                       {}
                   :on-click $ fn (e d!)
                     d! $ :: :states cursor $ assoc state :show-menu? true
-                <>
-                  unsafe-coerce (.!format finished-day |HH:mm) 'String
+                <> (format-timestamp finished-time |HH:mm)
                   {} (:min-width 32)
                     :color $ hsl 0 0 80
                     :font-size 12
@@ -493,7 +493,8 @@
                       = :put-back $ option:unwrap-or (nth item 1) :unknown
                       d! $ :: :task/put-back $ &map:get task :id
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
         'comp-history $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-history (states data finished-tasks)
             let
@@ -618,6 +619,7 @@
             |dayjs :default dayjs
             feather.core :refer $ comp-icon
             app.style :refer $ merge-styles
+            app.comp.navigation :refer $ format-timestamp decode-timestamp
     'app.comp.login $ %{} 'FileEntry
       :defs $ {}
         'comp-login $ %{} 'CodeEntry (:doc |)
@@ -711,9 +713,12 @@
             .format $ :: 'Fn $ {}
               :args $ [] 'app.comp.navigation/DayjsHost 'String
               :return 'String
+            .valid? $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost
+              :return 'Bool
           :examples $ []
           :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
-            :names $ {} (:end-of |endOf) (:start-of |startOf)
+            :names $ {} (:end-of |endOf) (:start-of |startOf) (:valid? |isValid)
           :schema $ :: 'Trait
         'comp-navigation $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-navigation (logged-in? count-members page)
@@ -790,6 +795,34 @@
             :args $ []
             :features $ #{} :js-ffi
             :return $ :: 'Map 'Tag 'Dynamic
+        'decode-timestamp $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-timestamp (input) (try-decode-map-as input 'Number)
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :return $ :: 'Result 'Number 'String
+          :tests $ []
+            %{} 'TestEntry (:name |accepts-number)
+              :code $ quote $ assert= true
+                result:ok? $ decode-timestamp 1735689600000
+              :tags $ #{} :unit
+            %{} 'TestEntry (:name |rejects-non-number)
+              :code $ quote $ assert= true
+                result:err? $ decode-timestamp |invalid
+              :tags $ #{} :unit
+            %{} 'TestEntry (:name |rejects-nil)
+              :code $ quote $ assert= true
+                result:err? $ decode-timestamp nil
+              :tags $ #{} :unit
+        'format-timestamp $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn format-timestamp (timestamp pattern)
+            let
+                host $ unsafe-coerce (dayjs timestamp) 'app.comp.navigation/DayjsHost
+              if (.valid? host) (.format host pattern) (raise |Invalid-dayjs-timestamp)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'String)
+            :args $ [] 'Number 'String
+            :features $ #{} :js-ffi
         'render-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-entry (title get-route highlighted?)
             div
