@@ -12,4 +12,4 @@
     |calcit-lang/calcit-wss |0.2.32
     |calcit-lang/calcit.std |0.2.35
     |calcit-lang/recollect |0.0.53
-    |mvc-works/ws-edn.calcit |0.0.31
+    |mvc-works/ws-edn.calcit |0.0.32

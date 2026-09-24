@@ -176,11 +176,10 @@
                   (:snapshot revision store)
                     do (reset! *store store) (reset! *sync-revision revision) (ack-sync! revision)
                   (:patch base-revision revision changes)
-                    do
-                      when config/dev? $ js/console.log |Changes changes
-                      apply-server-patch! base-revision revision changes
+                    do $ apply-server-patch! base-revision revision changes
                   (:effect/pong) &unit
-              (:err error) (js/console.error "|Invalid server message:" error)
+              (:err error)
+                js-ffi.shared/console-error! $ str-spaced "|Invalid server message:" error
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Dynamic
@@ -1609,19 +1608,25 @@
                 (:snapshot revision store)
                   if
                     and (number? revision) (map? store)
-                    %ok $ %:: ServerMessage :snapshot revision $ unsafe-coerce store 'Map
+                    match (try-decode-map-as store 'Map)
+                      (:ok decoded-store)
+                        %ok $ %:: ServerMessage :snapshot revision decoded-store
+                      (:err reason)
+                        invalid-message $ str "|Invalid snapshot envelope: " reason
                     invalid-message $ str "|Invalid snapshot envelope: " message
                 (:patch base-revision revision changes)
-                  let
-                      valid-changes? $ if (list? changes)
-                        every? (unsafe-coerce changes 'List)
-                          fn (change)
+                  if
+                    and (number? base-revision) (number? revision)
+                    match (try-decode-map-as changes 'List)
+                      (:ok decoded-list)
+                        if
+                          every? decoded-list $ fn (change)
                             = (enum-definition change) (%some recollect.schema/change-op)
-                        , false
-                    if
-                      and (number? base-revision) (number? revision) valid-changes?
-                      %ok $ %:: ServerMessage :patch base-revision revision $ unsafe-coerce changes (:: 'List 'recollect.schema/change-op)
-                      invalid-message $ str "|Invalid patch envelope: " message
+                          %ok $ %:: ServerMessage :patch base-revision revision $ assert-type decoded-list (:: 'List 'recollect.schema/change-op)
+                          invalid-message $ str "|Invalid patch envelope: " message
+                      (:err reason)
+                        invalid-message $ str "|Invalid patch envelope: " reason
+                    invalid-message $ str "|Invalid patch envelope: " message
                 (:effect/pong)
                   %ok $ %:: ServerMessage :effect/pong
                 _ $ invalid-message $ str "|Unknown server message: " message
@@ -1653,6 +1658,16 @@
               :code $ quote $ assert=
                 %:: Result :ok $ %:: ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
                 decode-server-message $ %:: ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |decodes-snapshot-map)
+              :code $ quote $ assert=
+                %:: Result :ok $ %:: ServerMessage :snapshot 2 $ {} (:a 1)
+                decode-server-message $ %:: ServerMessage :snapshot 2 $ {} (:a 1)
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-non-nominal-change)
+              :code $ quote $ assert= true
+                result:err? $ decode-server-message $ %:: ServerMessage :patch 3 4
+                  [] $ :: :replace 1
               :tags $ #{} :client
         'invalid-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn invalid-message (detail)
