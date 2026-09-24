@@ -523,14 +523,10 @@
                                 change-year? $ <= week 1
                                 y $ if change-year? (dec year) year
                                 w $ if change-year? 53 $ dec week
-                                base-day $ unsafe-coerce (dayjs) 'JsObject
-                                year-day $ unsafe-coerce (.!year base-day y) 'JsObject
-                                d $ unsafe-coerce (.!week year-day w) 'JsObject
-                                start-day $ unsafe-coerce (.!startOf d |week) 'JsObject
-                                end-day $ unsafe-coerce (.!endOf d |week) 'JsObject
+                                bounds $ week-bounds y w
                               {} (:year y) (:week w)
-                                :start $ unsafe-coerce (.!format start-day |week) 'String
-                                :end $ unsafe-coerce (.!format end-day |week) 'String
+                                :start $ :start bounds
+                                :end $ :end bounds
                       =< 8 nil
                       comp-icon :arrow-right
                         {} (:font-size 16)
@@ -542,14 +538,10 @@
                                 change-year? $ >= week 53
                                 y $ if change-year? (inc year) year
                                 w $ if change-year? 1 $ inc week
-                                base-day $ unsafe-coerce (dayjs) 'JsObject
-                                year-day $ unsafe-coerce (.!year base-day y) 'JsObject
-                                d $ unsafe-coerce (.!week year-day w) 'JsObject
-                                start-day $ unsafe-coerce (.!startOf d |week) 'JsObject
-                                end-day $ unsafe-coerce (.!endOf d |week) 'JsObject
+                                bounds $ week-bounds y w
                               {} (:year y) (:week w)
-                                :start $ unsafe-coerce (.!format start-day |week) 'String
-                                :end $ unsafe-coerce (.!format end-day |week) 'String
+                                :start $ :start bounds
+                                :end $ :end bounds
                   if (empty? finished-tasks)
                     div
                       {} (:class-name css/center)
@@ -557,46 +549,49 @@
                       <> "|No tasks." $ {} (:font-family ui/font-fancy)
                         :color $ hsl 0 0 80
                     let
-                        grouped-tasks $ -> finished-tasks (&map:to-list) (map last)
+                        grouped-tasks $ -> finished-tasks (&map:vals)
                           group-by $ fn (task)
-                            unsafe-coerce
-                              .!format
-                                unsafe-coerce
-                                  dayjs $ &map:get task :finished-time
-                                  , 'JsObject
-                                , |YYYY-MM-DD
-                              , 'String
+                            let
+                                timestamp $ match
+                                  decode-timestamp $ &map:get task :finished-time
+                                  (:ok value) value
+                                  (:err message) (raise message)
+                              format-timestamp timestamp |YYYY-MM-DD
                       list-> ({})
-                        -> grouped-tasks (&map:to-list)
+                        -> grouped-tasks (&map:keys) (&set:to-list)
                           sort $ fn (x y)
                             &compare
                               option:unwrap-or (first y) |
                               option:unwrap-or (first x) |
-                          &list:map-pair $ fn (date-string task-list)
-                            [] date-string $ div
-                              {} (:class-name css/column)
-                                :style $ {} $ :margin-top 16
-                              let
-                                  the-day $ unsafe-coerce (dayjs date-string) 'JsObject
-                                div
-                                  {} $ :class-name css/row-parted
-                                  span
-                                    {} $ :class-name css/font-fancy
-                                    <> $ unsafe-coerce (.!format the-day |ddd) 'String
-                                    =< 12 nil
-                                    <> $ unsafe-coerce (.!format the-day |MM-DD) 'String
-                              =< nil 4
-                              list-> ({})
-                                -> task-list
-                                  &list:sort-by $ fn (task)
-                                    negate $ &map:get task :finished-time
-                                  map $ fn (task)
-                                    [] (&map:get task :id)
-                                      comp-done-task
-                                        >> states $ &map:get task :id
-                                        , task
+                          map $ fn (date-string)
+                            let
+                                task-list $ &map:get grouped-tasks date-string
+                              [] date-string $ div
+                                {} (:class-name css/column)
+                                  :style $ {} $ :margin-top 16
+                                let
+                                    labels $ date-labels date-string
+                                  div
+                                    {} $ :class-name css/row-parted
+                                    span
+                                      {} $ :class-name css/font-fancy
+                                      <> $ :weekday labels
+                                      =< 12 nil
+                                      <> $ :month-day labels
+                                =< nil 4
+                                list-> ({})
+                                  -> task-list
+                                    &list:sort-by $ fn (task)
+                                      negate $ &map:get task :finished-time
+                                    map $ fn (task)
+                                      [] (&map:get task :id)
+                                        comp-done-task
+                                          >> states $ &map:get task :id
+                                          , task
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
+              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
         'css-done-task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-done-task
             {}
@@ -619,7 +614,7 @@
             |dayjs :default dayjs
             feather.core :refer $ comp-icon
             app.style :refer $ merge-styles
-            app.comp.navigation :refer $ format-timestamp decode-timestamp
+            app.comp.navigation :refer $ format-timestamp decode-timestamp week-bounds date-labels
     'app.comp.login $ %{} 'FileEntry
       :defs $ {}
         'comp-login $ %{} 'CodeEntry (:doc |)
@@ -693,6 +688,10 @@
             js-ffi.browser :refer $ storage-set!
     'app.comp.navigation $ %{} 'FileEntry
       :defs $ {}
+        'DateLabels $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct DateLabels (:weekday 'String) (:month-day 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
         'DayjsHost $ %{} 'CodeEntry (:doc |)
           :code $ quote $ deftrait DayjsHost
             .month $ :: 'Fn $ {}
@@ -704,6 +703,12 @@
             .week $ :: 'Fn $ {}
               :args $ [] 'app.comp.navigation/DayjsHost
               :return 'Number
+            .with-year $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost 'Number
+              :return 'app.comp.navigation/DayjsHost
+            .with-week $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost 'Number
+              :return 'app.comp.navigation/DayjsHost
             .start-of $ :: 'Fn $ {}
               :args $ [] 'app.comp.navigation/DayjsHost 'String
               :return 'app.comp.navigation/DayjsHost
@@ -718,8 +723,12 @@
               :return 'Bool
           :examples $ []
           :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
-            :names $ {} (:end-of |endOf) (:start-of |startOf) (:valid? |isValid)
+            :names $ {} (:end-of |endOf) (:start-of |startOf) (:valid? |isValid) (:with-week |week) (:with-year |year)
           :schema $ :: 'Trait
+        'WeekBounds $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct WeekBounds (:start 'String) (:end 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
         'comp-navigation $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-navigation (logged-in? count-members page)
             div
@@ -795,6 +804,19 @@
             :args $ []
             :features $ #{} :js-ffi
             :return $ :: 'Map 'Tag 'Dynamic
+        'date-labels $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn date-labels (date-string)
+            let
+                host $ unsafe-coerce (dayjs date-string) 'app.comp.navigation/DayjsHost
+              if (.valid? host)
+                %{} DateLabels
+                  :weekday $ .format host |ddd
+                  :month-day $ .format host |MM-DD
+                raise |Invalid-dayjs-date
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.comp.navigation/DateLabels)
+            :args $ [] 'String
+            :features $ #{} :js-ffi
         'decode-timestamp $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-timestamp (input) (try-decode-map-as input 'Number)
           :examples $ []
@@ -842,6 +864,24 @@
               :: 'Fn $ {} (:return 'Dynamic)
                 :args $ []
               , 'Bool
+        'week-bounds $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn week-bounds (year week)
+            let
+                base $ unsafe-coerce (dayjs) 'app.comp.navigation/DayjsHost
+                year-day $ .with-year base year
+                target $ .with-week year-day week
+                start $ .start-of target |week
+                end $ .end-of target |week
+              if
+                and (.valid? start) (.valid? end)
+                %{} WeekBounds
+                  :start $ .format start |week
+                  :end $ .format end |week
+                raise |Invalid-dayjs-week
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.comp.navigation/WeekBounds)
+            :args $ [] 'Number 'Number
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.navigation
           :require
