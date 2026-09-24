@@ -1311,7 +1311,9 @@
                   button
                     {} (:class-name css/button)
                       :on-click $ fn (e d!)
-                        js/location.replace $ str js/location.origin |?time= $ .now js/Date
+                        js-ffi.browser/location-replace! $ str
+                          :origin $ js-ffi.browser/location-snapshot
+                          , |?time= $ js-ffi.shared/now-ms
                         , &unit
                     <> |Refresh
                   =< 16 nil
@@ -1320,11 +1322,12 @@
                       :style $ {} (:color :red) (:border-color :red)
                       :on-click $ fn (e d!)
                         d! $ :: :user/log-out
-                        js/localStorage.removeItem $ &map:get config/site :storage-key
+                        js-ffi.browser/storage-remove! $ &map:get config/site :storage-key
                         , &unit
                     <> "|Log out"
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'String 'String)
         'css-member-label $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-member-label
             {} $ |$0 $ {} (:padding "|0 8px")
