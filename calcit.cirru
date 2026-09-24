@@ -841,7 +841,8 @@
           :code $ quote $ defn decode-timestamp (input) (try-decode-map-as input 'Number)
           :examples $ []
           :schema $ :: 'Fn $ {}
-            :args $ [] 'Dynamic
+            :args $ [] 'Input
+            :generics $ [] 'Input
             :return $ :: 'Result 'Number 'String
           :tests $ []
             %{} 'TestEntry (:name |accepts-number)
