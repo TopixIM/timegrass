@@ -998,11 +998,16 @@
     'app.comp.overview $ %{} 'FileEntry
       :defs $ {}
         'comp-global-keydown $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defcomp comp-global-keydown (options on-event)
+          :code $ quote $ defcomp comp-global-keydown (on-event)
             span $ {} $ :on-keydown
               fn (e d!) (on-event e d!) &unit
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] $ :: 'Fn
+              {} (:return 'Unit)
+                :args $ [] (:: 'Map 'Tag 'Dynamic)
+                  :: 'Fn $ {} (:return 'Unit)
+                    :args $ [] 'app.schema/Op
         'comp-no-tasks $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-no-tasks ()
             div
@@ -1048,15 +1053,14 @@
                           d! $ :: :task/create-working result
                           , &unit
                         , &unit
-                    comp-global-keydown ({})
-                      fn (e d!)
-                        when
-                          and (&map:get e :meta?)
-                            = |i $ &map:get e :key
-                          .show create-plugin d! $ fn (result)
-                            d! $ :: :task/create-working result
-                            , &unit
-                        , &unit
+                    comp-global-keydown $ fn (e d!)
+                      when
+                        and (&map:get e :meta?)
+                          = |i $ &map:get e :key
+                        .show create-plugin d! $ fn (result)
+                          d! $ :: :task/create-working result
+                          , &unit
+                      , &unit
                     div
                       {}
                         :class-name $ str-spaced css/row-middle css/font-fancy
