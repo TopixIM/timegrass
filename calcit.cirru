@@ -1654,7 +1654,7 @@
         '*client-states $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *client-states ({})
           :examples $ []
-          :schema $ :: 'Ref $ :: 'Map 'Number 'Dynamic
+          :schema $ :: 'Ref $ :: 'Map 'Number (:: 'Map 'Tag 'Dynamic)
         '*dirty-clients $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *dirty-clients (#{})
           :examples $ []
