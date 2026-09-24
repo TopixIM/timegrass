@@ -4,7 +4,7 @@
   :dependencies $ {} (|Cumulo/cumulo-reel.calcit |0.0.45)
     |Cumulo/cumulo-util.calcit |0.0.23
     |Respo/alerts.calcit |0.10.44
-    |Respo/respo-feather.calcit |0.4.19
+    |Respo/respo-feather.calcit |0.4.20
     |Respo/respo-markdown.calcit |0.4.44
     |Respo/respo-message.calcit |0.0.28
     |Respo/respo-ui.calcit |0.7.31
