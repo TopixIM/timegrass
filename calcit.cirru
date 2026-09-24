@@ -1046,13 +1046,15 @@
                   {} $ :style $ {} (:max-width 800) (:margin :auto)
                   div
                     {} $ :class-name css/row-parted
-                    comp-title |Doing $ comp-icon :plus
-                      &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
-                      fn (e d!)
-                        .show create-plugin d! $ fn (result)
-                          d! $ :: :task/create-working result
+                    comp-title |Doing
+                      %some $ comp-icon :plus
+                        &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
+                        fn (e d!)
+                          .show create-plugin d! $ fn (result)
+                            d! $ :: :task/create-working result
+                            , &unit
                           , &unit
-                        , &unit
+                      %none
                     comp-global-keydown $ fn (e d!)
                       when
                         and (&map:get e :meta?)
@@ -1086,9 +1088,10 @@
                   when
                     not $ empty? pending-tasks
                     div ({})
-                      comp-title |Later nil $ fn (e d!)
-                        d! $ :: :states cursor $ update state :show-later? not
-                        , &unit
+                      comp-title |Later (%none)
+                        %some $ fn (e d!)
+                          d! $ :: :states cursor $ update state :show-later? not
+                          , &unit
                       if (&map:get state :show-later?)
                         list-> ({})
                           -> pending-tasks (&map:to-list)
@@ -1194,19 +1197,27 @@
           :examples $ []
           :schema $ :: 'Dynamic
         'comp-title $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defcomp comp-title (title child ? on-click)
+          :code $ quote $ defcomp comp-title (title child on-click)
             div
               {} (:class-name css-title)
-                :style $ if (fn? on-click)
+                :style $ if (option:some? on-click)
                   {} $ :cursor :pointer
                 :on-click $ fn (e d!)
-                  when (fn? on-click) (on-click e d!)
+                  when (option:some? on-click)
+                    (option:unwrap on-click) e d!
                   , &unit
               <> title
               =< 16 nil
-              , child
+              match child
+                (:some content) content
+                (:none) nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'String (:: 'Option 'respo.schema/Component)
+              :: 'Option $ :: 'Fn $ {} (:return 'Unit)
+                :args $ [] (:: 'Map 'Tag 'Dynamic)
+                  :: 'Fn $ {} (:return 'Unit)
+                    :args $ [] 'app.schema/Op
         'css-task-base $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-task-base
             {}
