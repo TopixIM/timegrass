@@ -689,7 +689,7 @@
     'app.comp.navigation $ %{} 'FileEntry
       :defs $ {}
         'DateLabels $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct DateLabels (:weekday 'String) (:month-day 'String)
+          :code $ quote $ defstruct DateLabels (:weekday 'String) (:month-day 'String) (:week 'Number)
           :examples $ []
           :schema $ :: 'StructDef
         'DayjsHost $ %{} 'CodeEntry (:doc |)
@@ -812,6 +812,7 @@
                 %{} DateLabels
                   :weekday $ .format host |ddd
                   :month-day $ .format host |MM-DD
+                  :week $ .week host
                 raise |Invalid-dayjs-date
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.comp.navigation/DateLabels)
@@ -1009,51 +1010,49 @@
                       <> "|No notes" $ {} (:font-family ui/font-fancy)
                         :color $ hsl 0 0 80
                     let
-                        grouped-notes $ -> notes (&map:to-list)
-                          group-by $ fn (pair)
+                        grouped-notes $ -> notes (&map:keys) (&set:to-list)
+                          group-by $ fn (note-key)
                             let
-                                pair-value $ unsafe-coerce (nth pair 1) 'Dynamic
-                                note-time $ &map:get pair-value :time
-                              unsafe-coerce
-                                .!format
-                                  unsafe-coerce (dayjs note-time) 'JsObject
-                                  , |MM-DD
-                                , 'String
-                          &map:to-list
-                          sort $ fn (x y)
-                            &compare
-                              option:unwrap-or (first y) |
-                              option:unwrap-or (first x) |
+                                note $ &map:get notes note-key
+                                note-time $ match
+                                  decode-timestamp $ &map:get note :time
+                                  (:ok value) value
+                                  (:err message) (raise message)
+                              format-timestamp note-time |MM-DD
                       list-> ({})
-                        -> grouped-notes (identity)
-                          &list:map-pair $ fn (date notes-in-day)
-                            [] date $ div
-                              {} $ :style $ {} (:margin-top 16)
-                              div
-                                {} (:class-name css/font-fancy)
-                                  :style $ {} (:font-size 14) (:font-weight 500)
-                                <> $ unsafe-coerce
-                                  .!format
-                                    unsafe-coerce
-                                      dayjs $ str year |- date
-                                      , 'JsObject
-                                    , |ddd
-                                  , 'String
-                                =< 12 nil
-                                <> $ str date
-                              list->
-                                {} $ :class-name css/column
-                                -> notes-in-day
-                                  &list:sort-by $ fn (pair)
-                                    let
-                                        note-value $ unsafe-coerce (nth pair 1) 'Dynamic
-                                      negate $ &map:get note-value :time
-                                  &list:map-pair $ fn (k note)
-                                    [] k $ comp-note (>> states k) note
+                        -> grouped-notes (&map:keys) (&set:to-list)
+                          sort $ fn (x y) (&compare y x)
+                          map $ fn (date)
+                            let
+                                notes-in-day $ &map:get grouped-notes date
+                              [] date $ div
+                                {} $ :style $ {} (:margin-top 16)
+                                div
+                                  {} (:class-name css/font-fancy)
+                                    :style $ {} (:font-size 14) (:font-weight 500)
+                                  <> $ :weekday $ app.comp.navigation/date-labels (str year |- date)
+                                  =< 12 nil
+                                  <> $ str date
+                                list->
+                                  {} $ :class-name css/column
+                                  -> notes-in-day
+                                    &list:sort-by $ fn (note-key)
+                                      let
+                                          note $ &map:get notes note-key
+                                          note-time $ match
+                                            decode-timestamp $ &map:get note :time
+                                            (:ok value) value
+                                            (:err message) (raise message)
+                                        negate note-time
+                                    map $ fn (k)
+                                      [] k $ comp-note (>> states k) (&map:get notes k)
                   =< nil 160
                 .render add-plugin
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic)
+              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+              :: 'Map 'Tag 'Number
         'css-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-note
             {}
@@ -1120,7 +1119,7 @@
                 cursor $ &map:get states :cursor
                 state $ or (&map:get states :data)
                   {} $ :show-later? false
-                today-day $ unsafe-coerce (dayjs today) 'JsObject
+                today-labels $ app.comp.navigation/date-labels today
               div
                 {} (:class-name css/expand)
                   :style $ {} $ :padding 16
@@ -1136,7 +1135,11 @@
                             d! $ :: :task/create-working result
                             , &unit
                           , &unit
-                      %none
+                      assert-type (%none)
+                        :: 'Option $ :: 'Fn $ {} (:return 'Unit)
+                          :args $ [] (:: 'Map 'Tag 'Dynamic)
+                            :: 'Fn $ {} (:return 'Unit)
+                              :args $ [] 'app.schema/Op
                     comp-global-keydown $ fn (e d!)
                       when
                         and (&map:get e :meta?)
@@ -1149,9 +1152,9 @@
                       {}
                         :class-name $ str-spaced css/row-middle css/font-fancy
                         :style $ {} $ :color (hsl 0 0 60)
-                      <> $ unsafe-coerce (.!format today-day |ddd) 'String
+                      <> $ :weekday today-labels
                       =< 8 nil
-                      <> $ str (.!week today-day) "|th week"
+                      <> $ str (:week today-labels) "|th week"
                       =< 16 nil
                       <> today
                   if (empty? working-tasks) (comp-no-tasks)
@@ -1170,7 +1173,8 @@
                   when
                     not $ empty? pending-tasks
                     div ({})
-                      comp-title |Later (%none)
+                      comp-title |Later
+                        assert-type (%none) (:: 'Option 'respo.schema/Component)
                         %some $ fn (e d!)
                           d! $ :: :states cursor $ update state :show-later? not
                           , &unit
@@ -1198,7 +1202,8 @@
                             {} (:font-family ui/font-fancy) (:font-weight 300) (:cursor :pointer)
                   .render create-plugin
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'String $ :: 'Map 'String (:: 'Map 'Tag 'Dynamic)
         'comp-task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-task (states task mode)
             let
@@ -1245,7 +1250,6 @@
                     let
                         new-state $ assoc state :menu? false
                         result $ task-menu-action item
-                      js/console.log item
                       case-default result
                         d! $ :: :states cursor new-state
                         :done $ do
@@ -1277,7 +1281,8 @@
                 .render update-plugin
                 .render delete-plugin
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic) 'Tag
         'comp-title $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-title (title child on-click)
             div

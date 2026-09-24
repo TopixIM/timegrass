@@ -4,12 +4,12 @@ import weekOfYear from 'dayjs/plugin/weekOfYear.js';
 
 import { _$L_, _$n__$M_, init_tags, result_$o_err_$q_, result_$o_ok_$q_ } from './js-out/calcit.core.mjs';
 import { comp_done_task } from './js-out/app.comp.history.mjs';
-import { decode_timestamp, format_timestamp, week_bounds } from './js-out/app.comp.navigation.mjs';
+import { date_labels, decode_timestamp, format_timestamp, week_bounds } from './js-out/app.comp.navigation.mjs';
 import { comp_note } from './js-out/app.comp.notes-page.mjs';
 
 dayjs.extend(weekOfYear);
 
-const tags = init_tags(['cursor', 'data', 'finished-time', 'time', 'text', 'id', 'start', 'end']);
+const tags = init_tags(['cursor', 'data', 'finished-time', 'time', 'text', 'id', 'start', 'end', 'weekday', 'week']);
 const states = _$n__$M_(tags.cursor, _$L_(), tags.data, _$n__$M_());
 const task = (timestamp) => _$n__$M_(tags['finished-time'], timestamp, tags.text, 'Done', tags.id, 'task-1');
 const note = (timestamp) => _$n__$M_(tags.time, timestamp, tags.text, 'Note', tags.id, 'note-1');
@@ -30,3 +30,8 @@ const bounds = week_bounds(2026, 37);
 assert.equal(bounds.nthAt(1, tags.start), expectedWeek.startOf('week').format('week'));
 assert.equal(bounds.nthAt(0, tags.end), expectedWeek.endOf('week').format('week'));
 assert.throws(() => week_bounds(Number.NaN, 37), /Invalid-dayjs-week/);
+
+const expectedDate = dayjs('2026-09-14');
+const labels = date_labels('2026-09-14');
+assert.equal(labels.nthAt(2, tags.weekday), expectedDate.format('ddd'));
+assert.equal(labels.nthAt(1, tags.week), expectedDate.week());
