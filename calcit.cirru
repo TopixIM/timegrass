@@ -23,7 +23,7 @@
             {} $ :states $ {}
               :cursor $ []
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'Dynamic
         '*store $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *store (:: :initial)
           :examples $ []
@@ -53,6 +53,23 @@
           :examples $ []
           :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
             :names $ {} $ :extend! |extend
+          :schema $ :: 'Trait
+        'NavigatorConnectionHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait NavigatorConnectionHost (:onLine 'Bool)
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
+          :schema $ :: 'Trait
+        'ParsedUrlHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait ParsedUrlHost (:query 'app.client/ParsedUrlQueryHost)
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
+          :schema $ :: 'Trait
+        'ParsedUrlQueryHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait ParsedUrlQueryHost
+            :host $ :: 'JsNullish 'String
+            :port $ :: 'JsNullish 'String
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
           :schema $ :: 'Trait
         'ack-sync! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn ack-sync! (revision)
@@ -97,8 +114,8 @@
         'connect! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn connect! ()
             let
-                url-obj $ unsafe-coerce (url-parse js/location.href true) 'JsObject
-                query $ unsafe-coerce (.-query url-obj) 'JsObject
+                url-obj $ unsafe-coerce (url-parse js/location.href true) 'app.client/ParsedUrlHost
+                query $ .-query url-obj
                 host-value $ .-host query
                 port-value $ .-port query
                 host $ if (js-present? host-value) (unsafe-coerce host-value 'String) (unsafe-coerce js/location.hostname 'String)
@@ -119,12 +136,14 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
+            :features $ #{} :js-ffi
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dispatch! (op)
             do
               match op
                 (:states ignored-cursor ignored-state) &unit
-                _ $ js/console.info |[operation] |sending $ str (&enum:nth op 0)
+                _ $ js-ffi.shared/console-info! $ str-spaced |[operation] |sending
+                  str $ &enum:nth op 0
               match op
                 (:states cursor s)
                   reset! *states $ update-states @*states cursor s
@@ -187,10 +206,11 @@
           :doc "|Apply the typed browser recovery policy to the retained ws-edn client."
           :code $ quote $ defn recover-connection! ()
             let
-                document-node $ unsafe-coerce js/document 'JsObject
-                navigator-node $ unsafe-coerce js/navigator 'JsObject
-                visible? $ = |visible $ unsafe-coerce (.-visibilityState document-node) 'String
-                online? $ unsafe-coerce (.-onLine navigator-node) 'Bool
+                navigator-node $ unsafe-coerce js/navigator 'app.client/NavigatorConnectionHost
+                visible? $ match (js-ffi.browser/visibility-state)
+                  (:visible) true
+                  _ false
+                online? $ .-onLine navigator-node
                 client-option @*ws-client
                 has-client? $ match client-option
                   (:some client) true
@@ -284,7 +304,7 @@
             %{} 'TestEntry (:name |rejects-revision-mismatch)
               :code $ quote $ let
                   store $ {} $ :value 1
-                  changes $ []
+                  changes $ [] $ %:: patch-schema/change-op :assoc :value 2
                 assert=
                   %err $ %:: ClientPatchError :revision-mismatch 8 7
                   validate-server-patch store 7 8 changes
