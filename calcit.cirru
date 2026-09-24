@@ -1473,7 +1473,7 @@
           :examples $ []
           :schema $ :: 'Enum
         'Op $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum Op (:today 'Dynamic) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic) (:user/log-in 'Dynamic) (:user/sign-up 'Dynamic) (:user/log-out) (:router/change 'Dynamic) (:task/create-working 'Dynamic) (:task/remove-working 'Dynamic) (:task/finish-working 'Dynamic) (:task/update-working 'Dynamic) (:task/touch-working 'Dynamic) (:task/put-back 'Dynamic) (:task/pend 'Dynamic) (:note/add 'Dynamic) (:note/edit 'Dynamic) (:note/remove 'Dynamic) (:effect/persist) (:effect/ping) (:effect/pong) (:effect/connect) (:states 'Dynamic 'Dynamic)
+          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic) (:user/log-in 'Dynamic) (:user/sign-up 'Dynamic) (:user/log-out) (:router/change 'Dynamic) (:task/create-working 'Dynamic) (:task/remove-working 'Dynamic) (:task/finish-working 'Dynamic) (:task/update-working 'Dynamic) (:task/touch-working 'Dynamic) (:task/put-back 'Dynamic) (:task/pend 'Dynamic) (:note/add 'Dynamic) (:note/edit 'Dynamic) (:note/remove 'Dynamic) (:effect/persist) (:effect/ping) (:effect/pong) (:effect/connect) (:states 'Dynamic 'Dynamic)
           :examples $ []
           :schema $ :: 'Enum
         'ServerMessage $ %{} 'CodeEntry
@@ -1569,7 +1569,11 @@
                   , data
               match op
                 (:today value)
-                  %ok $ %:: Op :today value
+                  match (try-decode-map-as value 'String)
+                    (:ok today)
+                      %ok $ %:: Op :today today
+                    (:err message)
+                      invalid-message $ str "|Invalid today operation: " message
                 (:session/connect)
                   %ok $ %:: Op :session/connect
                 (:session/disconnect)
@@ -1619,6 +1623,20 @@
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
             :return $ :: 'Result 'app.schema/Op 'app.schema/MessageDecodeError
+          :tests $ []
+            %{} 'TestEntry (:name |accepts-today-string)
+              :code $ quote $ assert=
+                %ok $ %:: Op :today |2026-09-25
+                decode-operation $ :: :today |2026-09-25
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-today-number)
+              :code $ quote $ assert= true
+                result:err? $ decode-operation $ :: :today 7
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-today-nil)
+              :code $ quote $ assert= true
+                result:err? $ decode-operation $ :: :today nil
+              :tags $ #{} :server
         'decode-server-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-server-message (data)
             let
