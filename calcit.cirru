@@ -865,9 +865,10 @@
                     :initial $ &map:get note :text
                 remove-plugin $ use-confirm (>> states :remove)
                   {} $ :text "|Sure to delete note?"
-                note-day $ unsafe-coerce
-                  dayjs $ &map:get note :time
-                  , 'JsObject
+                note-time $ match
+                  decode-timestamp $ &map:get note :time
+                  (:ok value) value
+                  (:err message) (raise message)
               div
                 {}
                   :class-name $ str-spaced css/column css-note
@@ -876,8 +877,7 @@
                     :padding "|4px 8px"
                 div
                   {} $ :class-name css/row-parted
-                  <>
-                    unsafe-coerce (.!format note-day |HH:mm) 'String
+                  <> (format-timestamp note-time |HH:mm)
                     {} (:font-family ui/font-fancy)
                       :color $ hsl 0 0 70
                       :font-size 12
@@ -901,7 +901,8 @@
                 .render edit-plugin
                 .render remove-plugin
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
         'comp-notes-page $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-notes-page (states notes info)
             let
@@ -1035,6 +1036,7 @@
             respo-alerts.core :refer $ use-prompt use-confirm
             feather.core :refer $ comp-i comp-icon
             |dayjs :default dayjs
+            app.comp.navigation :refer $ format-timestamp decode-timestamp
     'app.comp.overview $ %{} 'FileEntry
       :defs $ {}
         'comp-global-keydown $ %{} 'CodeEntry (:doc |)
