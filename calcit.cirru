@@ -1894,8 +1894,7 @@
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'app.schema/ClientMessage 'Number
         'handle-sync-send! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn handle-sync-send! (sid revision new-store outcome)
-            swap! *client-states update sid $ fn (current) (next-sync-send-state current revision new-store outcome)
+          :code $ quote $ defn handle-sync-send! (sid revision new-store outcome) (swap! *client-states set-client-send-state sid revision new-store outcome)
             match outcome
               (:accepted) &unit
               (:backpressured)
@@ -1984,7 +1983,7 @@
               fn (sid)
                 let
                     state $ option:unwrap $ get @*client-states sid
-                  swap! *client-states assoc-in ([] sid :dirty-rev) revision
+                  swap! *client-states set-client-dirty-revision sid revision
                   when
                     = :active $ option:unwrap $ get state :status
                     swap! *dirty-clients include sid
@@ -2059,9 +2058,10 @@
                   merge current $ {} (:status :idle) (:in-flight? false) (:last-send-outcome :closed)
                   , :sent-rev :sent-store
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'C)
-            :args $ [] 'C 'Number 'U 'wss.core/WssSendOutcome
-            :generics $ [] 'C 'U
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'V) 'Number 'U 'wss.core/WssSendOutcome
+            :generics $ [] 'V 'U
+            :return $ :: 'Map 'Tag 'V
           :tests $ []
             %{} 'TestEntry (:name |accepted-records-pending-store)
               :code $ quote $ assert=
@@ -2157,8 +2157,7 @@
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
         'record-sync-send! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn record-sync-send! (message-kind revision diff-latency payload)
-            swap! *sync-metrics $ fn (metrics) (next-sync-metrics metrics message-kind revision diff-latency payload)
+          :code $ quote $ defn record-sync-send! (message-kind revision diff-latency payload) (swap! *sync-metrics next-sync-metrics message-kind revision diff-latency payload)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Tag 'Number 'Number 'String
@@ -2233,6 +2232,90 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Number
+        'set-client-dirty-revision $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn set-client-dirty-revision (states sid revision)
+            let
+                state $ option:unwrap $ get states sid
+              assoc states sid $ assoc state :dirty-rev revision
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ []
+              :: 'Map 'Number $ :: 'Map 'Tag 'V
+              , 'Number 'Number
+            :generics $ [] 'V
+            :return $ :: 'Map 'Number $ :: 'Map 'Tag 'V
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-other-client-state)
+            :code $ quote $ let
+                states $ {}
+                  1 $ {} (:status :active) (:dirty-rev 2)
+                  2 $ {} (:status :idle) (:dirty-rev 3)
+                next $ set-client-dirty-revision states 1 7
+              do
+                assert= 7 $ &map:get (&map:get next 1) :dirty-rev
+                assert= :active $ &map:get (&map:get next 1) :status
+                assert= (&map:get states 2) (&map:get next 2)
+                assert= 2 $ &map:get (&map:get states 1) :dirty-rev
+            :tags $ #{} :server
+        'set-client-last-heartbeat $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn set-client-last-heartbeat (states sid timestamp)
+            let
+                state $ option:unwrap $ get states sid
+              assoc states sid $ assoc state :last-heartbeat timestamp
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ []
+              :: 'Map 'Number $ :: 'Map 'Tag 'V
+              , 'Number 'Number
+            :generics $ [] 'V
+            :return $ :: 'Map 'Number $ :: 'Map 'Tag 'V
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-other-client-state)
+            :code $ quote $ let
+                states $ {}
+                  1 $ {} (:status :active) (:last-heartbeat 2)
+                  2 $ {} (:status :idle) (:last-heartbeat 3)
+                next $ set-client-last-heartbeat states 1 7
+              do
+                assert= 7 $ &map:get (&map:get next 1) :last-heartbeat
+                assert= :active $ &map:get (&map:get next 1) :status
+                assert= (&map:get states 2) (&map:get next 2)
+            :tags $ #{} :server
+        'set-client-send-state $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn set-client-send-state (states sid revision new-store outcome)
+            match (get states sid)
+              (:some current)
+                assoc states sid $ next-sync-send-state current revision new-store outcome
+              (:none) states
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ []
+              :: 'Map 'Number $ :: 'Map 'Tag 'V
+              , 'Number 'Number 'U 'wss.core/WssSendOutcome
+            :generics $ [] 'V 'U
+            :return $ :: 'Map 'Number $ :: 'Map 'Tag 'V
+          :tests $ []
+            %{} 'TestEntry (:name |accepted-update-preserves-other-client)
+              :code $ quote $ let
+                  states $ {}
+                    1 $ {} $ :status :active
+                    2 $ {} $ :status :idle
+                  next $ set-client-send-state states 1 7
+                    {} $ :value 1
+                    %:: wss.core/WssSendOutcome :accepted
+                do
+                  assert= 7 $ &map:get (&map:get next 1) :sent-rev
+                  assert= true $ &map:get (&map:get next 1) :in-flight?
+                  assert= (&map:get states 2) (&map:get next 2)
+                  assert= false $ contains? (&map:get states 1) :sent-rev
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |missing-client-is-unchanged)
+              :code $ quote $ let
+                  states $ {} $ 1
+                    {} $ :status :active
+                  next $ set-client-send-state states 3 7
+                    {} $ :value 1
+                    %:: wss.core/WssSendOutcome :accepted
+                assert= states next
+              :tags $ #{} :server
         'set-today! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-today! ()
             let
@@ -2260,7 +2343,7 @@
                   = :active $ option:unwrap $ get state :status
                   not $ option:unwrap-or (get state :in-flight?) false
                 let
-                    db $ :db reel
+                    db $ decode-map-as (:db reel) (:: 'Map 'Tag 'Dynamic)
                     records $ :records reel
                     session $ schema/read-path db $ [] :sessions sid
                     old-store-option $ get @*client-caches sid
@@ -2319,7 +2402,7 @@
                 state $ option:unwrap $ get @*client-states sid
               if
                 = :active $ option:unwrap $ get state :status
-                swap! *client-states assoc-in ([] sid :last-heartbeat) (now-ms)
+                swap! *client-states set-client-last-heartbeat sid $ now-ms
                 mark-client-active! sid client-revision true
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
