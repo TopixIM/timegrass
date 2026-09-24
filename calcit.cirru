@@ -1799,11 +1799,11 @@
                   dissoc
                     merge state $ {} (:needs-snapshot? true) (:in-flight? false)
                     , :sent-rev :sent-store
-                when
-                  = :active $ option:unwrap $ get
-                    option:unwrap $ get @*client-states sid
-                    , :status
-                  swap! *dirty-clients include sid
+                let
+                    state $ option:unwrap $ get @*client-states sid
+                  when
+                    = :active $ &map:get state :status
+                    swap! *dirty-clients include sid
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
