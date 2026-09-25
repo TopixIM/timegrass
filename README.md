@@ -48,26 +48,29 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-Calcit 0.14 enables strict preprocessing by default. This existing project uses
-`--compat-types` while its recorded quality baseline is reduced incrementally;
-both browser and server entries already enforce zero dynamic method dispatch.
+Calcit 默认执行严格类型检查。浏览器入口已使用严格检查与生成；服务端仍有旧 updater
+契约需要迁移，因此开发时暂用 `--compat-types` 运行，但 CI 最终仍执行服务端严格检查。
+迁移期先让兼容测试和浏览器构建完整运行，再报告服务端的实际类型阻断，不再用旧的
+Dynamic 数量基线作为合并门禁。数据库字段契约与持久化入口见
+[Timegrass #102](https://github.com/TopixIM/timegrass/issues/102)。
 
 ### Upgrade validation
 
-Use released module tags and validate the full graph before committing:
+使用已发布的模块版本，并在提交前验证完整依赖图：
 
 ```bash
 caps --ci
 caps verify --toolchain
 calcit edit format
-calcit calcit.cirru --compat-types --check-only
-calcit calcit.cirru --entry server --compat-types --check-only
-calcit calcit.cirru --compat-types analyze deprecated
-calcit calcit.cirru --compat-types analyze dynamic-methods --max 0
-yarn check-sync
+calcit calcit.cirru --entry server --compat-types test --require-match
+yarn check-client
 yarn compile-page
 yarn release-page
+yarn check-dayjs-adapter
+yarn check-server
 ```
+
+`yarn check-server` 是尚未通过的严格门禁；不能以兼容模式测试通过代替它。
 
 Never test a migration against the live `storage.cirru`. Copy it outside the
 repository, then verify the same load/persist path used by the server. The

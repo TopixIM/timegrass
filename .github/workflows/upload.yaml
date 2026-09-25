@@ -47,7 +47,6 @@ jobs:
         calcit calcit.cirru --compat-types analyze deprecated
         calcit calcit.cirru --compat-types analyze dynamic-methods --format json | tail -n 1 | jq -e '.data.summary.findings == 0'
         calcit calcit.cirru --entry server --compat-types analyze dynamic-methods --format json | tail -n 1 | jq -e '.data.summary.findings == 0'
-        calcit calcit.cirru --compat-types analyze quality --baseline config/calcit-quality.cirru
         calcit calcit.cirru --entry server --compat-types test --require-match
 
     - name: Build browser client
@@ -55,6 +54,13 @@ jobs:
 
     - name: Verify typed dayjs adapter in generated JavaScript
       run: yarn check-dayjs-adapter
+
+    - name: Enforce strict Calcit types
+      run: |
+        calcit calcit.cirru --check-only
+        calcit calcit.cirru test --tag :client --require-match
+        calcit calcit.cirru --entry server --check-only
+        calcit calcit.cirru --entry server test --require-match
 
     - run: mkdir -p dist-server && cp calcit.cirru package.json deps.cirru dist-server/
       name: Copy server scripts

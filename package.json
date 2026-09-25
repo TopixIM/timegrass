@@ -8,15 +8,14 @@
   },
   "main": "index.js",
   "scripts": {
-    "check-client": "calcit calcit.cirru --compat-types --check-only && calcit calcit.cirru --compat-types test --tag :client --require-match",
-    "check-server": "calcit calcit.cirru --entry server --compat-types --check-only && calcit calcit.cirru --entry server --compat-types test --require-match",
-    "check-sync": "yarn check-client && yarn check-server && calcit calcit.cirru --compat-types analyze deprecated && yarn check-quality",
-    "check-quality": "calcit calcit.cirru --compat-types analyze quality --baseline config/calcit-quality.cirru",
+    "check-client": "calcit calcit.cirru --check-only && calcit calcit.cirru test --tag :client --require-match",
+    "check-server": "calcit calcit.cirru --entry server --check-only && calcit calcit.cirru --entry server test --require-match",
+    "check-sync": "yarn check-client && yarn check-server && calcit calcit.cirru analyze deprecated",
     "check-dayjs-adapter": "node check-dayjs-adapter.mjs",
-    "compile-page": "calcit calcit.cirru --compat-types js",
+    "compile-page": "calcit calcit.cirru js",
     "dev-page": "vite --force",
     "release-page": "vite build --base=./",
-    "watch-page": "calcit calcit.cirru --compat-types -w js"
+    "watch-page": "calcit calcit.cirru -w js"
   },
   "repository": {
     "type": "git",
