@@ -1641,9 +1641,19 @@
                     %err "|storage.cirru/:sessions expected Map"
                   (and (contains? raw :users) (not (map? users)))
                     %err "|storage.cirru/:users expected Map"
-                  true $ %ok $ assoc
-                    merge database $ decode-map-as raw $ :: 'Map 'Tag 'Dynamic
-                    , :sessions ({})
+                  true $ match
+                    try-decode-map-as
+                      if (nil? users) ({}) users
+                      :: 'Map 'String 'Dynamic
+                    (:ok users-map)
+                      match (validate-stored-users users-map)
+                        (:ok _)
+                          %ok $ assoc
+                            merge database $ decode-map-as raw $ :: 'Map 'Tag 'Dynamic
+                            , :sessions $ {}
+                        (:err message) (%err message)
+                    (:err detail)
+                      %err $ str "|storage.cirru/:users " detail
               %err "|storage.cirru expected Map"
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -1676,7 +1686,7 @@
                   :sessions $ {} $ 1
                     {} $ :user-id |u1
                   :users $ {} $ |u1
-                    {} $ :name |Alice
+                    {} (:id |u1) (:name |Alice)
                 (:ok db)
                   and
                     = |2026-09-25 $ &map:get db :today
@@ -1685,6 +1695,53 @@
                       &map:get (&map:get db :users) |u1
                       , :name
                 (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |loads-legacy-edn-user-with-nested-nil)
+              :code $ quote $ let
+                  legacy $ {} (:today |2026-09-25)
+                    :sessions $ {}
+                    :users $ {} $ |u1
+                      {} (:id |u1) (:name |Alice) (:nickname nil) (:avatar nil) (:password nil)
+                        :notes $ {} $ |n1
+                          {} (:id |n1) (:text |hello) (:time 42) (:updated-time nil)
+                        :tasks $ {}
+                          :working $ {} $ |t1
+                            {} (:id |t1) (:text |work) (:detail |) (:pending? false) (:created-time nil)
+                          :pending $ {}
+                          :finished $ {}
+                  persisted $ format-cirru-edn legacy
+                match
+                  decode-database $ parse-cirru-edn persisted
+                  (:ok db)
+                    let
+                        users $ &map:get db :users
+                        user $ &map:get users |u1
+                      and
+                        = |2026-09-25 $ &map:get db :today
+                        empty? $ &map:get db :sessions
+                        map? user
+                        = |Alice $ &map:get user :name
+                  (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-nested-user-error-on-load)
+              :code $ quote $ match
+                decode-database $ {} $ :users
+                  {} $ |u1 $ {} (:id |u1) (:name |Alice)
+                    :tasks $ {}
+                      :working $ {} $ |t1
+                        {} (:id |t1) (:text 7) (:detail |) (:pending? false)
+                      :pending $ {}
+                      :finished $ {}
+                (:err message)
+                  starts-with? message "|storage.cirru/:users/u1:decode-map-as failed at $.tasks.working.value.text:"
+                (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-nonstring-user-key)
+              :code $ quote $ match
+                decode-database $ {} $ :users
+                  {} $ 7 $ {} (:id |u1) (:name |Alice)
+                (:err message) (starts-with? message "|storage.cirru/:users ")
+                (:ok _) false
               :tags $ #{} :server
         'decode-note-record $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-note-record (raw)
@@ -2285,6 +2342,75 @@
               :notes $ do note $ {}
           :examples $ []
           :schema $ :: 'Dynamic
+        'validate-stored-users $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn validate-stored-users (users)
+            foldl (-> users keys .to-list) (%ok users)
+              fn (result user-id)
+                match result
+                  (:err message) (%err message)
+                  (:ok _)
+                    let
+                        candidate $ &map:get users user-id
+                      if (map? candidate)
+                        match (decode-user-record candidate)
+                          (:ok user)
+                            if
+                              = user-id $ :id user
+                              %ok users
+                              %err $ str |storage.cirru/:users/ user-id "|:id differs from map key"
+                          (:err detail)
+                            %err $ str |storage.cirru/:users/ user-id |: detail
+                        %err $ str |storage.cirru/:users/ user-id "|:legacy user record expected Map"
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] $ :: 'Map 'String 'T
+            :generics $ [] 'T
+            :return $ :: 'Result (:: 'Map 'String 'T) 'String
+          :tests $ []
+            %{} 'TestEntry (:name |accepts-legacy-user-map)
+              :code $ quote $ match
+                validate-stored-users $ {} $ |u1
+                  {} (:id |u1) (:name |Alice)
+                    :tasks $ {}
+                      :working $ {} $ |t1
+                        {} (:id |t1) (:text |work) (:detail |) (:pending? false) (:created-time nil)
+                      :pending $ {}
+                      :finished $ {}
+                (:ok users)
+                  = |Alice $ &map:get (&map:get users |u1) :name
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-nested-user-error-with-key)
+              :code $ quote $ match
+                validate-stored-users $ {} $ |u1
+                  {} (:id |u1) (:name |Alice)
+                    :tasks $ {}
+                      :working $ {} $ |t1
+                        {} (:id |t1) (:text 7) (:detail |) (:pending? false)
+                      :pending $ {}
+                      :finished $ {}
+                (:err message)
+                  starts-with? message "|storage.cirru/:users/u1:decode-map-as failed at $.tasks.working.value.text:"
+                (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-typed-user-until-updaters-migrate)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice)
+                (:ok user)
+                  match
+                    validate-stored-users $ {} $ |u1 user
+                    (:err message)
+                      starts-with? message "|storage.cirru/:users/u1:legacy user record expected Map"
+                    (:ok _) false
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-key-id-mismatch)
+              :code $ quote $ match
+                validate-stored-users $ {} $ |u1
+                  {} (:id |different) (:name |Alice)
+                (:err message) (starts-with? message "|storage.cirru/:users/u1:id differs from map key")
+                (:ok _) false
+              :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.schema
           :require $ recollect.schema :as patch-schema
