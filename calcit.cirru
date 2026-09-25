@@ -1495,7 +1495,7 @@
               :users $ do user $ {}
               :today |2018-08-07
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Map 'Tag 'Dynamic
         'decode-client-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-client-message (data)
             let
@@ -2373,7 +2373,7 @@
           :code $ quote $ defn set-today! ()
             let
                 today $ wo-log $ format-time (current-date!) (%some |%Y-%m-%d)
-                reel $ unsafe-coerce @*reel 'cumulo-reel.core/ReelState
+                reel @*reel
                 old-today $ &map:get (:db reel) :today
               when (not= today old-today)
                 dispatch! (%:: schema/Op :today today) 0
@@ -2681,10 +2681,8 @@
               (:note/remove op-data) (note/remove-note db op-data sid op-id op-time)
               _ $ do (eprintln "|Unknown op:" op) db
           :examples $ []
-          :schema $ :: 'Fn $ {}
-            :args $ [] (:: 'Map 'Tag 'D) 'app.schema/Op 'Number 'String 'Number
-            :generics $ [] 'D
-            :return $ :: 'Map 'Tag 'D
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'app.schema/Op 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater
           :require ([] app.updater.session :as session) ([] app.updater.user :as user) ([] app.updater.router :as router) ([] app.updater.misc :as misc) ([] app.updater.task :as task) ([] app.updater.note :as note) ([] app.schema :as schema)
@@ -2694,7 +2692,8 @@
         %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-today (db op-data sid op-id op-time) (assoc db :today op-data)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
           :tests $ []
             %{} 'TestEntry (:name |preserves-other-fields)
               :code $ quote $ assert=
@@ -2722,7 +2721,8 @@
                 new-note $ merge schema/note $ {} (:id op-id) (:time op-time) (:text op-data)
               assoc-in db ([] :users user-id :notes op-id) new-note
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
         'edit-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn edit-note (db op-data sid op-id op-time)
             let
@@ -2736,7 +2736,8 @@
                     (:some note) (assoc note :text text)
                     (:none) nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
         'remove-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-note (db op-data sid op-id op-time)
             let
@@ -2748,7 +2749,8 @@
                       notes $ option:unwrap-or notes-option $ {}
                     dissoc notes op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.note
           :require $ [] app.schema :as schema
@@ -2758,7 +2760,8 @@
           :code $ quote $ defn change (db op-data sid op-id op-time)
             assoc-in db ([] :sessions sid :router) op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.router
     'app.updater.session $ %{} 'FileEntry
@@ -2768,7 +2771,8 @@
             assoc-in db ([] :sessions sid)
               merge schema/session $ {} $ :id sid
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |initializes-session-and-preserves-other-fields)
             :code $ quote $ let
                 db $ {} (:other |kept)
@@ -2781,7 +2785,8 @@
           :code $ quote $ defn disconnect (db sid op-id op-time)
             update db :sessions $ fn (session) (dissoc session sid)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |removes-only-target-session)
             :code $ quote $ let
                 db $ {}
@@ -2800,7 +2805,8 @@
                     messages $ option:unwrap-or messages-option $ {}
                   dissoc messages $ &map:get op-data :id
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.session
           :require $ [] app.schema :as schema
@@ -2813,7 +2819,8 @@
               assoc-in db ([] :users user-id :tasks :working op-id)
                 merge schema/task $ {} (:id op-id) (:text op-data) (:created-time op-time)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
         'finish-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn finish-working (db op-data sid op-id op-time)
             let
@@ -2830,14 +2837,38 @@
                         assoc-in ([] :finished op-data) (assoc task :finished-time op-time)
                       , tasks
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
         'pend $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn pend (db op-data sid op-id op-time)
             let
                 user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db ([] :users user-id :tasks :working op-data :pending?) not
+              update-in db ([] :users user-id :tasks :working op-data :pending?)
+                fn (pending-option)
+                  not $ option:unwrap-or pending-option false
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+          :tests $ [] $ %{} 'TestEntry (:name |toggles-pending-and-preserves-other-tasks)
+            :code $ quote $ let
+                sid 7
+                user-id |test-user
+                task-id |task-one
+                other-id |task-two
+                db $ {}
+                  :sessions $ {} $ sid
+                    {} $ :user-id user-id
+                  :users $ {} $ user-id
+                    {} $ :tasks $ {}
+                      :working $ {}
+                        task-id $ {} $ :pending? false
+                        other-id $ {} $ :pending? true
+                once $ pend db task-id sid |op-1 1
+                twice $ pend once task-id sid |op-2 2
+              assert= true $ schema/read-path once $ [] :users user-id :tasks :working task-id :pending?
+              assert= false $ schema/read-path twice $ [] :users user-id :tasks :working task-id :pending?
+              assert= true $ schema/read-path twice $ [] :users user-id :tasks :working other-id :pending?
+            :tags $ #{} :server
         'put-back $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn put-back (db op-data sid op-id op-time)
             let
@@ -2854,7 +2885,8 @@
                         assoc-in ([] :working op-data) (assoc task :touched-time op-time)
                       , tasks
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
         'remove-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-working (db op-data sid op-id op-time)
             let
@@ -2867,7 +2899,8 @@
                   assoc-in db working-path $ dissoc tasks op-data
                 , db
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |removes-only-new-fixture-task)
             :code $ quote $ let
                 sid 990001
@@ -2897,7 +2930,8 @@
                     (:some task) (assoc task :touched-time op-time)
                     (:none) nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
         'update-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn update-working (db op-data sid op-id op-time)
             let
@@ -2910,7 +2944,8 @@
                       assoc task :text $ &map:get op-data :text
                     (:none) nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.task
           :require $ [] app.schema :as schema
@@ -2921,7 +2956,11 @@
             let-sugar
                   [] username password
                   , op-data
-                maybe-user $ -> (&map:get db :users) (vals) (.to-list)
+                maybe-user $ ->
+                  decode-map-as (&map:get db :users)
+                    :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                  vals
+                  .to-list
                   find $ fn (user)
                     and $ = username $ &map:get user :name
               update-in db ([] :sessions sid)
@@ -2939,19 +2978,22 @@
                         assoc session :messages $ assoc (&map:get session :messages) op-id $ {} (:id op-id)
                           :text $ str "|No user named: " username
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
         'log-out $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn log-out (db sid op-id op-time)
             assoc-in db ([] :sessions sid :user-id) nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Number 'String 'Number
         'sign-up $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn sign-up (db op-data sid op-id op-time)
             let-sugar
                   [] username password
                   , op-data
                 maybe-user $ find
-                    vals $ &map:get db :users
+                    vals $ decode-map-as (&map:get db :users)
+                      :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
                     , .to-list
                   fn (user)
                     = username $ &map:get user :name
@@ -2971,7 +3013,8 @@
                         :password $ md5 password
                         :avatar nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
+            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.user
           :require
