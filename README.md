@@ -25,6 +25,10 @@ yarn dev-page
 mode=dev calcit calcit.cirru --entry server -w
 ```
 
+本地浏览器地址需显式带上 `?mode=dev&host=127.0.0.1&port=11009`；`mode=dev`
+只设置服务端进程环境变量，不会自动设置浏览器运行时参数。缺少该参数时浏览器会连接
+正式服务地址，开发与验收时请先确认控制台显示本地 WebSocket 地址。
+
 `calcit.cirru` now uses explicit entries: the default browser entry runs in
 JavaScript mode and the `server` entry runs natively. `storage.cirru` remains
 Cirru EDN and is loaded with `parse-cirru-edn` then written with

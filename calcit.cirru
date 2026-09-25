@@ -184,9 +184,10 @@
             :args $ []
             :features $ #{} :js-ffi
         'mount-target $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def mount-target (query-selector |.app)
+          :code $ quote $ def mount-target
+            option:unwrap $ query-selector |.app
           :examples $ []
-          :schema $ :: 'Option 'js-ffi.browser/DomElementHost
+          :schema $ :: 'js-ffi.browser/DomElementHost
         'on-server-data $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-server-data (data)
             match (schema/decode-server-message data)
@@ -2539,7 +2540,11 @@
                             :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
                       :notes $ twig-notes-by-month
                         decode-map-as (&map:get router :data) (:: 'Map 'Tag 'Dynamic)
-                        decode-map-as (&map:get user :notes)
+                        decode-map-as
+                          if
+                            map? $ &map:get user :notes
+                            &map:get user :notes
+                            {}
                           :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
                       :profile $ twig-members (&map:get db :sessions) (&map:get db :users)
                     :count $ count $ &map:get db :sessions
@@ -2576,6 +2581,20 @@
                   assert= false $ contains? visible-user :password
                   assert= false $ contains? visible-user :tasks
               :tags $ #{} :server
+            %{} 'TestEntry (:name |legacy-user-without-notes-opens-notes)
+              :code $ quote $ let
+                  db $ assoc-in schema/database ([] :users |u1)
+                    {} (:id |u1) (:name |Alice)
+                  session0 $ assoc schema/session :user-id |u1
+                  session $ assoc session0 :router $ {} (:name :notes)
+                    :data $ {} (:year 2026) (:month 8)
+                  twig $ twig-container
+                    decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                    , session $ []
+                  notes $ schema/read-path twig $ [] :router :data
+                assert |legacy-notes-stays-map $ map? notes
+                assert |legacy-notes-is-empty $ empty? notes
+              :tags $ #{} :server
         'twig-members $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-members (sessions users)
             -> sessions $ filter-map-kv $ fn (k session)
@@ -2595,7 +2614,7 @@
               -> notes (identity)
                 &map:filter-kv $ fn (k task)
                   let
-                      time $ extract-time $ :: Date0 (&map:get task :time)
+                      time $ extract-time $ Date0 :date (&map:get task :time)
                     and
                       = year $ &map:get time :year
                       = month $ &map:get time :month
@@ -2604,6 +2623,14 @@
             :args $ [] (:: 'Map 'Tag 'D) (:: 'Map 'K 'N)
             :generics $ [] 'D 'K 'N
             :return $ :: 'Map 'K 'N
+          :tests $ [] $ %{} 'TestEntry (:name |filters-persisted-note-by-month)
+            :code $ quote $ let
+                stamp $ get-timestamp $ from-ymd 2026 9 25
+                result $ twig-notes-by-month
+                  {} (:year 2026) (:month 8)
+                  {} $ |n1 $ {} (:time stamp) (:text |test)
+              assert= 1 $ count result
+            :tags $ #{} :server
         'twig-tasks-by-week $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-tasks-by-week (data tasks)
             let
@@ -3009,12 +3036,23 @@
                   -> db
                     assoc-in ([] :sessions sid :user-id) op-id
                     assoc-in ([] :users op-id)
-                      {} (:id op-id) (:name username) (:nickname username)
+                      merge schema/user $ {} (:id op-id) (:name username) (:nickname username)
                         :password $ md5 password
                         :avatar nil
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
             :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+          :tests $ [] $ %{} 'TestEntry (:name |new-user-retains-default-collections)
+            :code $ quote $ let
+                db $ {}
+                  :sessions $ {} $ 7 schema/session
+                  :users $ {}
+                updated $ sign-up db ([] |Alice |secret) 7 |u1 1
+                user $ schema/read-path updated $ [] :users |u1
+              assert= |u1 $ schema/read-path updated $ [] :sessions 7 :user-id
+              assert= ({}) (&map:get user :notes)
+              assert= true $ map? $ &map:get user :tasks
+            :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.user
           :require
