@@ -270,7 +270,10 @@
                 raw $ js/localStorage.getItem $ &map:get config/site :storage-key
               if (js-present? raw)
                 do (println "|Found storage.")
-                  dispatch! $ :: :user/log-in $ parse-cirru-edn (unsafe-coerce raw 'String)
+                  match
+                    schema/decode-operation $ :: :user/log-in $ parse-cirru-edn (unsafe-coerce raw 'String)
+                    (:ok op) (dispatch! op)
+                    (:err _) (println "|Invalid saved login credentials")
                 do $ println "|Found no storage."
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -1478,7 +1481,26 @@
           :examples $ []
           :schema $ :: 'Enum
         'Op $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic) (:user/log-in 'Dynamic) (:user/sign-up 'Dynamic) (:user/log-out) (:router/change 'Dynamic) (:task/create-working 'String) (:task/remove-working 'String) (:task/finish-working 'String) (:task/update-working 'Dynamic) (:task/touch-working 'String) (:task/put-back 'String) (:task/pend 'String) (:note/add 'String) (:note/edit 'Dynamic) (:note/remove 'String) (:effect/persist) (:effect/ping) (:effect/pong) (:effect/connect) (:states 'Dynamic 'Dynamic)
+          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic)
+            :user/log-in $ :: 'List 'String
+            :user/sign-up $ :: 'List 'String
+            :user/log-out
+            :router/change 'Dynamic
+            :task/create-working 'String
+            :task/remove-working 'String
+            :task/finish-working 'String
+            :task/update-working 'Dynamic
+            :task/touch-working 'String
+            :task/put-back 'String
+            :task/pend 'String
+            :note/add 'String
+            :note/edit 'Dynamic
+            :note/remove 'String
+            :effect/persist
+            :effect/ping
+            :effect/pong
+            :effect/connect
+            :states 'Dynamic 'Dynamic
           :examples $ []
           :schema $ :: 'Enum
         'ServerMessage $ %{} 'CodeEntry
@@ -1646,9 +1668,25 @@
                 (:session/remove-message value)
                   %ok $ %:: Op :session/remove-message value
                 (:user/log-in value)
-                  %ok $ %:: Op :user/log-in value
+                  match
+                    try-decode-map-as value $ :: 'List 'String
+                    (:ok credentials)
+                      if
+                        = 2 $ count credentials
+                        %ok $ %:: Op :user/log-in credentials
+                        invalid-message "|Invalid user/log-in operation: expected two credentials"
+                    (:err message)
+                      invalid-message $ str "|Invalid user/log-in operation: " message
                 (:user/sign-up value)
-                  %ok $ %:: Op :user/sign-up value
+                  match
+                    try-decode-map-as value $ :: 'List 'String
+                    (:ok credentials)
+                      if
+                        = 2 $ count credentials
+                        %ok $ %:: Op :user/sign-up credentials
+                        invalid-message "|Invalid user/sign-up operation: expected two credentials"
+                    (:err message)
+                      invalid-message $ str "|Invalid user/sign-up operation: " message
                 (:user/log-out)
                   %ok $ %:: Op :user/log-out
                 (:router/change value)
@@ -1789,6 +1827,25 @@
                 assert= true $ result:err? $ decode-operation (:: :task/touch-working 7)
                 assert= true $ result:err? $ decode-operation (:: :task/put-back nil)
                 assert= true $ result:err? $ decode-operation (:: :task/pend 7)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-typed-credentials)
+              :code $ quote $ do
+                assert=
+                  %ok $ %:: Op :user/log-in $ [] |Alice |secret
+                  decode-operation $ :: :user/log-in $ [] |Alice |secret
+                assert=
+                  %ok $ %:: Op :user/sign-up $ [] |Alice |secret
+                  decode-operation $ :: :user/sign-up $ [] |Alice |secret
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-malformed-credentials)
+              :code $ quote $ do
+                assert= true $ result:err? $ decode-operation
+                  :: :user/log-in $ [] |Alice
+                assert= true $ result:err? $ decode-operation
+                  :: :user/sign-up $ [] |Alice |secret |extra
+                assert= true $ result:err? $ decode-operation
+                  :: :user/log-in $ [] |Alice 7
+                assert= true $ result:err? $ decode-operation (:: :user/sign-up nil)
               :tags $ #{} :server
         'decode-server-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-server-message (data)
@@ -3127,7 +3184,7 @@
                           :text $ str "|No user named: " username
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database (:: 'List 'String) 'Number 'String 'Number
         'log-out $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn log-out (db sid op-id op-time)
             assoc-in db ([] :sessions sid :user-id) nil
@@ -3162,7 +3219,7 @@
                         :avatar nil
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database (:: 'List 'String) 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |new-user-retains-default-collections)
             :code $ quote $ let
                 db $ {}
