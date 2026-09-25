@@ -2678,6 +2678,21 @@
           :code $ quote $ defn set-today (db op-data sid op-id op-time) (assoc db :today op-data)
           :examples $ []
           :schema $ :: 'Dynamic
+          :tests $ []
+            %{} 'TestEntry (:name |preserves-other-fields)
+              :code $ quote $ assert=
+                {} (:today |2026-09-25) (:other |kept)
+                set-today
+                  {} (:today |2026-09-24) (:other |kept)
+                  , |2026-09-25 1 |op-1 2
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |adds-missing-today)
+              :code $ quote $ assert=
+                {} (:other |kept) (:today |2026-09-25)
+                set-today
+                  {} $ :other |kept
+                  , |2026-09-25 1 |op-1 2
+              :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.misc
     'app.updater.note $ %{} 'FileEntry
@@ -2737,11 +2752,29 @@
               merge schema/session $ {} $ :id sid
           :examples $ []
           :schema $ :: 'Dynamic
+          :tests $ [] $ %{} 'TestEntry (:name |initializes-session-and-preserves-other-fields)
+            :code $ quote $ let
+                db $ {} (:other |kept)
+                  :sessions $ {}
+                updated $ connect db 7 |op-1 2
+              assert= |kept $ schema/read-path updated $ [] :other
+              assert= 7 $ schema/read-path updated $ [] :sessions 7 :id
+            :tags $ #{} :server
         'disconnect $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn disconnect (db sid op-id op-time)
             update db :sessions $ fn (session) (dissoc session sid)
           :examples $ []
           :schema $ :: 'Dynamic
+          :tests $ [] $ %{} 'TestEntry (:name |removes-only-target-session)
+            :code $ quote $ let
+                db $ {}
+                  :sessions $ {} (1 |one) (2 |two)
+                  :other |kept
+                updated $ disconnect db 1 |op-1 2
+              assert= |kept $ schema/read-path updated $ [] :other
+              assert= nil $ schema/read-path updated $ [] :sessions 1
+              assert= |two $ schema/read-path updated $ [] :sessions 2
+            :tags $ #{} :server
         'remove-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-message (db op-data sid op-id op-time)
             update-in db ([] :sessions sid :messages)
