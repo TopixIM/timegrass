@@ -4,7 +4,7 @@ import weekOfYear from 'dayjs/plugin/weekOfYear.js';
 
 import { _$L_, _$n__$M_, init_tags, result_$o_err_$q_, result_$o_ok_$q_ } from './js-out/calcit.core.mjs';
 import { comp_done_task } from './js-out/app.comp.history.mjs';
-import { date_labels, decode_timestamp, format_timestamp, week_bounds } from './js-out/app.comp.navigation.mjs';
+import { current_history_route, date_labels, date_time_format, decode_timestamp, format_timestamp, week_bounds } from './js-out/app.comp.navigation.mjs';
 import { comp_note } from './js-out/app.comp.notes-page.mjs';
 
 dayjs.extend(weekOfYear);
@@ -27,9 +27,14 @@ assert.throws(() => comp_note(states, note('invalid')), /expected number/);
 
 const expectedWeek = dayjs().year(2026).week(37);
 const bounds = week_bounds(2026, 37);
-assert.equal(bounds.nthAt(1, tags.start), expectedWeek.startOf('week').format('week'));
-assert.equal(bounds.nthAt(0, tags.end), expectedWeek.endOf('week').format('week'));
+assert.equal(date_time_format, 'YYYY-MM-DDTHH:mm:ss ZZ');
+assert.equal(bounds.nthAt(1, tags.start), expectedWeek.startOf('week').format(date_time_format));
+assert.equal(bounds.nthAt(0, tags.end), expectedWeek.endOf('week').format(date_time_format));
 assert.throws(() => week_bounds(Number.NaN, 37), /Invalid-dayjs-week/);
+
+const currentBounds = current_history_route().get(tags.data);
+assert.match(currentBounds.get(tags.start), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2} [+-]\d{4}$/);
+assert.match(currentBounds.get(tags.end), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2} [+-]\d{4}$/);
 
 const expectedDate = dayjs('2026-09-14');
 const labels = date_labels('2026-09-14');

@@ -481,6 +481,7 @@
                   decode-timestamp $ &map:get task :finished-time
                   (:ok value) value
                   (:err message) (raise message)
+                task-id $ decode-map-as (&map:get task :id) 'String
               div
                 {} (:class-name css-done-task)
                   :style $ merge-styles
@@ -511,7 +512,7 @@
                     d! $ :: :states cursor $ assoc state :show-menu? false
                     when
                       = :put-back $ option:unwrap-or (nth item 1) :unknown
-                      d! $ :: :task/put-back $ &map:get task :id
+                      d! $ :: :task/put-back task-id
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
             :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
@@ -804,8 +805,8 @@
                 :data $ {}
                   :year $ .year now
                   :week $ .week now
-                  :start $ .format start-day |week
-                  :end $ .format end-day |week
+                  :start $ .format start-day date-time-format
+                  :end $ .format end-day date-time-format
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ []
@@ -838,6 +839,10 @@
           :schema $ :: 'Fn $ {} (:return 'app.comp.navigation/DateLabels)
             :args $ [] 'String
             :features $ #{} :js-ffi
+        'date-time-format $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ def date-time-format "|YYYY-MM-DDTHH:mm:ss ZZ"
+          :examples $ []
+          :schema $ :: 'String
         'decode-timestamp $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-timestamp (input) (try-decode-map-as input 'Number)
           :examples $ []
@@ -897,8 +902,8 @@
               if
                 and (.valid? start) (.valid? end)
                 %{} WeekBounds
-                  :start $ .format start |week
-                  :end $ .format end |week
+                  :start $ .format start date-time-format
+                  :end $ .format end date-time-format
                 raise |Invalid-dayjs-week
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.comp.navigation/WeekBounds)
@@ -1153,7 +1158,7 @@
                         &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
                           .show create-plugin d! $ fn (result)
-                            d! $ :: :task/create-working result
+                            d! $ :: :task/create-working $ decode-map-as result 'String
                             , &unit
                           , &unit
                       assert-type (%none)
@@ -1166,7 +1171,7 @@
                         and (&map:get e :meta?)
                           = |i $ &map:get e :key
                         .show create-plugin d! $ fn (result)
-                          d! $ :: :task/create-working result
+                          d! $ :: :task/create-working $ decode-map-as result 'String
                           , &unit
                       , &unit
                     div
@@ -1238,6 +1243,7 @@
                     :button-text |Edit
                 delete-plugin $ use-confirm (>> states :delete)
                   {} $ :text "|Sure to remove task:"
+                task-id $ decode-map-as (&map:get task :id) 'String
               div
                 {} (:class-name css-task-base)
                   :style $ merge $ if (&map:get state :menu?)
@@ -1248,7 +1254,7 @@
                     , &unit
                   :on $ {} $ :dragend
                     fn (e d!)
-                      d! $ :: :task/touch-working $ &map:get task :id
+                      d! $ :: :task/touch-working task-id
                       , &unit
                   :draggable true
                 div
@@ -1274,14 +1280,12 @@
                       case-default result
                         d! $ :: :states cursor new-state
                         :done $ do
-                          d! $ :: :task/finish-working $ &map:get task :id
+                          d! $ :: :task/finish-working task-id
                           d! $ :: :states cursor new-state
                         :edit $ do
                           d! $ :: :states cursor new-state
                           .show update-plugin d! $ fn (text)
-                            d! $ :: :task/update-working $ {}
-                              :id $ &map:get task :id
-                              :text text
+                            d! $ :: :task/update-working $ {} (:id task-id) (:text text)
                             , &unit
                         :copy $ do
                           copy! $ &map:get task :text
@@ -1289,14 +1293,14 @@
                         :remove $ do
                           d! $ :: :states cursor new-state
                           .show delete-plugin d! $ fn ()
-                            d! $ :: :task/remove-working $ &map:get task :id
+                            d! $ :: :task/remove-working task-id
                             , &unit
                           , &unit
                         :pend $ do
-                          d! $ :: :task/pend $ &map:get task :id
+                          d! $ :: :task/pend task-id
                           d! $ :: :states cursor new-state
                         :touch $ do
-                          d! $ :: :task/touch-working $ &map:get task :id
+                          d! $ :: :task/touch-working task-id
                           d! $ :: :states cursor new-state
                       , &unit
                 .render update-plugin
@@ -1474,7 +1478,7 @@
           :examples $ []
           :schema $ :: 'Enum
         'Op $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic) (:user/log-in 'Dynamic) (:user/sign-up 'Dynamic) (:user/log-out) (:router/change 'Dynamic) (:task/create-working 'Dynamic) (:task/remove-working 'Dynamic) (:task/finish-working 'Dynamic) (:task/update-working 'Dynamic) (:task/touch-working 'Dynamic) (:task/put-back 'Dynamic) (:task/pend 'Dynamic) (:note/add 'String) (:note/edit 'Dynamic) (:note/remove 'String) (:effect/persist) (:effect/ping) (:effect/pong) (:effect/connect) (:states 'Dynamic 'Dynamic)
+          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic) (:user/log-in 'Dynamic) (:user/sign-up 'Dynamic) (:user/log-out) (:router/change 'Dynamic) (:task/create-working 'String) (:task/remove-working 'String) (:task/finish-working 'String) (:task/update-working 'Dynamic) (:task/touch-working 'String) (:task/put-back 'String) (:task/pend 'String) (:note/add 'String) (:note/edit 'Dynamic) (:note/remove 'String) (:effect/persist) (:effect/ping) (:effect/pong) (:effect/connect) (:states 'Dynamic 'Dynamic)
           :examples $ []
           :schema $ :: 'Enum
         'ServerMessage $ %{} 'CodeEntry
@@ -1650,19 +1654,43 @@
                 (:router/change value)
                   %ok $ %:: Op :router/change value
                 (:task/create-working value)
-                  %ok $ %:: Op :task/create-working value
+                  match (try-decode-map-as value 'String)
+                    (:ok text)
+                      %ok $ %:: Op :task/create-working text
+                    (:err message)
+                      invalid-message $ str "|Invalid task/create-working operation: " message
                 (:task/remove-working value)
-                  %ok $ %:: Op :task/remove-working value
+                  match (try-decode-map-as value 'String)
+                    (:ok task-id)
+                      %ok $ %:: Op :task/remove-working task-id
+                    (:err message)
+                      invalid-message $ str "|Invalid task/remove-working operation: " message
                 (:task/finish-working value)
-                  %ok $ %:: Op :task/finish-working value
+                  match (try-decode-map-as value 'String)
+                    (:ok task-id)
+                      %ok $ %:: Op :task/finish-working task-id
+                    (:err message)
+                      invalid-message $ str "|Invalid task/finish-working operation: " message
                 (:task/update-working value)
                   %ok $ %:: Op :task/update-working value
                 (:task/touch-working value)
-                  %ok $ %:: Op :task/touch-working value
+                  match (try-decode-map-as value 'String)
+                    (:ok task-id)
+                      %ok $ %:: Op :task/touch-working task-id
+                    (:err message)
+                      invalid-message $ str "|Invalid task/touch-working operation: " message
                 (:task/put-back value)
-                  %ok $ %:: Op :task/put-back value
+                  match (try-decode-map-as value 'String)
+                    (:ok task-id)
+                      %ok $ %:: Op :task/put-back task-id
+                    (:err message)
+                      invalid-message $ str "|Invalid task/put-back operation: " message
                 (:task/pend value)
-                  %ok $ %:: Op :task/pend value
+                  match (try-decode-map-as value 'String)
+                    (:ok task-id)
+                      %ok $ %:: Op :task/pend task-id
+                    (:err message)
+                      invalid-message $ str "|Invalid task/pend operation: " message
                 (:note/add value)
                   match (try-decode-map-as value 'String)
                     (:ok text)
@@ -1731,6 +1759,36 @@
             %{} 'TestEntry (:name |rejects-note-remove-nil)
               :code $ quote $ assert= true
                 result:err? $ decode-operation $ :: :note/remove nil
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-typed-task-text-and-ids)
+              :code $ quote $ do
+                assert=
+                  %ok $ %:: Op :task/create-working |write-docs
+                  decode-operation $ :: :task/create-working |write-docs
+                assert=
+                  %ok $ %:: Op :task/remove-working |task-1
+                  decode-operation $ :: :task/remove-working |task-1
+                assert=
+                  %ok $ %:: Op :task/finish-working |task-1
+                  decode-operation $ :: :task/finish-working |task-1
+                assert=
+                  %ok $ %:: Op :task/touch-working |task-1
+                  decode-operation $ :: :task/touch-working |task-1
+                assert=
+                  %ok $ %:: Op :task/put-back |task-1
+                  decode-operation $ :: :task/put-back |task-1
+                assert=
+                  %ok $ %:: Op :task/pend |task-1
+                  decode-operation $ :: :task/pend |task-1
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-non-string-task-payloads)
+              :code $ quote $ do
+                assert= true $ result:err? $ decode-operation (:: :task/create-working nil)
+                assert= true $ result:err? $ decode-operation (:: :task/remove-working 7)
+                assert= true $ result:err? $ decode-operation (:: :task/finish-working nil)
+                assert= true $ result:err? $ decode-operation (:: :task/touch-working 7)
+                assert= true $ result:err? $ decode-operation (:: :task/put-back nil)
+                assert= true $ result:err? $ decode-operation (:: :task/pend 7)
               :tags $ #{} :server
         'decode-server-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-server-message (data)
@@ -2910,7 +2968,7 @@
                 merge schema/task $ {} (:id op-id) (:text op-data) (:created-time op-time)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
         'finish-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn finish-working (db op-data sid op-id op-time)
             let
@@ -2928,7 +2986,7 @@
                       , tasks
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
         'pend $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn pend (db op-data sid op-id op-time)
             let
@@ -2938,7 +2996,7 @@
                   not $ option:unwrap-or pending-option false
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |toggles-pending-and-preserves-other-tasks)
             :code $ quote $ let
                 sid 7
@@ -2976,7 +3034,7 @@
                       , tasks
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
         'remove-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-working (db op-data sid op-id op-time)
             let
@@ -2990,7 +3048,7 @@
                 , db
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |removes-only-new-fixture-task)
             :code $ quote $ let
                 sid 990001
@@ -3021,7 +3079,7 @@
                     (:none) nil
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
         'update-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn update-working (db op-data sid op-id op-time)
             let
