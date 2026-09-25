@@ -1473,7 +1473,7 @@
           :examples $ []
           :schema $ :: 'Enum
         'Op $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic) (:user/log-in 'Dynamic) (:user/sign-up 'Dynamic) (:user/log-out) (:router/change 'Dynamic) (:task/create-working 'Dynamic) (:task/remove-working 'Dynamic) (:task/finish-working 'Dynamic) (:task/update-working 'Dynamic) (:task/touch-working 'Dynamic) (:task/put-back 'Dynamic) (:task/pend 'Dynamic) (:note/add 'Dynamic) (:note/edit 'Dynamic) (:note/remove 'Dynamic) (:effect/persist) (:effect/ping) (:effect/pong) (:effect/connect) (:states 'Dynamic 'Dynamic)
+          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic) (:user/log-in 'Dynamic) (:user/sign-up 'Dynamic) (:user/log-out) (:router/change 'Dynamic) (:task/create-working 'Dynamic) (:task/remove-working 'Dynamic) (:task/finish-working 'Dynamic) (:task/update-working 'Dynamic) (:task/touch-working 'Dynamic) (:task/put-back 'Dynamic) (:task/pend 'Dynamic) (:note/add 'String) (:note/edit 'Dynamic) (:note/remove 'Dynamic) (:effect/persist) (:effect/ping) (:effect/pong) (:effect/connect) (:states 'Dynamic 'Dynamic)
           :examples $ []
           :schema $ :: 'Enum
         'ServerMessage $ %{} 'CodeEntry
@@ -1603,7 +1603,11 @@
                 (:task/pend value)
                   %ok $ %:: Op :task/pend value
                 (:note/add value)
-                  %ok $ %:: Op :note/add value
+                  match (try-decode-map-as value 'String)
+                    (:ok text)
+                      %ok $ %:: Op :note/add text
+                    (:err message)
+                      invalid-message $ str "|Invalid note/add operation: " message
                 (:note/edit value)
                   %ok $ %:: Op :note/edit value
                 (:note/remove value)
@@ -1636,6 +1640,19 @@
             %{} 'TestEntry (:name |rejects-today-nil)
               :code $ quote $ assert= true
                 result:err? $ decode-operation $ :: :today nil
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-note-add-string)
+              :code $ quote $ assert=
+                %ok $ %:: Op :note/add |hello
+                decode-operation $ :: :note/add |hello
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-note-add-number)
+              :code $ quote $ assert= true
+                result:err? $ decode-operation $ :: :note/add 7
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-note-add-nil)
+              :code $ quote $ assert= true
+                result:err? $ decode-operation $ :: :note/add nil
               :tags $ #{} :server
         'decode-server-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-server-message (data)
