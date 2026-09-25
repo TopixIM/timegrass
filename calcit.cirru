@@ -958,9 +958,9 @@
                       &{} :font-size 16 :curspr :pointer :color $ hsl 200 80 80
                       fn (e d!)
                         .show edit-plugin d! $ fn (result)
-                          d! $ :: :note/edit $ {}
-                            :id $ &map:get note :id
-                            :text result
+                          d! $ :: :note/edit $ %{} schema/NoteEdit
+                            :id $ decode-map-as (&map:get note :id) 'String
+                            :text $ decode-map-as result 'String
                     =< 8 nil
                     comp-icon :delete
                       &{} :font-size 16 :cursor :pointer :color $ hsl 10 80 60
@@ -1288,7 +1288,8 @@
                         :edit $ do
                           d! $ :: :states cursor new-state
                           .show update-plugin d! $ fn (text)
-                            d! $ :: :task/update-working $ {} (:id task-id) (:text text)
+                            d! $ :: :task/update-working $ %{} schema/TaskEdit (:id task-id)
+                              :text $ decode-map-as text 'String
                             , &unit
                         :copy $ do
                           copy! $ &map:get task :text
@@ -1480,6 +1481,10 @@
           :code $ quote $ defenum MessageDecodeError (:invalid 'String)
           :examples $ []
           :schema $ :: 'Enum
+        'NoteEdit $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct NoteEdit (:id 'String) (:text 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
         'Op $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic)
             :user/log-in $ :: 'List 'String
@@ -1489,12 +1494,12 @@
             :task/create-working 'String
             :task/remove-working 'String
             :task/finish-working 'String
-            :task/update-working 'Dynamic
+            :task/update-working 'app.schema/TaskEdit
             :task/touch-working 'String
             :task/put-back 'String
             :task/pend 'String
             :note/add 'String
-            :note/edit 'Dynamic
+            :note/edit 'app.schema/NoteEdit
             :note/remove 'String
             :effect/persist
             :effect/ping
@@ -1510,6 +1515,10 @@
             :effect/pong
           :examples $ []
           :schema $ :: 'Enum
+        'TaskEdit $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct TaskEdit (:id 'String) (:text 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
         'complain $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def complain
             {} (:id nil) (:text |) (:time nil)
@@ -1710,7 +1719,13 @@
                     (:err message)
                       invalid-message $ str "|Invalid task/finish-working operation: " message
                 (:task/update-working value)
-                  %ok $ %:: Op :task/update-working value
+                  let
+                      payload $ if (struct? value) (&struct:to-map value) value
+                    match (try-decode-map-as payload TaskEdit)
+                      (:ok edit)
+                        %ok $ %:: Op :task/update-working edit
+                      (:err message)
+                        invalid-message $ str "|Invalid task/update-working operation: " message
                 (:task/touch-working value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
@@ -1736,7 +1751,13 @@
                     (:err message)
                       invalid-message $ str "|Invalid note/add operation: " message
                 (:note/edit value)
-                  %ok $ %:: Op :note/edit value
+                  let
+                      payload $ if (struct? value) (&struct:to-map value) value
+                    match (try-decode-map-as payload NoteEdit)
+                      (:ok edit)
+                        %ok $ %:: Op :note/edit edit
+                      (:err message)
+                        invalid-message $ str "|Invalid note/edit operation: " message
                 (:note/remove value)
                   match (try-decode-map-as value 'String)
                     (:ok note-id)
@@ -1846,6 +1867,36 @@
                 assert= true $ result:err? $ decode-operation
                   :: :user/log-in $ [] |Alice 7
                 assert= true $ result:err? $ decode-operation (:: :user/sign-up nil)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-typed-edit-payloads)
+              :code $ quote $ do
+                assert=
+                  %ok $ %:: Op :task/update-working $ %{} TaskEdit (:id |t1) (:text |Updated)
+                  decode-operation $ :: :task/update-working $ {} (:id |t1) (:text |Updated)
+                assert=
+                  %ok $ %:: Op :note/edit $ %{} NoteEdit (:id |n1) (:text |Updated)
+                  decode-operation $ :: :note/edit $ {} (:id |n1) (:text |Updated)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-malformed-edit-payloads)
+              :code $ quote $ do
+                assert= true $ result:err? $ decode-operation
+                  :: :task/update-working $ {} (:id 7) (:text |Updated)
+                assert= true $ result:err? $ decode-operation
+                  :: :task/update-working $ {} $ :id |t1
+                assert= true $ result:err? $ decode-operation
+                  :: :note/edit $ {} (:id |n1) (:text nil)
+                assert= true $ result:err? $ decode-operation (:: :note/edit nil)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-serialized-edit-structs)
+              :code $ quote $ do
+                assert=
+                  %ok $ %:: Op :task/update-working $ %{} TaskEdit (:id |t1) (:text |Updated)
+                  decode-operation $ parse-cirru-edn $ format-cirru-edn
+                    %:: Op :task/update-working $ %{} TaskEdit (:id |t1) (:text |Updated)
+                assert=
+                  %ok $ %:: Op :note/edit $ %{} NoteEdit (:id |n1) (:text |Updated)
+                  decode-operation $ parse-cirru-edn $ format-cirru-edn
+                    %:: Op :note/edit $ %{} NoteEdit (:id |n1) (:text |Updated)
               :tags $ #{} :server
         'decode-server-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-server-message (data)
@@ -2933,8 +2984,8 @@
             let
                 session $ schema/read-path db $ [] :sessions sid
                 user-id $ &map:get session :user-id
-                note-id $ &map:get op-data :id
-                text $ &map:get op-data :text
+                note-id $ :id op-data
+                text $ :text op-data
               update-in db ([] :users user-id :notes note-id)
                 fn (note-option)
                   match note-option
@@ -2942,7 +2993,7 @@
                     (:none) nil
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database 'app.schema/NoteEdit 'Number 'String 'Number
         'remove-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-note (db op-data sid op-id op-time)
             let
@@ -3142,15 +3193,15 @@
             let
                 user-id $ schema/read-path db $ [] :sessions sid :user-id
               update-in db
-                [] :users user-id :tasks :working $ &map:get op-data :id
+                [] :users user-id :tasks :working $ :id op-data
                 fn (task-option)
                   match task-option
                     (:some task)
-                      assoc task :text $ &map:get op-data :text
+                      assoc task :text $ :text op-data
                     (:none) nil
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database 'app.schema/TaskEdit 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.task
           :require $ [] app.schema :as schema
