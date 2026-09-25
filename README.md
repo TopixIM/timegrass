@@ -59,6 +59,11 @@ Calcit 默认执行严格类型检查。浏览器和服务端入口均以严格�
 合并门禁。数据库字段契约与持久化入口的后续收敛见
 [Timegrass #102](https://github.com/TopixIM/timegrass/issues/102)。
 
+服务端读取 `storage.cirru` 时先验证顶层 Map、`:today` 字符串及 `:users`、
+`:sessions` Map；缺失字段按默认值补齐，持久化的旧 session 在启动时清空。
+字段类型不符会带着 `storage.cirru/:field` 路径报错，不再直接把解析结果断言为
+数据库类型。用户、任务、笔记等内层字段仍需继续建模与迁移，见 #102。
+
 ### Upgrade validation
 
 使用已发布的模块版本，并在提交前验证完整依赖图：

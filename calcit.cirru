@@ -1562,6 +1562,66 @@
                 %:: Result :ok $ %:: ClientMessage :dispatch $ %:: Op :effect/ping
                 decode-client-message $ parse-cirru-edn "|%:: 'ClientMessage 'dispatch $ %:: 'Op 'effect/ping"
               :tags $ #{} :server
+        'decode-database $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-database (raw)
+            if (map? raw)
+              let
+                  today $ &map:get raw :today
+                  sessions $ &map:get raw :sessions
+                  users $ &map:get raw :users
+                cond
+                    and (contains? raw :today)
+                      not $ string? today
+                    %err "|storage.cirru/:today expected String"
+                  (and (contains? raw :sessions) (not (map? sessions)))
+                    %err "|storage.cirru/:sessions expected Map"
+                  (and (contains? raw :users) (not (map? users)))
+                    %err "|storage.cirru/:users expected Map"
+                  true $ %ok $ assoc
+                    merge database $ decode-map-as raw $ :: 'Map 'Tag 'Dynamic
+                    , :sessions ({})
+              %err "|storage.cirru expected Map"
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :return $ :: 'Result 'app.schema/database 'String
+          :tests $ []
+            %{} 'TestEntry (:name |defaults-missing-fields)
+              :code $ quote $ match
+                decode-database $ {}
+                (:ok db)
+                  and
+                    = |2018-08-07 $ &map:get db :today
+                    map? $ &map:get db :users
+                    empty? $ &map:get db :sessions
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-malformed-fields)
+              :code $ quote $ do
+                assert= (%err "|storage.cirru expected Map") (decode-database nil)
+                assert= (%err "|storage.cirru/:today expected String")
+                  decode-database $ {} $ :today 3
+                assert= (%err "|storage.cirru/:users expected Map")
+                  decode-database $ {} $ :users []
+                assert= (%err "|storage.cirru/:sessions expected Map")
+                  decode-database $ {} $ :sessions nil
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |drops-runtime-sessions-but-keeps-users)
+              :code $ quote $ match
+                decode-database $ {} (:today |2026-09-25)
+                  :sessions $ {} $ 1
+                    {} $ :user-id |u1
+                  :users $ {} $ |u1
+                    {} $ :name |Alice
+                (:ok db)
+                  and
+                    = |2026-09-25 $ &map:get db :today
+                    empty? $ &map:get db :sessions
+                    = |Alice $ &map:get
+                      &map:get (&map:get db :users) |u1
+                      , :name
+                (:err _) false
+              :tags $ #{} :server
         'decode-operation $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-operation (data)
             let
@@ -1833,7 +1893,10 @@
             if (path-exists? storage-file)
               let
                   raw-data $ read-file storage-file
-                  loaded-db $ merge schema/database $ assert-type (parse-cirru-edn raw-data) (:: 'Map 'Tag 'Dynamic)
+                  loaded-db $ match
+                    schema/decode-database $ parse-cirru-edn raw-data
+                    (:ok db) db
+                    (:err reason) (raise reason)
                 println |[storage] |loading storage-file |bytes $ count raw-data
                 println |[storage] |loaded storage-file |users $ count $ option:unwrap-or (get loaded-db :users) ({})
                 , loaded-db
