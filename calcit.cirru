@@ -1532,6 +1532,22 @@
             :archived-time $ :: 'Option 'Number
           :examples $ []
           :schema $ :: 'StructDef
+        'UserRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct UserRecord (:id 'String) (:name 'String)
+            :nickname $ :: 'Option 'String
+            :avatar $ :: 'Option 'String
+            :password $ :: 'Option 'String
+            :tasks 'app.schema/UserTasks
+            :notes $ :: 'Map 'String 'app.schema/NoteRecord
+          :examples $ []
+          :schema $ :: 'StructDef
+        'UserTasks $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct UserTasks
+            :working $ :: 'Map 'String 'app.schema/TaskRecord
+            :pending $ :: 'Map 'String 'app.schema/TaskRecord
+            :finished $ :: 'Map 'String 'app.schema/TaskRecord
+          :examples $ []
+          :schema $ :: 'StructDef
         'complain $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def complain
             {} (:id nil) (:text |) (:time nil)
@@ -1673,11 +1689,7 @@
         'decode-note-record $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-note-record (raw)
             let
-                normalized $ if
-                  and (map? raw)
-                    nil? $ &map:get raw :updated-time
-                  dissoc raw :updated-time
-                  , raw
+                normalized $ normalize-note-record raw
               try-decode-map-as normalized NoteRecord
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -2015,13 +2027,7 @@
         'decode-task-record $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-task-record (raw)
             let
-                normalized $ if (map? raw)
-                  foldl ([] :created-time :touched-time :finished-time :archived-time) raw $ fn (entry field)
-                    if
-                      nil? $ &map:get entry field
-                      dissoc entry field
-                      , entry
-                  , raw
+                normalized $ normalize-task-record raw
               try-decode-map-as normalized TaskRecord
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -2068,6 +2074,92 @@
                 (:err message) (starts-with? message "|decode-map-as failed at $.surprise:")
                 (:ok _) false
               :tags $ #{} :server
+        'decode-user-record $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-user-record (raw)
+            let
+                normalized $ if (map? raw)
+                  let
+                      cleaned $ foldl ([] :nickname :avatar :password) raw $ fn (entry field)
+                        if
+                          nil? $ &map:get entry field
+                          dissoc entry field
+                          , entry
+                      tasks $ &map:get cleaned :tasks
+                      notes $ &map:get cleaned :notes
+                      empty-tasks $ {}
+                        :working $ {}
+                        :pending $ {}
+                        :finished $ {}
+                      with-tasks $ &map:assoc cleaned :tasks $ if (nil? tasks) empty-tasks (normalize-user-tasks tasks)
+                    &map:assoc with-tasks :notes $ if (nil? notes) ({}) (normalize-note-map notes)
+                  , raw
+              try-decode-map-as normalized UserRecord
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'T
+            :generics $ [] 'T
+            :return $ :: 'Result 'app.schema/UserRecord 'String
+          :tests $ []
+            %{} 'TestEntry (:name |defaults-legacy-optional-fields)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice) (:nickname nil) (:avatar nil) (:password nil)
+                (:ok user)
+                  and
+                    = |u1 $ :id user
+                    = (%none) (:password user)
+                    = (%none) (:nickname user)
+                    empty? $ :notes user
+                    empty? $ :working $ :tasks user
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |migrates-nested-legacy-task)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice)
+                  :tasks $ {}
+                    :working $ {} $ |t1
+                      {} (:id |t1) (:text |work) (:detail |) (:pending? false) (:created-time nil)
+                    :pending $ {}
+                    :finished $ {}
+                (:ok user)
+                  = (%none)
+                    :created-time $ &map:get
+                      :working $ :tasks user
+                      , |t1
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |migrates-nested-legacy-note)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice)
+                  :notes $ {} $ |n1
+                    {} (:id |n1) (:text |hello) (:time 42) (:updated-time nil)
+                (:ok user)
+                  = (%none)
+                    :updated-time $ &map:get (:notes user) |n1
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-bad-nested-task-with-path)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice)
+                  :tasks $ {}
+                    :working $ {} $ |t1
+                      {} (:id |t1) (:text 7) (:detail |) (:pending? false)
+                    :pending $ {}
+                    :finished $ {}
+                (:err message)
+                  starts-with? message "|decode-map-as failed at $.tasks.working.value.text:"
+                (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |typed-edn-roundtrip)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice)
+                (:ok user)
+                  match
+                    try-parse-cirru-edn-as (format-cirru-edn user) UserRecord
+                    (:ok again)
+                      = |u1 $ :id again
+                    (:err _) false
+                (:err _) false
+              :tags $ #{} :server
         'invalid-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn invalid-message (detail)
             %:: Result :err $ %:: MessageDecodeError :invalid detail
@@ -2076,6 +2168,63 @@
             :args $ [] 'String
             :generics $ [] 'T
             :return $ :: 'Result 'app.schema/MessageDecodeError 'T
+        'normalize-note-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn normalize-note-map (raw)
+            if (map? raw)
+              .map raw $ fn (pair)
+                [] (&list:nth pair 0)
+                  normalize-note-record $ &list:nth pair 1
+              , raw
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'T)
+            :args $ [] 'T
+            :generics $ [] 'T
+        'normalize-note-record $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn normalize-note-record (raw)
+            if
+              and (map? raw)
+                nil? $ &map:get raw :updated-time
+              dissoc raw :updated-time
+              , raw
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'T)
+            :args $ [] 'T
+            :generics $ [] 'T
+        'normalize-task-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn normalize-task-map (raw)
+            if (map? raw)
+              .map raw $ fn (pair)
+                [] (&list:nth pair 0)
+                  normalize-task-record $ &list:nth pair 1
+              , raw
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'T)
+            :args $ [] 'T
+            :generics $ [] 'T
+        'normalize-task-record $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn normalize-task-record (raw)
+            if (map? raw)
+              foldl ([] :created-time :touched-time :finished-time :archived-time) raw $ fn (entry field)
+                if
+                  nil? $ &map:get entry field
+                  dissoc entry field
+                  , entry
+              , raw
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'T)
+            :args $ [] 'T
+            :generics $ [] 'T
+        'normalize-user-tasks $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn normalize-user-tasks (raw)
+            if (map? raw)
+              .map raw $ fn (pair)
+                [] (&list:nth pair 0)
+                  normalize-task-map $ &list:nth pair 1
+              , raw
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'T)
+            :args $ [] 'T
+            :generics $ [] 'T
         'note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def note
             {} (:id nil) (:time nil) (:updated-time nil) (:text nil)
