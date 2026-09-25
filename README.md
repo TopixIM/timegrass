@@ -22,7 +22,7 @@ yarn watch-page
 yarn dev-page
 
 # realtime server
-mode=dev calcit calcit.cirru --entry server --compat-types -w
+mode=dev calcit calcit.cirru --entry server -w
 ```
 
 `calcit.cirru` now uses explicit entries: the default browser entry runs in
@@ -48,10 +48,11 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-Calcit 默认执行严格类型检查。浏览器入口已使用严格检查与生成；服务端仍有旧 updater
-契约需要迁移，因此开发时暂用 `--compat-types` 运行，但 CI 最终仍执行服务端严格检查。
-迁移期先让兼容测试和浏览器构建完整运行，再报告服务端的实际类型阻断，不再用旧的
-Dynamic 数量基线作为合并门禁。数据库字段契约与持久化入口见
+Calcit 默认执行严格类型检查。浏览器和服务端入口均以严格检查作为门禁；兼容模式
+测试仅用于迁移期回归，不能替代严格检查。数据库目前仍是异构结构，updater 的输入
+与返回值通过 `app.schema/database` 标记为 `Map<Tag, Dynamic>`；这是过渡边界，
+不是字段级模型。用户集合在遍历前进行类型解码。不再用旧的 Dynamic 数量基线作为
+合并门禁。数据库字段契约与持久化入口的后续收敛见
 [Timegrass #102](https://github.com/TopixIM/timegrass/issues/102)。
 
 ### Upgrade validation
@@ -70,7 +71,8 @@ yarn check-dayjs-adapter
 yarn check-server
 ```
 
-`yarn check-server` 是尚未通过的严格门禁；不能以兼容模式测试通过代替它。
+`yarn check-server` 必须使用与 `@calcit/procs` 一致的 Calcit 0.20.0，且严格检查与
+definition 测试全部通过；不能以兼容模式测试通过代替它。
 
 Never test a migration against the live `storage.cirru`. Copy it outside the
 repository, then verify the same load/persist path used by the server. The
