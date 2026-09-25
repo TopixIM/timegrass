@@ -1485,6 +1485,11 @@
           :code $ quote $ defstruct NoteEdit (:id 'String) (:text 'String)
           :examples $ []
           :schema $ :: 'StructDef
+        'NoteRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct NoteRecord (:id 'String) (:text 'String) (:time 'Number)
+            :updated-time $ :: 'Option 'Number
+          :examples $ []
+          :schema $ :: 'StructDef
         'Op $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic)
             :user/log-in $ :: 'List 'String
@@ -1517,6 +1522,14 @@
           :schema $ :: 'Enum
         'TaskEdit $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct TaskEdit (:id 'String) (:text 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
+        'TaskRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct TaskRecord (:id 'String) (:text 'String) (:detail 'String) (:pending? 'Bool)
+            :created-time $ :: 'Option 'Number
+            :touched-time $ :: 'Option 'Number
+            :finished-time $ :: 'Option 'Number
+            :archived-time $ :: 'Option 'Number
           :examples $ []
           :schema $ :: 'StructDef
         'complain $ %{} 'CodeEntry (:doc |)
@@ -1656,6 +1669,36 @@
                       &map:get (&map:get db :users) |u1
                       , :name
                 (:err _) false
+              :tags $ #{} :server
+        'decode-note-record $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-note-record (raw)
+            let
+                normalized $ if
+                  and (map? raw)
+                    nil? $ &map:get raw :updated-time
+                  dissoc raw :updated-time
+                  , raw
+              try-decode-map-as normalized NoteRecord
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'T
+            :generics $ [] 'T
+            :return $ :: 'Result 'app.schema/NoteRecord 'String
+          :tests $ []
+            %{} 'TestEntry (:name |legacy-nil-update-to-option)
+              :code $ quote $ match
+                decode-note-record $ {} (:id |n1) (:text |hello) (:time 42) (:updated-time nil)
+                (:ok note)
+                  and
+                    = |n1 $ :id note
+                    = (%none) (:updated-time note)
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-invalid-time-with-path)
+              :code $ quote $ match
+                decode-note-record $ {} (:id |n1) (:text |hello) (:time |bad)
+                (:err message) (starts-with? message "|decode-map-as failed at $.time:")
+                (:ok _) false
               :tags $ #{} :server
         'decode-operation $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-operation (data)
@@ -1969,6 +2012,62 @@
                 result:err? $ decode-server-message $ %:: ServerMessage :patch 3 4
                   [] $ :: :replace 1
               :tags $ #{} :client
+        'decode-task-record $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-task-record (raw)
+            let
+                normalized $ if (map? raw)
+                  foldl ([] :created-time :touched-time :finished-time :archived-time) raw $ fn (entry field)
+                    if
+                      nil? $ &map:get entry field
+                      dissoc entry field
+                      , entry
+                  , raw
+              try-decode-map-as normalized TaskRecord
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'T
+            :generics $ [] 'T
+            :return $ :: 'Result 'app.schema/TaskRecord 'String
+          :tests $ []
+            %{} 'TestEntry (:name |legacy-nil-time-to-option)
+              :code $ quote $ match
+                decode-task-record $ {} (:id |x) (:text |ok) (:detail |) (:pending? false) (:created-time nil) (:touched-time nil) (:finished-time nil) (:archived-time nil)
+                (:ok task)
+                  and
+                    = |x $ :id task
+                    = (%none) (:created-time task)
+                    = (%none) (:archived-time task)
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-invalid-text-with-path)
+              :code $ quote $ match
+                decode-task-record $ {} (:id |x) (:text 3) (:detail |) (:pending? false)
+                (:err message) (starts-with? message "|decode-map-as failed at $.text:")
+                (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |missing-times-become-none)
+              :code $ quote $ match
+                decode-task-record $ {} (:id |x) (:text |ok) (:detail |) (:pending? false)
+                (:ok task)
+                  and
+                    = (%none) (:created-time task)
+                    = (%none) (:touched-time task)
+                    = (%none) (:finished-time task)
+                    = (%none) (:archived-time task)
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-missing-id-with-path)
+              :code $ quote $ match
+                decode-task-record $ {} (:text |ok) (:detail |) (:pending? false)
+                (:err message) (starts-with? message "|decode-map-as failed at $.id:")
+                (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-unknown-field)
+              :code $ quote $ match
+                decode-task-record $ {} (:id |x) (:text |ok) (:detail |) (:pending? false) (:surprise 1)
+                (:err message) (starts-with? message "|decode-map-as failed at $.surprise:")
+                (:ok _) false
+              :tags $ #{} :server
         'invalid-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn invalid-message (detail)
             %:: Result :err $ %:: MessageDecodeError :invalid detail
