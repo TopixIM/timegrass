@@ -31,7 +31,7 @@ jobs:
 
 
     - name: Install deps
-      run: caps --ci && yarn install --immutable
+      run: caps --strict --ci && yarn install --immutable
 
     - name: Verify Calcit runtime toolchain
       run: |
