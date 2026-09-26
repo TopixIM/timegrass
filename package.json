@@ -1,21 +1,23 @@
 {
   "name": "timegrass",
   "version": "0.1.1",
-  "packageManager": "yarn@4.12.0",
+  "packageManager": "yarn@4.18.0",
   "description": "Cumulo Workflow",
   "engines": {
     "node": ">=24"
   },
   "main": "index.js",
   "scripts": {
-    "check-client": "calcit calcit.cirru --compat-types --check-only && calcit calcit.cirru --compat-types test --tag :client --require-match",
-    "check-server": "calcit calcit.cirru --entry server --compat-types --check-only && calcit calcit.cirru --entry server --compat-types test --require-match",
-    "check-sync": "yarn check-client && yarn check-server && calcit calcit.cirru --compat-types analyze deprecated && yarn check-quality",
-    "check-quality": "calcit calcit.cirru --compat-types analyze quality --baseline config/calcit-quality.cirru",
-    "compile-page": "calcit calcit.cirru --compat-types js",
+    "check-client": "calcit calcit.cirru --check-only && calcit calcit.cirru test --tag :client --require-match",
+    "check-server": "calcit calcit.cirru --entry server --check-only && calcit calcit.cirru --entry server test --require-match",
+    "check-sync": "yarn check-client && yarn check-server && calcit calcit.cirru analyze deprecated",
+    "check-dayjs-adapter": "node check-dayjs-adapter.mjs",
+    "check-session-messages": "node check-session-messages.mjs",
+    "check-typed-database": "calcit calcit.cirru --entry server --emit-path .calcit/js-server js && node check-typed-database.mjs",
+    "compile-page": "calcit calcit.cirru js",
     "dev-page": "vite --force",
     "release-page": "vite build --base=./",
-    "watch-page": "calcit calcit.cirru --compat-types -w js"
+    "watch-page": "calcit calcit.cirru -w js"
   },
   "repository": {
     "type": "git",
@@ -24,7 +26,7 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "@calcit/procs": "0.18.1",
+    "@calcit/procs": "0.22.1",
     "dayjs": "^1.11.23",
     "nanoid": "^6.0.1"
   },

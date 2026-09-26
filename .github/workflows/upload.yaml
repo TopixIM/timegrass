@@ -22,7 +22,7 @@ jobs:
     - name: Enable Corepack
       run: |
         corepack enable
-        corepack prepare yarn@4.12.0 --activate
+        corepack prepare yarn@4.18.0 --activate
         yarn --version
 
     - uses: calcit-lang/setup-calcit@ca701be5a471759e442aa053cd100720bbe1f09f # v1.5.0
@@ -31,27 +31,39 @@ jobs:
 
 
     - name: Install deps
-      run: caps --ci && yarn install --immutable
+      run: caps --strict --ci && yarn install --immutable
 
     - name: Verify Calcit runtime toolchain
       run: |
         caps verify --toolchain
-        test "$(calcit --version)" = "0.18.1"
+        test "$(calcit --version)" = "0.22.1"
 
     - name: Validate Calcit snapshot
       run: |
         calcit calcit.cirru edit format
         git diff --exit-code -- calcit.cirru
-        calcit calcit.cirru --compat-types --check-only
-        calcit calcit.cirru --entry server --compat-types --check-only
-        calcit calcit.cirru --compat-types analyze deprecated
-        calcit calcit.cirru --compat-types analyze dynamic-methods --max 0
-        calcit calcit.cirru --entry server --compat-types analyze dynamic-methods --max 0
-        calcit calcit.cirru --compat-types analyze quality --baseline config/calcit-quality.cirru
-        calcit calcit.cirru --entry server --compat-types test --require-match
+        calcit calcit.cirru analyze deprecated
+        calcit calcit.cirru analyze dynamic-methods --format json | jq -e '.data.summary.findings == 0'
+        calcit calcit.cirru --entry server analyze dynamic-methods --format json | jq -e '.data.summary.findings == 0'
 
     - name: Build browser client
       run: yarn compile-page && yarn release-page
+
+    - name: Verify typed dayjs adapter in generated JavaScript
+      run: yarn check-dayjs-adapter
+
+    - name: Verify session message operations in generated JavaScript
+      run: yarn check-session-messages
+
+    - name: Verify typed database operations in generated JavaScript
+      run: yarn check-typed-database
+
+    - name: Enforce strict Calcit types
+      run: |
+        calcit calcit.cirru --check-only
+        calcit calcit.cirru test --tag :client --require-match
+        calcit calcit.cirru --entry server --check-only
+        calcit calcit.cirru --entry server test --require-match
 
     - run: mkdir -p dist-server && cp calcit.cirru package.json deps.cirru dist-server/
       name: Copy server scripts

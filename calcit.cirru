@@ -23,7 +23,7 @@
             {} $ :states $ {}
               :cursor $ []
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Ref 'Dynamic
         '*store $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *store (:: :initial)
           :examples $ []
@@ -36,7 +36,7 @@
           :doc "|Current nominal ws-edn client retained across browser recovery events."
           :code $ quote $ defatom *ws-client (%none)
           :examples $ []
-          :schema $ :: 'Ref $ :: 'Option 'ws-edn.client/WsClient
+          :schema $ :: 'Ref $ :: 'calcit.core/Option 'ws-edn.client/WsClient
         'ClientPatchError $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defenum ClientPatchError (:revision-mismatch 'Number 'Number) (:invalid-patch 'recollect.patch/PatchError)
           :examples $ []
@@ -54,9 +54,26 @@
           :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
             :names $ {} $ :extend! |extend
           :schema $ :: 'Trait
+        'NavigatorConnectionHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait NavigatorConnectionHost (:onLine 'Bool)
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
+          :schema $ :: 'Trait
+        'ParsedUrlHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait ParsedUrlHost (:query 'app.client/ParsedUrlQueryHost)
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
+          :schema $ :: 'Trait
+        'ParsedUrlQueryHost $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ deftrait ParsedUrlQueryHost
+            :host $ :: 'JsNullish 'String
+            :port $ :: 'JsNullish 'String
+          :examples $ []
+          :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
+          :schema $ :: 'Trait
         'ack-sync! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn ack-sync! (revision)
-            ws-send! $ %:: schema/ClientMessage :sync/ack revision
+            ws-send! $ schema/ClientMessage :sync/ack revision
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Number
@@ -68,9 +85,10 @@
               (:err error)
                 do
                   match error
-                    (:revision-mismatch expected actual) (js/console.warn |Sync-revision-mismatch expected actual)
+                    (:revision-mismatch expected actual)
+                      console-warn! $ str |Sync-revision-mismatch-expected= expected |,-actual= actual
                     (:invalid-patch patch-error)
-                      js/console.error |Failed-to-apply-server-patch $ patch-error-message patch-error
+                      console-error! $ str |Failed-to-apply-server-patch:_ $ patch-error-message patch-error
                   request-snapshot!
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -96,8 +114,8 @@
         'connect! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn connect! ()
             let
-                url-obj $ unsafe-coerce (url-parse js/location.href true) 'JsObject
-                query $ unsafe-coerce (.-query url-obj) 'JsObject
+                url-obj $ unsafe-coerce (url-parse js/location.href true) 'app.client/ParsedUrlHost
+                query $ .-query url-obj
                 host-value $ .-host query
                 port-value $ .-port query
                 host $ if (js-present? host-value) (unsafe-coerce host-value 'String) (unsafe-coerce js/location.hostname 'String)
@@ -118,55 +136,56 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
+            :features $ #{} :js-ffi
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dispatch! (op)
-            do
-              match op
-                (:states ignored-cursor ignored-state) &unit
-                _ $ js/console.info |[operation] |sending $ str (&enum:nth op 0)
-              match op
-                (:states cursor s)
-                  reset! *states $ update-states @*states cursor s
-                (:effect/connect) (connect!)
-                _ $ ws-send! $ %:: schema/ClientMessage :dispatch op
+            match op
+              (:states ignored-cursor ignored-state) &unit
+              _ $ js-ffi.shared/console-info! $ str-spaced |[operation] |sending
+                str $ &enum:nth op 0
+            match op
+              (:states cursor s)
+                reset! *states $ update-states @*states cursor s
+              (:effect/connect) (connect!)
+              _ $ ws-send! $ schema/ClientMessage :dispatch op
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'app.schema/Op
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! ()
-            do
-              let
-                  dayjs-host $ unsafe-coerce dayjs DayjsFactoryHost
-                  plugin $ unsafe-coerce week-of-year JsObject
-                dayjs-host .extend! plugin
-              println "|Running mode:" $ if config/dev? |dev |release
-              if config/dev? $ load-console-formatter!
-              render-app!
-              connect!
-              add-watch *store :changes $ fn (store prev) (render-app!)
-              add-watch *states :changes $ fn (states prev) (render-app!)
-              on-page-touch $ fn ()
-                if
-                  = @*store $ :: :offline
-                  recover-connection!
+            let
+                dayjs-host $ unsafe-coerce dayjs DayjsFactoryHost
+                plugin $ unsafe-coerce week-of-year JsObject
+              dayjs-host .extend! plugin
+            println "|Running mode:" $ if config/dev? |dev |release
+            if config/dev? $ load-console-formatter!
+            render-app!
+            connect!
+            add-watch *store :changes $ fn (store prev) (render-app!)
+            add-watch *states :changes $ fn (states prev) (render-app!)
+            on-page-touch $ fn ()
+              if
+                = @*store $ :: :offline
+                recover-connection!
+              , &unit
+            js/window.addEventListener |visibilitychange $ fn (event)
+              when @*connected? $ send-activity!
+              , &unit
+            visibility-heartbeat
+              fn ()
+                when @*connected? $ ws-send! $ schema/ClientMessage :sync/heartbeat @*sync-revision
                 , &unit
-              js/window.addEventListener |visibilitychange $ fn (event)
-                when @*connected? $ send-activity!
-                , &unit
-              visibility-heartbeat
-                fn ()
-                  when @*connected? $ ws-send! $ %:: schema/ClientMessage :sync/heartbeat @*sync-revision
-                  , &unit
-                , 3000
-              println "|App started!"
+              , 3000
+            println "|App started!"
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
             :features $ #{} :js-ffi
         'mount-target $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def mount-target (query-selector |.app)
+          :code $ quote $ def mount-target
+            option:unwrap $ query-selector |.app
           :examples $ []
-          :schema $ :: 'Option 'js-ffi.browser/DomElementHost
+          :schema $ :: 'js-ffi.browser/DomElementHost
         'on-server-data $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-server-data (data)
             match (schema/decode-server-message data)
@@ -174,12 +193,10 @@
                 match message
                   (:snapshot revision store)
                     do (reset! *store store) (reset! *sync-revision revision) (ack-sync! revision)
-                  (:patch base-revision revision changes)
-                    do
-                      when config/dev? $ js/console.log |Changes changes
-                      apply-server-patch! base-revision revision changes
+                  (:patch base-revision revision changes) (apply-server-patch! base-revision revision changes)
                   (:effect/pong) &unit
-              (:err error) (js/console.error "|Invalid server message:" error)
+              (:err error)
+                js-ffi.shared/console-error! $ str-spaced "|Invalid server message:" error
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Dynamic
@@ -187,10 +204,11 @@
           :doc "|Apply the typed browser recovery policy to the retained ws-edn client."
           :code $ quote $ defn recover-connection! ()
             let
-                document-node $ unsafe-coerce js/document 'JsObject
-                navigator-node $ unsafe-coerce js/navigator 'JsObject
-                visible? $ = |visible $ unsafe-coerce (.-visibilityState document-node) 'String
-                online? $ unsafe-coerce (.-onLine navigator-node) 'Bool
+                navigator-node $ unsafe-coerce js/navigator 'app.client/NavigatorConnectionHost
+                visible? $ match (js-ffi.browser/visibility-state)
+                  (:visible) true
+                  _ false
+                online? $ .-onLine navigator-node
                 client-option @*ws-client
                 has-client? $ match client-option
                   (:some client) true
@@ -231,15 +249,15 @@
             :args $ []
         'request-snapshot! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn request-snapshot! ()
-            ws-send! $ %:: schema/ClientMessage :sync/resume @*sync-revision
+            ws-send! $ schema/ClientMessage :sync/resume @*sync-revision
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
         'send-activity! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn send-activity! ()
             if (activity/page-visible?)
-              ws-send! $ %:: schema/ClientMessage :sync/active @*sync-revision
-              ws-send! $ %:: schema/ClientMessage :sync/idle @*sync-revision
+              ws-send! $ schema/ClientMessage :sync/active @*sync-revision
+              ws-send! $ schema/ClientMessage :sync/idle @*sync-revision
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -249,8 +267,11 @@
                 raw $ js/localStorage.getItem $ &map:get config/site :storage-key
               if (js-present? raw)
                 do (println "|Found storage.")
-                  dispatch! $ :: :user/log-in $ parse-cirru-edn (unsafe-coerce raw 'String)
-                do $ println "|Found no storage."
+                  match
+                    schema/decode-operation $ :: :user/log-in $ parse-cirru-edn (unsafe-coerce raw 'String)
+                    (:ok op) (dispatch! op)
+                    (:err _) (println "|Invalid saved login credentials")
+                println "|Found no storage."
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -265,13 +286,13 @@
                   , store
                 (:ok next-store) (%ok next-store)
                 (:err error)
-                  %err $ %:: ClientPatchError :invalid-patch error
-              %err $ %:: ClientPatchError :revision-mismatch base-revision local-revision
+                  %err $ ClientPatchError :invalid-patch error
+              %err $ ClientPatchError :revision-mismatch base-revision local-revision
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'T 'Number 'Number $ :: 'List 'recollect.schema/change-op
             :generics $ [] 'T
-            :return $ :: 'Result 'T 'app.client/ClientPatchError
+            :return $ :: 'calcit.core/Result 'T 'app.client/ClientPatchError
           :tests $ []
             %{} 'TestEntry (:name |accepts-valid-revisioned-patch)
               :code $ quote $ let
@@ -284,7 +305,7 @@
             %{} 'TestEntry (:name |rejects-revision-mismatch)
               :code $ quote $ let
                   store $ {} $ :value 1
-                  changes $ []
+                  changes $ [] $ %:: patch-schema/change-op :assoc :value 2
                 assert=
                   %err $ %:: ClientPatchError :revision-mismatch 8 7
                   validate-server-patch store 7 8 changes
@@ -320,6 +341,7 @@
             cumulo-util.activity :as activity
             recollect.patch :refer $ patch-batch patch-batch:apply-to PatchBatchOps PatchError PatchPathSegment patch-error-message
             js-ffi.browser :refer $ query-selector
+            js-ffi.shared :refer $ console-warn! console-error!
     'app.comp.container $ %{} 'FileEntry
       :defs $ {}
         'comp-container $ %{} 'CodeEntry (:doc |)
@@ -360,7 +382,10 @@
                   when dev? $ comp-inspect |Store store $ {} (:bottom 0) (:left 0) (:z-index 9999)
                   comp-messages (&map:get session :messages) ({})
                     fn (info d!)
-                      d! $ :: :session/remove-message info
+                      match
+                        schema/decode-operation $ :: :session/remove-message info
+                        (:ok op) (d! op)
+                        (:err _) &unit
                   when dev? $ comp-reel (&map:get store :reel-length) ({})
               (:: :initial) (comp-offline :initial)
               (:: :offline) (comp-offline :offline)
@@ -455,9 +480,11 @@
                 cursor $ &map:get states :cursor
                 state $ or (&map:get states :data)
                   {} $ :show-menu? false
-                finished-day $ unsafe-coerce
-                  dayjs $ &map:get task :finished-time
-                  , 'JsObject
+                finished-time $ match
+                  decode-timestamp $ &map:get task :finished-time
+                  (:ok value) value
+                  (:err message) (raise message)
+                task-id $ decode-map-as (&map:get task :id) 'String
               div
                 {} (:class-name css-done-task)
                   :style $ merge-styles
@@ -467,8 +494,7 @@
                       {}
                   :on-click $ fn (e d!)
                     d! $ :: :states cursor $ assoc state :show-menu? true
-                <>
-                  unsafe-coerce (.!format finished-day |HH:mm) 'String
+                <> (format-timestamp finished-time |HH:mm)
                   {} (:min-width 32)
                     :color $ hsl 0 0 80
                     :font-size 12
@@ -489,9 +515,10 @@
                     d! $ :: :states cursor $ assoc state :show-menu? false
                     when
                       = :put-back $ option:unwrap-or (nth item 1) :unknown
-                      d! $ :: :task/put-back $ &map:get task :id
+                      d! $ :: :task/put-back task-id
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
         'comp-history $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-history (states data finished-tasks)
             let
@@ -515,38 +542,30 @@
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ :: :router/change $ {} (:name :history)
+                          d! $ schema/route-operation $ {} (:name :history)
                             :data $ let
                                 change-year? $ <= week 1
                                 y $ if change-year? (dec year) year
                                 w $ if change-year? 53 $ dec week
-                                base-day $ unsafe-coerce (dayjs) 'JsObject
-                                year-day $ unsafe-coerce (.!year base-day y) 'JsObject
-                                d $ unsafe-coerce (.!week year-day w) 'JsObject
-                                start-day $ unsafe-coerce (.!startOf d |week) 'JsObject
-                                end-day $ unsafe-coerce (.!endOf d |week) 'JsObject
+                                bounds $ week-bounds y w
                               {} (:year y) (:week w)
-                                :start $ unsafe-coerce (.!format start-day |week) 'String
-                                :end $ unsafe-coerce (.!format end-day |week) 'String
+                                :start $ :start bounds
+                                :end $ :end bounds
                       =< 8 nil
                       comp-icon :arrow-right
                         {} (:font-size 16)
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ :: :router/change $ {} (:name :history)
+                          d! $ schema/route-operation $ {} (:name :history)
                             :data $ let
                                 change-year? $ >= week 53
                                 y $ if change-year? (inc year) year
                                 w $ if change-year? 1 $ inc week
-                                base-day $ unsafe-coerce (dayjs) 'JsObject
-                                year-day $ unsafe-coerce (.!year base-day y) 'JsObject
-                                d $ unsafe-coerce (.!week year-day w) 'JsObject
-                                start-day $ unsafe-coerce (.!startOf d |week) 'JsObject
-                                end-day $ unsafe-coerce (.!endOf d |week) 'JsObject
+                                bounds $ week-bounds y w
                               {} (:year y) (:week w)
-                                :start $ unsafe-coerce (.!format start-day |week) 'String
-                                :end $ unsafe-coerce (.!format end-day |week) 'String
+                                :start $ :start bounds
+                                :end $ :end bounds
                   if (empty? finished-tasks)
                     div
                       {} (:class-name css/center)
@@ -554,46 +573,49 @@
                       <> "|No tasks." $ {} (:font-family ui/font-fancy)
                         :color $ hsl 0 0 80
                     let
-                        grouped-tasks $ -> finished-tasks (&map:to-list) (map last)
+                        grouped-tasks $ -> finished-tasks (&map:vals)
                           group-by $ fn (task)
-                            unsafe-coerce
-                              .!format
-                                unsafe-coerce
-                                  dayjs $ &map:get task :finished-time
-                                  , 'JsObject
-                                , |YYYY-MM-DD
-                              , 'String
+                            let
+                                timestamp $ match
+                                  decode-timestamp $ &map:get task :finished-time
+                                  (:ok value) value
+                                  (:err message) (raise message)
+                              format-timestamp timestamp |YYYY-MM-DD
                       list-> ({})
-                        -> grouped-tasks (&map:to-list)
+                        -> grouped-tasks (&map:keys) (&set:to-list)
                           sort $ fn (x y)
                             &compare
                               option:unwrap-or (first y) |
                               option:unwrap-or (first x) |
-                          &list:map-pair $ fn (date-string task-list)
-                            [] date-string $ div
-                              {} (:class-name css/column)
-                                :style $ {} $ :margin-top 16
-                              let
-                                  the-day $ unsafe-coerce (dayjs date-string) 'JsObject
-                                div
-                                  {} $ :class-name css/row-parted
-                                  span
-                                    {} $ :class-name css/font-fancy
-                                    <> $ unsafe-coerce (.!format the-day |ddd) 'String
-                                    =< 12 nil
-                                    <> $ unsafe-coerce (.!format the-day |MM-DD) 'String
-                              =< nil 4
-                              list-> ({})
-                                -> task-list
-                                  &list:sort-by $ fn (task)
-                                    negate $ &map:get task :finished-time
-                                  map $ fn (task)
-                                    [] (&map:get task :id)
-                                      comp-done-task
-                                        >> states $ &map:get task :id
-                                        , task
+                          map $ fn (date-string)
+                            let
+                                task-list $ &map:get grouped-tasks date-string
+                              [] date-string $ div
+                                {} (:class-name css/column)
+                                  :style $ {} $ :margin-top 16
+                                let
+                                    labels $ date-labels date-string
+                                  div
+                                    {} $ :class-name css/row-parted
+                                    span
+                                      {} $ :class-name css/font-fancy
+                                      <> $ :weekday labels
+                                      =< 12 nil
+                                      <> $ :month-day labels
+                                =< nil 4
+                                list-> ({})
+                                  -> task-list
+                                    &list:sort-by $ fn (task)
+                                      negate $ &map:get task :finished-time
+                                    map $ fn (task)
+                                      [] (&map:get task :id)
+                                        comp-done-task
+                                          >> states $ &map:get task :id
+                                          , task
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
+              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
         'css-done-task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-done-task
             {}
@@ -616,6 +638,8 @@
             |dayjs :default dayjs
             feather.core :refer $ comp-icon
             app.style :refer $ merge-styles
+            app.comp.navigation :refer $ format-timestamp decode-timestamp week-bounds date-labels
+            app.schema :as schema
     'app.comp.login $ %{} 'FileEntry
       :defs $ {}
         'comp-login $ %{} 'CodeEntry (:doc |)
@@ -654,7 +678,8 @@
                       :style $ merge style/link
                       :on-click $ on-submit (&map:get state :username) (&map:get state :password) false
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] $ :: 'Map 'Tag 'Dynamic
         'initial-state $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def initial-state
             {} (:username |) (:password |)
@@ -666,10 +691,15 @@
               dispatch! $ if signup?
                 :: :user/sign-up $ [] username password
                 :: :user/log-in $ [] username password
-              js/localStorage.setItem (&map:get config/site :storage-key)
+              storage-set! (&map:get config/site :storage-key)
                 format-cirru-edn $ [] username password
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'String 'String 'Bool
+            :return $ :: 'Fn $ {} (:return 'Unit)
+              :args $ [] (:: 'Map 'Tag 'Dynamic)
+                :: 'Fn $ {} (:return 'Unit)
+                  :args $ [] 'app.schema/Op
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.login
           :require
@@ -680,8 +710,13 @@
             [] app.schema :as schema
             [] app.style :as style
             [] app.config :as config
+            js-ffi.browser :refer $ storage-set!
     'app.comp.navigation $ %{} 'FileEntry
       :defs $ {}
+        'DateLabels $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct DateLabels (:weekday 'String) (:month-day 'String) (:week 'Number)
+          :examples $ []
+          :schema $ :: 'StructDef
         'DayjsHost $ %{} 'CodeEntry (:doc |)
           :code $ quote $ deftrait DayjsHost
             .month $ :: 'Fn $ {}
@@ -693,6 +728,12 @@
             .week $ :: 'Fn $ {}
               :args $ [] 'app.comp.navigation/DayjsHost
               :return 'Number
+            .with-year $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost 'Number
+              :return 'app.comp.navigation/DayjsHost
+            .with-week $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost 'Number
+              :return 'app.comp.navigation/DayjsHost
             .start-of $ :: 'Fn $ {}
               :args $ [] 'app.comp.navigation/DayjsHost 'String
               :return 'app.comp.navigation/DayjsHost
@@ -702,10 +743,17 @@
             .format $ :: 'Fn $ {}
               :args $ [] 'app.comp.navigation/DayjsHost 'String
               :return 'String
+            .valid? $ :: 'Fn $ {}
+              :args $ [] 'app.comp.navigation/DayjsHost
+              :return 'Bool
           :examples $ []
           :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
-            :names $ {} (:end-of |endOf) (:start-of |startOf)
+            :names $ {} (:end-of |endOf) (:start-of |startOf) (:valid? |isValid) (:with-week |week) (:with-year |year)
           :schema $ :: 'Trait
+        'WeekBounds $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct WeekBounds (:start 'String) (:end 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
         'comp-navigation $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-navigation (logged-in? count-members page)
             div
@@ -727,7 +775,7 @@
                     :style $ {} (:cursor |pointer) (:user-select :none)
                     :tab-index 0
                     :on-click $ fn (e d!)
-                      d! $ :: :router/change $ {} (:name :profile)
+                      d! $ schema/route-operation $ {} (:name :profile)
                   <> $ if logged-in? |Me |Guest
                   =< 8 nil
                   <> $ str count-members
@@ -761,8 +809,8 @@
                 :data $ {}
                   :year $ .year now
                   :week $ .week now
-                  :start $ .format start-day |week
-                  :end $ .format end-day |week
+                  :start $ .format start-day date-time-format
+                  :end $ .format end-day date-time-format
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ []
@@ -781,6 +829,50 @@
             :args $ []
             :features $ #{} :js-ffi
             :return $ :: 'Map 'Tag 'Dynamic
+        'date-labels $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn date-labels (date-string)
+            let
+                host $ unsafe-coerce (dayjs date-string) 'app.comp.navigation/DayjsHost
+              if (.valid? host)
+                DateLabels :weekday (.format host |ddd) :month-day (.format host |MM-DD) :week $ .week host
+                raise |Invalid-dayjs-date
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.comp.navigation/DateLabels)
+            :args $ [] 'String
+            :features $ #{} :js-ffi
+        'date-time-format $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ def date-time-format "|YYYY-MM-DDTHH:mm:ss ZZ"
+          :examples $ []
+          :schema $ :: 'String
+        'decode-timestamp $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-timestamp (input) (try-decode-map-as input 'Number)
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Input
+            :generics $ [] 'Input
+            :return $ :: 'calcit.core/Result 'Number 'String
+          :tests $ []
+            %{} 'TestEntry (:name |accepts-number)
+              :code $ quote $ assert= true
+                result:ok? $ decode-timestamp 1735689600000
+              :tags $ #{} :unit
+            %{} 'TestEntry (:name |rejects-non-number)
+              :code $ quote $ assert= true
+                result:err? $ decode-timestamp |invalid
+              :tags $ #{} :unit
+            %{} 'TestEntry (:name |rejects-nil)
+              :code $ quote $ assert= true
+                result:err? $ decode-timestamp nil
+              :tags $ #{} :unit
+        'format-timestamp $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn format-timestamp (timestamp pattern)
+            let
+                host $ unsafe-coerce (dayjs timestamp) 'app.comp.navigation/DayjsHost
+              if (.valid? host) (.format host pattern) (raise |Invalid-dayjs-timestamp)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'String)
+            :args $ [] 'Number 'String
+            :features $ #{} :js-ffi
         'render-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-entry (title get-route highlighted?)
             div
@@ -791,7 +883,7 @@
                     {} $ :opacity 1
                     {}
                 :on-click $ fn (e d!)
-                  d! $ :: :router/change $ get-route
+                  d! $ schema/route-operation $ get-route
                 :tab-index 0
               <> title nil
           :examples $ []
@@ -800,6 +892,22 @@
               :: 'Fn $ {} (:return 'Dynamic)
                 :args $ []
               , 'Bool
+        'week-bounds $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn week-bounds (year week)
+            let
+                base $ unsafe-coerce (dayjs) 'app.comp.navigation/DayjsHost
+                year-day $ .with-year base year
+                target $ .with-week year-day week
+                start $ .start-of target |week
+                end $ .end-of target |week
+              if
+                and (.valid? start) (.valid? end)
+                WeekBounds :start (.format start date-time-format) :end $ .format end date-time-format
+                raise |Invalid-dayjs-week
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.comp.navigation/WeekBounds)
+            :args $ [] 'Number 'Number
+            :features $ #{} :js-ffi
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.navigation
           :require
@@ -813,6 +921,7 @@
             respo-alerts.core :refer $ comp-prompt
             |dayjs :default dayjs
             app.style :refer $ merge-styles
+            app.schema :as schema
     'app.comp.notes-page $ %{} 'FileEntry
       :defs $ {}
         'comp-note $ %{} 'CodeEntry (:doc |)
@@ -823,9 +932,10 @@
                     :initial $ &map:get note :text
                 remove-plugin $ use-confirm (>> states :remove)
                   {} $ :text "|Sure to delete note?"
-                note-day $ unsafe-coerce
-                  dayjs $ &map:get note :time
-                  , 'JsObject
+                note-time $ match
+                  decode-timestamp $ &map:get note :time
+                  (:ok value) value
+                  (:err message) (raise message)
               div
                 {}
                   :class-name $ str-spaced css/column css-note
@@ -834,8 +944,7 @@
                     :padding "|4px 8px"
                 div
                   {} $ :class-name css/row-parted
-                  <>
-                    unsafe-coerce (.!format note-day |HH:mm) 'String
+                  <> (format-timestamp note-time |HH:mm)
                     {} (:font-family ui/font-fancy)
                       :color $ hsl 0 0 70
                       :font-size 12
@@ -846,20 +955,21 @@
                       &{} :font-size 16 :curspr :pointer :color $ hsl 200 80 80
                       fn (e d!)
                         .show edit-plugin d! $ fn (result)
-                          d! $ :: :note/edit $ {}
-                            :id $ &map:get note :id
-                            :text result
+                          d! $ :: :note/edit $ schema/NoteEdit :id
+                            decode-map-as (&map:get note :id) 'String
+                            , :text (decode-map-as result 'String)
                     =< 8 nil
                     comp-icon :delete
                       &{} :font-size 16 :cursor :pointer :color $ hsl 10 80 60
                       fn (e d!)
                         .show remove-plugin d! $ fn () $ d!
-                          :: :note/remove $ &map:get note :id
+                          :: :note/remove $ decode-map-as (&map:get note :id) 'String
                 <> $ &map:get note :text
                 .render edit-plugin
                 .render remove-plugin
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
         'comp-notes-page $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-notes-page (states notes info)
             let
@@ -894,7 +1004,7 @@
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ :: :router/change $ {} (:name :notes)
+                          d! $ schema/route-operation $ {} (:name :notes)
                             :data $ if (<= month 0)
                               {}
                                 :year $ dec year
@@ -907,7 +1017,7 @@
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ :: :router/change $ {} (:name :notes)
+                          d! $ schema/route-operation $ {} (:name :notes)
                             :data $ if (>= month 11)
                               {}
                                 :year $ inc year
@@ -926,51 +1036,49 @@
                       <> "|No notes" $ {} (:font-family ui/font-fancy)
                         :color $ hsl 0 0 80
                     let
-                        grouped-notes $ -> notes (&map:to-list)
-                          group-by $ fn (pair)
+                        grouped-notes $ -> notes (&map:keys) (&set:to-list)
+                          group-by $ fn (note-key)
                             let
-                                pair-value $ unsafe-coerce (nth pair 1) 'Dynamic
-                                note-time $ &map:get pair-value :time
-                              unsafe-coerce
-                                .!format
-                                  unsafe-coerce (dayjs note-time) 'JsObject
-                                  , |MM-DD
-                                , 'String
-                          &map:to-list
-                          sort $ fn (x y)
-                            &compare
-                              option:unwrap-or (first y) |
-                              option:unwrap-or (first x) |
+                                note $ &map:get notes note-key
+                                note-time $ match
+                                  decode-timestamp $ &map:get note :time
+                                  (:ok value) value
+                                  (:err message) (raise message)
+                              format-timestamp note-time |MM-DD
                       list-> ({})
-                        -> grouped-notes (identity)
-                          &list:map-pair $ fn (date notes-in-day)
-                            [] date $ div
-                              {} $ :style $ {} (:margin-top 16)
-                              div
-                                {} (:class-name css/font-fancy)
-                                  :style $ {} (:font-size 14) (:font-weight 500)
-                                <> $ unsafe-coerce
-                                  .!format
-                                    unsafe-coerce
-                                      dayjs $ str year |- date
-                                      , 'JsObject
-                                    , |ddd
-                                  , 'String
-                                =< 12 nil
-                                <> $ str date
-                              list->
-                                {} $ :class-name css/column
-                                -> notes-in-day
-                                  &list:sort-by $ fn (pair)
-                                    let
-                                        note-value $ unsafe-coerce (nth pair 1) 'Dynamic
-                                      negate $ &map:get note-value :time
-                                  &list:map-pair $ fn (k note)
-                                    [] k $ comp-note (>> states k) note
+                        -> grouped-notes (&map:keys) (&set:to-list)
+                          sort $ fn (x y) (&compare y x)
+                          map $ fn (date)
+                            let
+                                notes-in-day $ &map:get grouped-notes date
+                              [] date $ div
+                                {} $ :style $ {} (:margin-top 16)
+                                div
+                                  {} (:class-name css/font-fancy)
+                                    :style $ {} (:font-size 14) (:font-weight 500)
+                                  <> $ :weekday $ app.comp.navigation/date-labels (str year |- date)
+                                  =< 12 nil
+                                  <> $ str date
+                                list->
+                                  {} $ :class-name css/column
+                                  -> notes-in-day
+                                    &list:sort-by $ fn (note-key)
+                                      let
+                                          note $ &map:get notes note-key
+                                          note-time $ match
+                                            decode-timestamp $ &map:get note :time
+                                            (:ok value) value
+                                            (:err message) (raise message)
+                                        negate note-time
+                                    map $ fn (k)
+                                      [] k $ comp-note (>> states k) (&map:get notes k)
                   =< nil 160
                 .render add-plugin
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic)
+              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+              :: 'Map 'Tag 'Number
         'css-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-note
             {}
@@ -993,14 +1101,20 @@
             respo-alerts.core :refer $ use-prompt use-confirm
             feather.core :refer $ comp-i comp-icon
             |dayjs :default dayjs
+            app.comp.navigation :refer $ format-timestamp decode-timestamp
     'app.comp.overview $ %{} 'FileEntry
       :defs $ {}
         'comp-global-keydown $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defcomp comp-global-keydown (options on-event)
+          :code $ quote $ defcomp comp-global-keydown (on-event)
             span $ {} $ :on-keydown
               fn (e d!) (on-event e d!) &unit
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] $ :: 'Fn
+              {} (:return 'Unit)
+                :args $ [] (:: 'Map 'Tag 'Dynamic)
+                  :: 'Fn $ {} (:return 'Unit)
+                    :args $ [] 'app.schema/Op
         'comp-no-tasks $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-no-tasks ()
             div
@@ -1031,7 +1145,7 @@
                 cursor $ &map:get states :cursor
                 state $ or (&map:get states :data)
                   {} $ :show-later? false
-                today-day $ unsafe-coerce (dayjs today) 'JsObject
+                today-labels $ app.comp.navigation/date-labels today
               div
                 {} (:class-name css/expand)
                   :style $ {} $ :padding 16
@@ -1039,29 +1153,34 @@
                   {} $ :style $ {} (:max-width 800) (:margin :auto)
                   div
                     {} $ :class-name css/row-parted
-                    comp-title |Doing $ comp-icon :plus
-                      &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
-                      fn (e d!)
-                        .show create-plugin d! $ fn (result)
-                          d! $ :: :task/create-working result
-                          , &unit
-                        , &unit
-                    comp-global-keydown ({})
-                      fn (e d!)
-                        when
-                          and (&map:get e :meta?)
-                            = |i $ &map:get e :key
+                    comp-title |Doing
+                      %some $ comp-icon :plus
+                        &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
+                        fn (e d!)
                           .show create-plugin d! $ fn (result)
-                            d! $ :: :task/create-working result
+                            d! $ :: :task/create-working $ decode-map-as result 'String
                             , &unit
-                        , &unit
+                          , &unit
+                      assert-type (%none)
+                        :: 'Option $ :: 'Fn $ {} (:return 'Unit)
+                          :args $ [] (:: 'Map 'Tag 'Dynamic)
+                            :: 'Fn $ {} (:return 'Unit)
+                              :args $ [] 'app.schema/Op
+                    comp-global-keydown $ fn (e d!)
+                      when
+                        and (&map:get e :meta?)
+                          = |i $ &map:get e :key
+                        .show create-plugin d! $ fn (result)
+                          d! $ :: :task/create-working $ decode-map-as result 'String
+                          , &unit
+                      , &unit
                     div
                       {}
                         :class-name $ str-spaced css/row-middle css/font-fancy
                         :style $ {} $ :color (hsl 0 0 60)
-                      <> $ unsafe-coerce (.!format today-day |ddd) 'String
+                      <> $ :weekday today-labels
                       =< 8 nil
-                      <> $ str (.!week today-day) "|th week"
+                      <> $ str (:week today-labels) "|th week"
                       =< 16 nil
                       <> today
                   if (empty? working-tasks) (comp-no-tasks)
@@ -1080,9 +1199,11 @@
                   when
                     not $ empty? pending-tasks
                     div ({})
-                      comp-title |Later nil $ fn (e d!)
-                        d! $ :: :states cursor $ update state :show-later? not
-                        , &unit
+                      comp-title |Later
+                        assert-type (%none) (:: 'Option 'respo.schema/Component)
+                        %some $ fn (e d!)
+                          d! $ :: :states cursor $ update state :show-later? not
+                          , &unit
                       if (&map:get state :show-later?)
                         list-> ({})
                           -> pending-tasks (&map:to-list)
@@ -1107,7 +1228,8 @@
                             {} (:font-family ui/font-fancy) (:font-weight 300) (:cursor :pointer)
                   .render create-plugin
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) 'String $ :: 'Map 'String (:: 'Map 'Tag 'Dynamic)
         'comp-task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-task (states task mode)
             let
@@ -1121,6 +1243,7 @@
                     :button-text |Edit
                 delete-plugin $ use-confirm (>> states :delete)
                   {} $ :text "|Sure to remove task:"
+                task-id $ decode-map-as (&map:get task :id) 'String
               div
                 {} (:class-name css-task-base)
                   :style $ merge $ if (&map:get state :menu?)
@@ -1131,7 +1254,7 @@
                     , &unit
                   :on $ {} $ :dragend
                     fn (e d!)
-                      d! $ :: :task/touch-working $ &map:get task :id
+                      d! $ :: :task/touch-working task-id
                       , &unit
                   :draggable true
                 div
@@ -1154,18 +1277,15 @@
                     let
                         new-state $ assoc state :menu? false
                         result $ task-menu-action item
-                      js/console.log item
                       case-default result
                         d! $ :: :states cursor new-state
                         :done $ do
-                          d! $ :: :task/finish-working $ &map:get task :id
+                          d! $ :: :task/finish-working task-id
                           d! $ :: :states cursor new-state
                         :edit $ do
                           d! $ :: :states cursor new-state
                           .show update-plugin d! $ fn (text)
-                            d! $ :: :task/update-working $ {}
-                              :id $ &map:get task :id
-                              :text text
+                            d! $ :: :task/update-working $ schema/TaskEdit :id task-id :text (decode-map-as text 'String)
                             , &unit
                         :copy $ do
                           copy! $ &map:get task :text
@@ -1173,34 +1293,43 @@
                         :remove $ do
                           d! $ :: :states cursor new-state
                           .show delete-plugin d! $ fn ()
-                            d! $ :: :task/remove-working $ &map:get task :id
+                            d! $ :: :task/remove-working task-id
                             , &unit
                           , &unit
                         :pend $ do
-                          d! $ :: :task/pend $ &map:get task :id
+                          d! $ :: :task/pend task-id
                           d! $ :: :states cursor new-state
                         :touch $ do
-                          d! $ :: :task/touch-working $ &map:get task :id
+                          d! $ :: :task/touch-working task-id
                           d! $ :: :states cursor new-state
                       , &unit
                 .render update-plugin
                 .render delete-plugin
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic) 'Tag
         'comp-title $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defcomp comp-title (title child ? on-click)
+          :code $ quote $ defcomp comp-title (title child on-click)
             div
               {} (:class-name css-title)
-                :style $ if (fn? on-click)
+                :style $ if (option:some? on-click)
                   {} $ :cursor :pointer
                 :on-click $ fn (e d!)
-                  when (fn? on-click) (on-click e d!)
+                  when (option:some? on-click)
+                    (option:unwrap on-click) e d!
                   , &unit
               <> title
               =< 16 nil
-              , child
+              match child
+                (:some content) content
+                (:none) nil
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] 'String (:: 'calcit.core/Option 'respo.schema/Component)
+              :: 'calcit.core/Option $ :: 'Fn $ {} (:return 'Unit)
+                :args $ [] (:: 'Map 'Tag 'Dynamic)
+                  :: 'Fn $ {} (:return 'Unit)
+                    :args $ [] 'app.schema/Op
         'css-task-base $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-task-base
             {}
@@ -1224,13 +1353,6 @@
                 :font-weight 300
           :examples $ []
           :schema $ :: 'String
-        'effect-focus $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defeffect effect-focus () (action el *local)
-            case action
-              :mount $ -> el (.!querySelector |input) (.!focus)
-              do
-          :examples $ []
-          :schema $ :: 'Dynamic
         'task-menu-action $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn task-menu-action (item) (&enum:nth item 1)
           :examples $ []
@@ -1287,7 +1409,9 @@
                   button
                     {} (:class-name css/button)
                       :on-click $ fn (e d!)
-                        js/location.replace $ str js/location.origin |?time= $ .now js/Date
+                        js-ffi.browser/location-replace! $ str
+                          :origin $ js-ffi.browser/location-snapshot
+                          , |?time= $ js-ffi.shared/now-ms
                         , &unit
                     <> |Refresh
                   =< 16 nil
@@ -1296,11 +1420,12 @@
                       :style $ {} (:color :red) (:border-color :red)
                       :on-click $ fn (e d!)
                         d! $ :: :user/log-out
-                        js/localStorage.removeItem $ &map:get config/site :storage-key
+                        js-ffi.browser/storage-remove! $ &map:get config/site :storage-key
                         , &unit
                     <> "|Log out"
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'String 'String)
         'css-member-label $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-member-label
             {} $ |$0 $ {} (:padding "|0 8px")
@@ -1341,14 +1466,64 @@
           :code $ quote $ defenum ClientMessage (:sync/active 'Number) (:sync/heartbeat 'Number) (:sync/idle 'Number) (:sync/resume 'Number) (:sync/ack 'Number) (:dispatch 'app.schema/Op)
           :examples $ []
           :schema $ :: 'Enum
+        'DatabaseRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct DatabaseRecord (:today 'String)
+            :users $ :: 'Map 'String 'app.schema/UserRecord
+            :sessions $ :: 'Map 'Number 'app.schema/SessionRecord
+          :examples $ []
+          :schema $ :: 'StructDef
+        'HistoryRoute $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct HistoryRoute (:year 'Number) (:week 'Number) (:start 'String) (:end 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
         'MessageDecodeError $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defenum MessageDecodeError (:invalid 'String)
           :examples $ []
           :schema $ :: 'Enum
+        'NoteEdit $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct NoteEdit (:id 'String) (:text 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
+        'NoteRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct NoteRecord (:id 'String) (:text 'String) (:time 'Number)
+            :updated-time $ :: 'Option 'Number
+          :examples $ []
+          :schema $ :: 'StructDef
+        'NotesRoute $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct NotesRoute (:year 'Number) (:month 'Number)
+          :examples $ []
+          :schema $ :: 'StructDef
+        'NotificationRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct NotificationRecord (:id 'String) (:text 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
         'Op $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum Op (:today 'Dynamic) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic) (:user/log-in 'Dynamic) (:user/sign-up 'Dynamic) (:user/log-out) (:router/change 'Dynamic) (:task/create-working 'Dynamic) (:task/remove-working 'Dynamic) (:task/finish-working 'Dynamic) (:task/update-working 'Dynamic) (:task/touch-working 'Dynamic) (:task/put-back 'Dynamic) (:task/pend 'Dynamic) (:note/add 'Dynamic) (:note/edit 'Dynamic) (:note/remove 'Dynamic) (:effect/persist) (:effect/ping) (:effect/pong) (:effect/connect) (:states 'Dynamic 'Dynamic)
+          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'String)
+            :user/log-in $ :: 'List 'String
+            :user/sign-up $ :: 'List 'String
+            :user/log-out
+            :router/change 'app.schema/Route
+            :task/create-working 'String
+            :task/remove-working 'String
+            :task/finish-working 'String
+            :task/update-working 'app.schema/TaskEdit
+            :task/touch-working 'String
+            :task/put-back 'String
+            :task/pend 'String
+            :note/add 'String
+            :note/edit 'app.schema/NoteEdit
+            :note/remove 'String
+            :effect/persist
+            :effect/ping
+            :effect/pong
+            :effect/connect
+            :states 'Dynamic 'Dynamic
           :examples $ []
           :schema $ :: 'Enum
+        'Route $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defenum Route (:home) (:profile) (:history 'app.schema/HistoryRoute) (:notes 'app.schema/NotesRoute)
+          :examples $ []
+          :schema $ :: 'EnumDef
         'ServerMessage $ %{} 'CodeEntry
           :doc "|Typed server snapshot, patch, and heartbeat envelope."
           :code $ quote $ defenum ServerMessage (:snapshot 'Number 'Map)
@@ -1356,6 +1531,52 @@
             :effect/pong
           :examples $ []
           :schema $ :: 'Enum
+        'SessionRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct SessionRecord (:id 'Number)
+            :user-id $ :: 'Option 'String
+            :nickname $ :: 'Option 'String
+            :router 'app.schema/Route
+            :messages $ :: 'Map 'String 'app.schema/NotificationRecord
+          :examples $ []
+          :schema $ :: 'StructDef
+        'TaskEdit $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct TaskEdit (:id 'String) (:text 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
+        'TaskRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct TaskRecord (:id 'String) (:text 'String) (:detail 'String) (:pending? 'Bool)
+            :created-time $ :: 'Option 'Number
+            :touched-time $ :: 'Option 'Number
+            :finished-time $ :: 'Option 'Number
+            :archived-time $ :: 'Option 'Number
+          :examples $ []
+          :schema $ :: 'StructDef
+        'UserRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct UserRecord (:id 'String) (:name 'String)
+            :nickname $ :: 'Option 'String
+            :avatar $ :: 'Option 'String
+            :password $ :: 'Option 'String
+            :tasks 'app.schema/UserTasks
+            :notes $ :: 'Map 'String 'app.schema/NoteRecord
+          :examples $ []
+          :schema $ :: 'StructDef
+        'UserTasks $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct UserTasks
+            :working $ :: 'Map 'String 'app.schema/TaskRecord
+            :pending $ :: 'Map 'String 'app.schema/TaskRecord
+            :finished $ :: 'Map 'String 'app.schema/TaskRecord
+          :examples $ []
+          :schema $ :: 'StructDef
+        'add-session-message $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn add-session-message (db sid id text)
+            update-session db sid $ fn (session-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/SessionRecord
+                :return 'app.schema/SessionRecord
+              struct-with session-record $ :messages $ assoc (:messages session-record) id (NotificationRecord :id id :text text)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number 'String 'String
         'complain $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def complain
             {} (:id nil) (:text |) (:time nil)
@@ -1368,7 +1589,21 @@
               :users $ do user $ {}
               :today |2018-08-07
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Map 'Tag 'Dynamic
+        'database-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn database-to-map (db)
+            {}
+              :today $ :today db
+              :users $ filter-map-kv (:users db)
+                fn (k v)
+                  MapEntryDecision :keep k $ user-to-map v
+              :sessions $ filter-map-kv (:sessions db)
+                fn (k v)
+                  MapEntryDecision :keep k $ session-to-map v
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/DatabaseRecord
+            :return $ :: 'Map 'Tag 'Dynamic
         'decode-client-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-client-message (data)
             let
@@ -1378,37 +1613,37 @@
               match message
                 (:sync/active revision)
                   if (number? revision)
-                    %ok $ %:: ClientMessage :sync/active revision
+                    %ok $ ClientMessage :sync/active revision
                     invalid-message $ str "|Expected numeric active revision, got: " revision
                 (:sync/heartbeat revision)
                   if (number? revision)
-                    %ok $ %:: ClientMessage :sync/heartbeat revision
+                    %ok $ ClientMessage :sync/heartbeat revision
                     invalid-message $ str "|Expected numeric heartbeat revision, got: " revision
                 (:sync/idle revision)
                   if (number? revision)
-                    %ok $ %:: ClientMessage :sync/idle revision
+                    %ok $ ClientMessage :sync/idle revision
                     invalid-message $ str "|Expected numeric idle revision, got: " revision
                 (:sync/resume revision)
                   if (number? revision)
-                    %ok $ %:: ClientMessage :sync/resume revision
+                    %ok $ ClientMessage :sync/resume revision
                     invalid-message $ str "|Expected numeric resume revision, got: " revision
                 (:sync/ack revision)
                   if (number? revision)
-                    %ok $ %:: ClientMessage :sync/ack revision
+                    %ok $ ClientMessage :sync/ack revision
                     invalid-message $ str "|Expected numeric acknowledgement revision, got: " revision
                 (:dispatch op)
                   match (decode-operation op)
                     (:ok typed-op)
-                      %ok $ %:: ClientMessage :dispatch typed-op
+                      %ok $ ClientMessage :dispatch typed-op
                     (:err error) (%err error)
                 _ $ match (decode-operation message)
                   (:ok typed-op)
-                    %ok $ %:: ClientMessage :dispatch typed-op
+                    %ok $ ClientMessage :dispatch typed-op
                   (:err error) (%err error)
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
-            :return $ :: 'Result 'app.schema/ClientMessage 'app.schema/MessageDecodeError
+            :return $ :: 'calcit.core/Result 'app.schema/ClientMessage 'app.schema/MessageDecodeError
           :tests $ []
             %{} 'TestEntry (:name |decodes-sync-control)
               :code $ quote $ assert=
@@ -1434,6 +1669,149 @@
                 %:: Result :ok $ %:: ClientMessage :dispatch $ %:: Op :effect/ping
                 decode-client-message $ parse-cirru-edn "|%:: 'ClientMessage 'dispatch $ %:: 'Op 'effect/ping"
               :tags $ #{} :server
+        'decode-database $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-database (raw)
+            if (map? raw)
+              let
+                  today $ &map:get raw :today
+                  sessions $ &map:get raw :sessions
+                  users $ &map:get raw :users
+                cond
+                    and (contains? raw :today)
+                      not $ string? today
+                    %err "|storage.cirru/:today expected String"
+                  (and (contains? raw :sessions) (not (map? sessions)))
+                    %err "|storage.cirru/:sessions expected Map"
+                  (and (contains? raw :users) (not (map? users)))
+                    %err "|storage.cirru/:users expected Map"
+                  true $ match
+                    try-decode-map-as
+                      if (nil? users) ({}) users
+                      :: 'Map 'String 'Dynamic
+                    (:ok users-map)
+                      match (validate-stored-users users-map)
+                        (:ok _)
+                          %ok $ assoc
+                            merge database $ decode-map-as raw $ :: 'Map 'Tag 'Dynamic
+                            , :sessions $ {}
+                        (:err message) (%err message)
+                    (:err detail)
+                      %err $ str "|storage.cirru/:users " detail
+              %err "|storage.cirru expected Map"
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :return $ :: 'calcit.core/Result 'app.schema/database 'String
+          :tests $ []
+            %{} 'TestEntry (:name |defaults-missing-fields)
+              :code $ quote $ match
+                decode-database $ {}
+                (:ok db)
+                  and
+                    = |2018-08-07 $ &map:get db :today
+                    map? $ &map:get db :users
+                    empty? $ &map:get db :sessions
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-malformed-fields)
+              :code $ quote $ do
+                assert= (%err "|storage.cirru expected Map") (decode-database nil)
+                assert= (%err "|storage.cirru/:today expected String")
+                  decode-database $ {} $ :today 3
+                assert= (%err "|storage.cirru/:users expected Map")
+                  decode-database $ {} $ :users []
+                assert= (%err "|storage.cirru/:sessions expected Map")
+                  decode-database $ {} $ :sessions nil
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |drops-runtime-sessions-but-keeps-users)
+              :code $ quote $ match
+                decode-database $ {} (:today |2026-09-25)
+                  :sessions $ {} $ 1
+                    {} $ :user-id |u1
+                  :users $ {} $ |u1
+                    {} (:id |u1) (:name |Alice)
+                (:ok db)
+                  and
+                    = |2026-09-25 $ &map:get db :today
+                    empty? $ &map:get db :sessions
+                    = |Alice $ &map:get
+                      &map:get (&map:get db :users) |u1
+                      , :name
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |loads-legacy-edn-user-with-nested-nil)
+              :code $ quote $ let
+                  legacy $ {} (:today |2026-09-25)
+                    :sessions $ {}
+                    :users $ {} $ |u1
+                      {} (:id |u1) (:name |Alice) (:nickname nil) (:avatar nil) (:password nil)
+                        :notes $ {} $ |n1
+                          {} (:id |n1) (:text |hello) (:time 42) (:updated-time nil)
+                        :tasks $ {}
+                          :working $ {} $ |t1
+                            {} (:id |t1) (:text |work) (:detail |) (:pending? false) (:created-time nil)
+                          :pending $ {}
+                          :finished $ {}
+                  persisted $ format-cirru-edn legacy
+                match
+                  decode-database $ parse-cirru-edn persisted
+                  (:ok db)
+                    let
+                        users $ &map:get db :users
+                        user $ &map:get users |u1
+                      and
+                        = |2026-09-25 $ &map:get db :today
+                        empty? $ &map:get db :sessions
+                        map? user
+                        = |Alice $ &map:get user :name
+                  (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-nested-user-error-on-load)
+              :code $ quote $ match
+                decode-database $ {} $ :users
+                  {} $ |u1 $ {} (:id |u1) (:name |Alice)
+                    :tasks $ {}
+                      :working $ {} $ |t1
+                        {} (:id |t1) (:text 7) (:detail |) (:pending? false)
+                      :pending $ {}
+                      :finished $ {}
+                (:err message)
+                  starts-with? message "|storage.cirru/:users/u1:decode-map-as failed at $.tasks.working.value.text:"
+                (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-nonstring-user-key)
+              :code $ quote $ match
+                decode-database $ {} $ :users
+                  {} $ 7 $ {} (:id |u1) (:name |Alice)
+                (:err message) (starts-with? message "|storage.cirru/:users ")
+                (:ok _) false
+              :tags $ #{} :server
+        'decode-note-record $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-note-record (raw)
+            let
+                normalized $ normalize-note-record raw
+              try-decode-map-as normalized NoteRecord
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'T
+            :generics $ [] 'T
+            :return $ :: 'calcit.core/Result 'app.schema/NoteRecord 'String
+          :tests $ []
+            %{} 'TestEntry (:name |legacy-nil-update-to-option)
+              :code $ quote $ match
+                decode-note-record $ {} (:id |n1) (:text |hello) (:time 42) (:updated-time nil)
+                (:ok note)
+                  and
+                    = |n1 $ :id note
+                    = (%none) (:updated-time note)
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-invalid-time-with-path)
+              :code $ quote $ match
+                decode-note-record $ {} (:id |n1) (:text |hello) (:time |bad)
+                (:err message) (starts-with? message "|decode-map-as failed at $.time:")
+                (:ok _) false
+              :tags $ #{} :server
         'decode-operation $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-operation (data)
             let
@@ -1442,56 +1820,370 @@
                   , data
               match op
                 (:today value)
-                  %ok $ %:: Op :today value
+                  match (try-decode-map-as value 'String)
+                    (:ok today)
+                      %ok $ Op :today today
+                    (:err message)
+                      invalid-message $ str "|Invalid today operation: " message
                 (:session/connect)
-                  %ok $ %:: Op :session/connect
+                  %ok $ Op :session/connect
                 (:session/disconnect)
-                  %ok $ %:: Op :session/disconnect
+                  %ok $ Op :session/disconnect
                 (:session/remove-message value)
-                  %ok $ %:: Op :session/remove-message value
+                  let
+                      raw-id $ if (map? value) (&map:get value :id) value
+                    match (try-decode-map-as raw-id 'String)
+                      (:ok message-id)
+                        %ok $ Op :session/remove-message message-id
+                      (:err message)
+                        invalid-message $ str "|Invalid session/remove-message operation: " message
                 (:user/log-in value)
-                  %ok $ %:: Op :user/log-in value
+                  match
+                    try-decode-map-as value $ :: 'List 'String
+                    (:ok credentials)
+                      if
+                        = 2 $ count credentials
+                        %ok $ Op :user/log-in credentials
+                        invalid-message "|Invalid user/log-in operation: expected two credentials"
+                    (:err message)
+                      invalid-message $ str "|Invalid user/log-in operation: " message
                 (:user/sign-up value)
-                  %ok $ %:: Op :user/sign-up value
+                  match
+                    try-decode-map-as value $ :: 'List 'String
+                    (:ok credentials)
+                      if
+                        = 2 $ count credentials
+                        %ok $ Op :user/sign-up credentials
+                        invalid-message "|Invalid user/sign-up operation: expected two credentials"
+                    (:err message)
+                      invalid-message $ str "|Invalid user/sign-up operation: " message
                 (:user/log-out)
-                  %ok $ %:: Op :user/log-out
+                  %ok $ Op :user/log-out
                 (:router/change value)
-                  %ok $ %:: Op :router/change value
+                  match (decode-route value)
+                    (:ok route)
+                      %ok $ Op :router/change route
+                    (:err message)
+                      invalid-message $ str "|Invalid router/change operation: " message
                 (:task/create-working value)
-                  %ok $ %:: Op :task/create-working value
+                  match (try-decode-map-as value 'String)
+                    (:ok text)
+                      %ok $ Op :task/create-working text
+                    (:err message)
+                      invalid-message $ str "|Invalid task/create-working operation: " message
                 (:task/remove-working value)
-                  %ok $ %:: Op :task/remove-working value
+                  match (try-decode-map-as value 'String)
+                    (:ok task-id)
+                      %ok $ Op :task/remove-working task-id
+                    (:err message)
+                      invalid-message $ str "|Invalid task/remove-working operation: " message
                 (:task/finish-working value)
-                  %ok $ %:: Op :task/finish-working value
+                  match (try-decode-map-as value 'String)
+                    (:ok task-id)
+                      %ok $ Op :task/finish-working task-id
+                    (:err message)
+                      invalid-message $ str "|Invalid task/finish-working operation: " message
                 (:task/update-working value)
-                  %ok $ %:: Op :task/update-working value
+                  let
+                      payload $ if (struct? value) (&struct:to-map value) value
+                    match (try-decode-map-as payload TaskEdit)
+                      (:ok edit)
+                        %ok $ Op :task/update-working edit
+                      (:err message)
+                        invalid-message $ str "|Invalid task/update-working operation: " message
                 (:task/touch-working value)
-                  %ok $ %:: Op :task/touch-working value
+                  match (try-decode-map-as value 'String)
+                    (:ok task-id)
+                      %ok $ Op :task/touch-working task-id
+                    (:err message)
+                      invalid-message $ str "|Invalid task/touch-working operation: " message
                 (:task/put-back value)
-                  %ok $ %:: Op :task/put-back value
+                  match (try-decode-map-as value 'String)
+                    (:ok task-id)
+                      %ok $ Op :task/put-back task-id
+                    (:err message)
+                      invalid-message $ str "|Invalid task/put-back operation: " message
                 (:task/pend value)
-                  %ok $ %:: Op :task/pend value
+                  match (try-decode-map-as value 'String)
+                    (:ok task-id)
+                      %ok $ Op :task/pend task-id
+                    (:err message)
+                      invalid-message $ str "|Invalid task/pend operation: " message
                 (:note/add value)
-                  %ok $ %:: Op :note/add value
+                  match (try-decode-map-as value 'String)
+                    (:ok text)
+                      %ok $ Op :note/add text
+                    (:err message)
+                      invalid-message $ str "|Invalid note/add operation: " message
                 (:note/edit value)
-                  %ok $ %:: Op :note/edit value
+                  let
+                      payload $ if (struct? value) (&struct:to-map value) value
+                    match (try-decode-map-as payload NoteEdit)
+                      (:ok edit)
+                        %ok $ Op :note/edit edit
+                      (:err message)
+                        invalid-message $ str "|Invalid note/edit operation: " message
                 (:note/remove value)
-                  %ok $ %:: Op :note/remove value
+                  match (try-decode-map-as value 'String)
+                    (:ok note-id)
+                      %ok $ Op :note/remove note-id
+                    (:err message)
+                      invalid-message $ str "|Invalid note/remove operation: " message
                 (:effect/persist)
-                  %ok $ %:: Op :effect/persist
+                  %ok $ Op :effect/persist
                 (:effect/ping)
-                  %ok $ %:: Op :effect/ping
+                  %ok $ Op :effect/ping
                 (:effect/pong)
-                  %ok $ %:: Op :effect/pong
+                  %ok $ Op :effect/pong
                 (:effect/connect)
-                  %ok $ %:: Op :effect/connect
+                  %ok $ Op :effect/connect
                 (:states cursor state)
-                  %ok $ %:: Op :states cursor state
+                  %ok $ Op :states cursor state
                 _ $ invalid-message $ str "|Unknown application operation: " op
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
-            :return $ :: 'Result 'app.schema/Op 'app.schema/MessageDecodeError
+            :return $ :: 'calcit.core/Result 'app.schema/Op 'app.schema/MessageDecodeError
+          :tests $ []
+            %{} 'TestEntry (:name |accepts-today-string)
+              :code $ quote $ assert=
+                %ok $ %:: Op :today |2026-09-25
+                decode-operation $ :: :today |2026-09-25
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-today-number)
+              :code $ quote $ assert= true
+                result:err? $ decode-operation $ :: :today 7
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-today-nil)
+              :code $ quote $ assert= true
+                result:err? $ decode-operation $ :: :today nil
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-note-add-string)
+              :code $ quote $ assert=
+                %ok $ %:: Op :note/add |hello
+                decode-operation $ :: :note/add |hello
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-note-add-number)
+              :code $ quote $ assert= true
+                result:err? $ decode-operation $ :: :note/add 7
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-note-add-nil)
+              :code $ quote $ assert= true
+                result:err? $ decode-operation $ :: :note/add nil
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-note-remove-string)
+              :code $ quote $ assert=
+                %ok $ %:: Op :note/remove |note-1
+                decode-operation $ :: :note/remove |note-1
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-note-remove-number)
+              :code $ quote $ assert= true
+                result:err? $ decode-operation $ :: :note/remove 7
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-note-remove-nil)
+              :code $ quote $ assert= true
+                result:err? $ decode-operation $ :: :note/remove nil
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-typed-task-text-and-ids)
+              :code $ quote $ do
+                assert=
+                  %ok $ %:: Op :task/create-working |write-docs
+                  decode-operation $ :: :task/create-working |write-docs
+                assert=
+                  %ok $ %:: Op :task/remove-working |task-1
+                  decode-operation $ :: :task/remove-working |task-1
+                assert=
+                  %ok $ %:: Op :task/finish-working |task-1
+                  decode-operation $ :: :task/finish-working |task-1
+                assert=
+                  %ok $ %:: Op :task/touch-working |task-1
+                  decode-operation $ :: :task/touch-working |task-1
+                assert=
+                  %ok $ %:: Op :task/put-back |task-1
+                  decode-operation $ :: :task/put-back |task-1
+                assert=
+                  %ok $ %:: Op :task/pend |task-1
+                  decode-operation $ :: :task/pend |task-1
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-non-string-task-payloads)
+              :code $ quote $ do
+                assert= true $ result:err? $ decode-operation (:: :task/create-working nil)
+                assert= true $ result:err? $ decode-operation (:: :task/remove-working 7)
+                assert= true $ result:err? $ decode-operation (:: :task/finish-working nil)
+                assert= true $ result:err? $ decode-operation (:: :task/touch-working 7)
+                assert= true $ result:err? $ decode-operation (:: :task/put-back nil)
+                assert= true $ result:err? $ decode-operation (:: :task/pend 7)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-typed-credentials)
+              :code $ quote $ do
+                assert=
+                  %ok $ %:: Op :user/log-in $ [] |Alice |secret
+                  decode-operation $ :: :user/log-in $ [] |Alice |secret
+                assert=
+                  %ok $ %:: Op :user/sign-up $ [] |Alice |secret
+                  decode-operation $ :: :user/sign-up $ [] |Alice |secret
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-malformed-credentials)
+              :code $ quote $ do
+                assert= true $ result:err? $ decode-operation
+                  :: :user/log-in $ [] |Alice
+                assert= true $ result:err? $ decode-operation
+                  :: :user/sign-up $ [] |Alice |secret |extra
+                assert= true $ result:err? $ decode-operation
+                  :: :user/log-in $ [] |Alice 7
+                assert= true $ result:err? $ decode-operation (:: :user/sign-up nil)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-typed-edit-payloads)
+              :code $ quote $ do
+                assert=
+                  %ok $ %:: Op :task/update-working $ %{} TaskEdit (:id |t1) (:text |Updated)
+                  decode-operation $ :: :task/update-working $ {} (:id |t1) (:text |Updated)
+                assert=
+                  %ok $ %:: Op :note/edit $ %{} NoteEdit (:id |n1) (:text |Updated)
+                  decode-operation $ :: :note/edit $ {} (:id |n1) (:text |Updated)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-malformed-edit-payloads)
+              :code $ quote $ do
+                assert= true $ result:err? $ decode-operation
+                  :: :task/update-working $ {} (:id 7) (:text |Updated)
+                assert= true $ result:err? $ decode-operation
+                  :: :task/update-working $ {} $ :id |t1
+                assert= true $ result:err? $ decode-operation
+                  :: :note/edit $ {} (:id |n1) (:text nil)
+                assert= true $ result:err? $ decode-operation (:: :note/edit nil)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-serialized-edit-structs)
+              :code $ quote $ do
+                assert=
+                  %ok $ %:: Op :task/update-working $ %{} TaskEdit (:id |t1) (:text |Updated)
+                  decode-operation $ parse-cirru-edn $ format-cirru-edn
+                    %:: Op :task/update-working $ %{} TaskEdit (:id |t1) (:text |Updated)
+                assert=
+                  %ok $ %:: Op :note/edit $ %{} NoteEdit (:id |n1) (:text |Updated)
+                  decode-operation $ parse-cirru-edn $ format-cirru-edn
+                    %:: Op :note/edit $ %{} NoteEdit (:id |n1) (:text |Updated)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-message-removal-ids)
+              :code $ quote $ let
+                  expected $ %ok $ Op :session/remove-message |m1
+                assert= expected $ decode-operation $ :: :session/remove-message |m1
+                assert= expected $ decode-operation $ :: :session/remove-message
+                  {} (:id |m1) (:token nil) (:index 0)
+                assert= expected $ decode-operation $ parse-cirru-edn
+                  format-cirru-edn $ Op :session/remove-message |m1
+              :tags $ #{} :client :server
+            %{} 'TestEntry (:name |rejects-invalid-message-removal-ids)
+              :code $ quote $ do
+                assert= true $ result:err? $ decode-operation (:: :session/remove-message nil)
+                assert= true $ result:err? $ decode-operation (:: :session/remove-message 7)
+                assert= true $ result:err? $ decode-operation
+                  :: :session/remove-message $ {}
+                assert= true $ result:err? $ decode-operation
+                  :: :session/remove-message $ {} $ :id nil
+                assert= true $ result:err? $ decode-operation
+                  :: :session/remove-message $ {} $ :id 7
+              :tags $ #{} :client :server
+            %{} 'TestEntry (:name |router-wire-compatibility)
+              :code $ quote $ let
+                  route $ Route :notes $ NotesRoute :year 2026 :month 8
+                  operation $ Op :router/change route
+                assert= (%ok operation)
+                  decode-operation $ :: :router/change $ {} (:name :notes)
+                    :data $ {} (:year 2026) (:month 8)
+                assert= (%ok operation)
+                  decode-operation $ parse-cirru-edn $ format-cirru-edn operation
+                assert= true $ result:err? $ decode-operation (:: :router/change nil)
+                assert= true $ result:err? $ decode-operation
+                  :: :router/change $ {} (:name :notes)
+                    :data $ {} (:year 2026) (:month -1)
+              :tags $ #{} :client :server
+        'decode-route $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-route (raw)
+            if (enum? raw)
+              let
+                  route $ assoc raw 0 $ turn-tag
+                      nth raw 0
+                      , .unwrap
+                match route
+                  (:home)
+                    %ok $ Route :home
+                  (:profile)
+                    %ok $ Route :profile
+                  (:history data)
+                    decode-route-map $ {} (:name :history)
+                      :data $ if (struct? data) (&struct:to-map data) data
+                  (:notes data)
+                    decode-route-map $ {} (:name :notes)
+                      :data $ if (struct? data) (&struct:to-map data) data
+                  _ $ %err |Unknown-route
+              decode-route-map raw
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :return $ :: 'calcit.core/Result 'app.schema/Route 'String
+          :tests $ [] $ %{} 'TestEntry (:name |validates-route-shapes)
+            :code $ quote $ do
+              assert=
+                %ok $ Route :home
+                decode-route $ {} $ :name :home
+              assert= true $ result:ok? $ decode-route
+                {} (:name :notes)
+                  :data $ {} (:year 2026) (:month 8)
+              assert= true $ result:err? $ decode-route
+                {} (:name :notes)
+                  :data $ {} (:year 2026) (:month 12)
+              assert= true $ result:err? $ decode-route
+                {} (:name :history)
+                  :data $ {}
+              assert= true $ result:err? $ decode-route
+                {} $ :name :unknown
+              assert= true $ result:err? $ decode-route nil
+            :tags $ #{} :server
+        'decode-route-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-route-map (raw)
+            let
+                data $ if (struct? raw) (&struct:to-map raw) raw
+              if (map? data)
+                case-default (&map:get data :name) (%err |Unknown-route)
+                  :home $ %ok $ Route :home
+                  :profile $ %ok $ Route :profile
+                  :history $ match
+                    try-decode-map-as (&map:get data :data) HistoryRoute
+                    (:ok route)
+                      if
+                        and
+                          >= (:week route) 1
+                          <= (:week route) 53
+                          =
+                            round $ :year route
+                            :year route
+                          =
+                            round $ :week route
+                            :week route
+                        %ok $ Route :history route
+                        %err |Invalid-history-range
+                    (:err message) (%err message)
+                  :notes $ match
+                    try-decode-map-as (&map:get data :data) NotesRoute
+                    (:ok route)
+                      if
+                        and
+                          >= (:month route) 0
+                          <= (:month route) 11
+                          =
+                            round $ :year route
+                            :year route
+                          =
+                            round $ :month route
+                            :month route
+                        %ok $ Route :notes route
+                        %err |Invalid-notes-range
+                    (:err message) (%err message)
+                %err |Expected-route-map
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :return $ :: 'calcit.core/Result 'app.schema/Route 'String
         'decode-server-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-server-message (data)
             let
@@ -1502,26 +2194,32 @@
                 (:snapshot revision store)
                   if
                     and (number? revision) (map? store)
-                    %ok $ %:: ServerMessage :snapshot revision $ unsafe-coerce store 'Map
+                    match (try-decode-map-as store 'Map)
+                      (:ok decoded-store)
+                        %ok $ ServerMessage :snapshot revision decoded-store
+                      (:err reason)
+                        invalid-message $ str "|Invalid snapshot envelope: " reason
                     invalid-message $ str "|Invalid snapshot envelope: " message
                 (:patch base-revision revision changes)
-                  let
-                      valid-changes? $ if (list? changes)
-                        every? (unsafe-coerce changes 'List)
-                          fn (change)
+                  if
+                    and (number? base-revision) (number? revision)
+                    match (try-decode-map-as changes 'List)
+                      (:ok decoded-list)
+                        if
+                          every? decoded-list $ fn (change)
                             = (enum-definition change) (%some recollect.schema/change-op)
-                        , false
-                    if
-                      and (number? base-revision) (number? revision) valid-changes?
-                      %ok $ %:: ServerMessage :patch base-revision revision $ unsafe-coerce changes (:: 'List 'recollect.schema/change-op)
-                      invalid-message $ str "|Invalid patch envelope: " message
+                          %ok $ ServerMessage :patch base-revision revision $ assert-type decoded-list (:: 'List 'recollect.schema/change-op)
+                          invalid-message $ str "|Invalid patch envelope: " message
+                      (:err reason)
+                        invalid-message $ str "|Invalid patch envelope: " reason
+                    invalid-message $ str "|Invalid patch envelope: " message
                 (:effect/pong)
-                  %ok $ %:: ServerMessage :effect/pong
+                  %ok $ ServerMessage :effect/pong
                 _ $ invalid-message $ str "|Unknown server message: " message
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
-            :return $ :: 'Result 'app.schema/ServerMessage 'app.schema/MessageDecodeError
+            :return $ :: 'calcit.core/Result 'app.schema/ServerMessage 'app.schema/MessageDecodeError
           :tests $ []
             %{} 'TestEntry (:name |decodes-pong)
               :code $ quote $ assert=
@@ -1547,19 +2245,290 @@
                 %:: Result :ok $ %:: ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
                 decode-server-message $ %:: ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
               :tags $ #{} :client
+            %{} 'TestEntry (:name |decodes-snapshot-map)
+              :code $ quote $ assert=
+                %:: Result :ok $ %:: ServerMessage :snapshot 2 $ {} (:a 1)
+                decode-server-message $ %:: ServerMessage :snapshot 2 $ {} (:a 1)
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-non-nominal-change)
+              :code $ quote $ assert= true
+                result:err? $ decode-server-message $ %:: ServerMessage :patch 3 4
+                  [] $ :: :replace 1
+              :tags $ #{} :client
+        'decode-task-record $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-task-record (raw)
+            let
+                normalized $ normalize-task-record raw
+              try-decode-map-as normalized TaskRecord
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'T
+            :generics $ [] 'T
+            :return $ :: 'calcit.core/Result 'app.schema/TaskRecord 'String
+          :tests $ []
+            %{} 'TestEntry (:name |legacy-nil-time-to-option)
+              :code $ quote $ match
+                decode-task-record $ {} (:id |x) (:text |ok) (:detail |) (:pending? false) (:created-time nil) (:touched-time nil) (:finished-time nil) (:archived-time nil)
+                (:ok task)
+                  and
+                    = |x $ :id task
+                    = (%none) (:created-time task)
+                    = (%none) (:archived-time task)
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-invalid-text-with-path)
+              :code $ quote $ match
+                decode-task-record $ {} (:id |x) (:text 3) (:detail |) (:pending? false)
+                (:err message) (starts-with? message "|decode-map-as failed at $.text:")
+                (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |missing-times-become-none)
+              :code $ quote $ match
+                decode-task-record $ {} (:id |x) (:text |ok) (:detail |) (:pending? false)
+                (:ok task)
+                  and
+                    = (%none) (:created-time task)
+                    = (%none) (:touched-time task)
+                    = (%none) (:finished-time task)
+                    = (%none) (:archived-time task)
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-missing-id-with-path)
+              :code $ quote $ match
+                decode-task-record $ {} (:text |ok) (:detail |) (:pending? false)
+                (:err message) (starts-with? message "|decode-map-as failed at $.id:")
+                (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-unknown-field)
+              :code $ quote $ match
+                decode-task-record $ {} (:id |x) (:text |ok) (:detail |) (:pending? false) (:surprise 1)
+                (:err message) (starts-with? message "|decode-map-as failed at $.surprise:")
+                (:ok _) false
+              :tags $ #{} :server
+        'decode-user-record $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-user-record (raw)
+            let
+                normalized $ if (map? raw)
+                  let
+                      cleaned $ foldl ([] :nickname :avatar :password) raw $ fn (entry field)
+                        if
+                          nil? $ &map:get entry field
+                          dissoc entry field
+                          , entry
+                      tasks $ &map:get cleaned :tasks
+                      notes $ &map:get cleaned :notes
+                      empty-tasks $ {}
+                        :working $ {}
+                        :pending $ {}
+                        :finished $ {}
+                      with-tasks $ &map:assoc cleaned :tasks $ if (nil? tasks) empty-tasks (normalize-user-tasks tasks)
+                    &map:assoc with-tasks :notes $ if (nil? notes) ({}) (normalize-note-map notes)
+                  , raw
+              try-decode-map-as normalized UserRecord
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'T
+            :generics $ [] 'T
+            :return $ :: 'calcit.core/Result 'app.schema/UserRecord 'String
+          :tests $ []
+            %{} 'TestEntry (:name |defaults-legacy-optional-fields)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice) (:nickname nil) (:avatar nil) (:password nil)
+                (:ok user)
+                  and
+                    = |u1 $ :id user
+                    = (%none) (:password user)
+                    = (%none) (:nickname user)
+                    empty? $ :notes user
+                    empty? $ :working $ :tasks user
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |migrates-nested-legacy-task)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice)
+                  :tasks $ {}
+                    :working $ {} $ |t1
+                      {} (:id |t1) (:text |work) (:detail |) (:pending? false) (:created-time nil)
+                    :pending $ {}
+                    :finished $ {}
+                (:ok user)
+                  = (%none)
+                    :created-time $ &map:get
+                      :working $ :tasks user
+                      , |t1
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |migrates-nested-legacy-note)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice)
+                  :notes $ {} $ |n1
+                    {} (:id |n1) (:text |hello) (:time 42) (:updated-time nil)
+                (:ok user)
+                  = (%none)
+                    :updated-time $ &map:get (:notes user) |n1
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-bad-nested-task-with-path)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice)
+                  :tasks $ {}
+                    :working $ {} $ |t1
+                      {} (:id |t1) (:text 7) (:detail |) (:pending? false)
+                    :pending $ {}
+                    :finished $ {}
+                (:err message)
+                  starts-with? message "|decode-map-as failed at $.tasks.working.value.text:"
+                (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |typed-edn-roundtrip)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice)
+                (:ok user)
+                  match
+                    try-parse-cirru-edn-as (format-cirru-edn user) UserRecord
+                    (:ok again)
+                      = |u1 $ :id again
+                    (:err _) false
+                (:err _) false
+              :tags $ #{} :server
+        'empty-database $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ def empty-database
+            DatabaseRecord :today |2018-08-07 :users ({}) :sessions $ {}
+          :examples $ []
+          :schema $ :: 'app.schema/DatabaseRecord
         'invalid-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn invalid-message (detail)
-            %:: Result :err $ %:: MessageDecodeError :invalid detail
+            %:: Result :err $ MessageDecodeError :invalid detail
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'String
             :generics $ [] 'T
-            :return $ :: 'Result 'app.schema/MessageDecodeError 'T
+            :return $ :: 'calcit.core/Result 'app.schema/MessageDecodeError 'T
+        'load-database $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn load-database (raw)
+            match (decode-database raw)
+              (:err message) (%err message)
+              (:ok legacy)
+                let
+                    users $ decode-map-as (&map:get legacy :users) (:: 'Map 'String 'Dynamic)
+                    decoded $ foldl (users .to-list)
+                      %ok $ {}
+                      fn (acc entry)
+                        match acc
+                          (:err message) (%err message)
+                          (:ok result)
+                            let-sugar
+                                  [] id raw-user
+                                  , entry
+                              match (decode-user-record raw-user)
+                                (:ok user)
+                                  %ok $ assoc result id user
+                                (:err message)
+                                  %err $ str |storage.cirru/:users/ id |: message
+                  match decoded
+                    (:err message) (%err message)
+                    (:ok records)
+                      %ok $ DatabaseRecord :today
+                        decode-map-as (&map:get legacy :today) 'String
+                        , :users records :sessions $ {}
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :return $ :: 'calcit.core/Result 'app.schema/DatabaseRecord 'String
+          :tests $ []
+            %{} 'TestEntry (:name |empty-legacy)
+              :code $ quote $ assert= (%ok empty-database)
+                load-database $ {}
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |legacy-round-trip)
+              :code $ quote $ let
+                  db $ struct-with (test-database)
+                    :sessions $ {}
+                  text $ format-cirru-edn $ database-to-map db
+                assert= (%ok db)
+                  load-database $ parse-cirru-edn text
+              :tags $ #{} :server
+        'new-session $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn new-session (sid)
+            SessionRecord :id sid :user-id (%none) :nickname (%none) :router (Route :home) :messages $ {}
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/SessionRecord)
+            :args $ [] 'Number
+        'normalize-note-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn normalize-note-map (raw)
+            if (map? raw)
+              .map raw $ fn (pair)
+                [] (&list:nth pair 0)
+                  normalize-note-record $ &list:nth pair 1
+              , raw
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'T)
+            :args $ [] 'T
+            :generics $ [] 'T
+        'normalize-note-record $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn normalize-note-record (raw)
+            if
+              and (map? raw)
+                nil? $ &map:get raw :updated-time
+              dissoc raw :updated-time
+              , raw
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'T)
+            :args $ [] 'T
+            :generics $ [] 'T
+        'normalize-task-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn normalize-task-map (raw)
+            if (map? raw)
+              .map raw $ fn (pair)
+                [] (&list:nth pair 0)
+                  normalize-task-record $ &list:nth pair 1
+              , raw
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'T)
+            :args $ [] 'T
+            :generics $ [] 'T
+        'normalize-task-record $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn normalize-task-record (raw)
+            if (map? raw)
+              foldl ([] :created-time :touched-time :finished-time :archived-time) raw $ fn (entry field)
+                if
+                  nil? $ &map:get entry field
+                  dissoc entry field
+                  , entry
+              , raw
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'T)
+            :args $ [] 'T
+            :generics $ [] 'T
+        'normalize-user-tasks $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn normalize-user-tasks (raw)
+            if (map? raw)
+              .map raw $ fn (pair)
+                [] (&list:nth pair 0)
+                  normalize-task-map $ &list:nth pair 1
+              , raw
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'T)
+            :args $ [] 'T
+            :generics $ [] 'T
         'note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def note
             {} (:id nil) (:time nil) (:updated-time nil) (:text nil)
           :examples $ []
           :schema $ :: 'Dynamic
+        'note-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn note-to-map (note)
+            {}
+              :id $ :id note
+              :text $ :text note
+              :time $ :time note
+              :updated-time $ match (:updated-time note)
+                (:some t) t
+                (:none) nil
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/NoteRecord
+            :return $ :: 'Map 'Tag 'Dynamic
         'notification $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def notification
             {} (:id nil) (:kind nil) (:text nil)
@@ -1586,6 +2555,34 @@
                 [] :a :b
               assert= |leaf $ read-path |leaf $ []
             :tags $ #{} :server
+        'route-operation $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn route-operation (data)
+            match (decode-route data)
+              (:ok route) (Op :router/change route)
+              (:err message)
+                raise $ str |Invalid-route: message
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/Op)
+            :args $ [] 'Dynamic
+        'route-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn route-to-map (route)
+            match route
+              (:home)
+                {} (:name :home) (:data nil) (:router nil)
+              (:profile)
+                {} (:name :profile) (:data nil) (:router nil)
+              (:history data)
+                {} (:name :history)
+                  :data $ &struct:to-map data
+                  :router nil
+              (:notes data)
+                {} (:name :notes)
+                  :data $ &struct:to-map data
+                  :router nil
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/Route
+            :return $ :: 'Map 'Tag 'Dynamic
         'router $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def router
             {} (:name nil) (:title nil)
@@ -1600,11 +2597,104 @@
               :messages $ {}
           :examples $ []
           :schema $ :: 'Dynamic
+        'session-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn session-to-map (session)
+            {}
+              :id $ :id session
+              :user-id $ match (:user-id session)
+                (:some v) v
+                (:none) nil
+              :nickname $ match (:nickname session)
+                (:some v) v
+                (:none) nil
+              :router $ route-to-map $ :router session
+              :messages $ filter-map-kv (:messages session)
+                fn (k v)
+                  MapEntryDecision :keep k $ &struct:to-map v
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/SessionRecord
+            :return $ :: 'Map 'Tag 'Dynamic
         'task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def task
             {} (:id nil) (:text |) (:detail |) (:pending? false) (:created-time nil) (:touched-time nil) (:finished-time nil) (:archived-time nil)
           :examples $ []
           :schema $ :: 'Dynamic
+        'task-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn task-to-map (task)
+            {}
+              :id $ :id task
+              :text $ :text task
+              :detail $ :detail task
+              :pending? $ :pending? task
+              :created-time $ match (:created-time task)
+                (:some t) t
+                (:none) nil
+              :touched-time $ match (:touched-time task)
+                (:some t) t
+                (:none) nil
+              :finished-time $ match (:finished-time task)
+                (:some t) t
+                (:none) nil
+              :archived-time $ match (:archived-time task)
+                (:some t) t
+                (:none) nil
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/TaskRecord
+            :return $ :: 'Map 'Tag 'Dynamic
+        'test-database $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn test-database ()
+            let
+                tasks $ UserTasks :working
+                  {}
+                    |t1 $ TaskRecord :id |t1 :text |one :detail | :pending? false
+                    |t2 $ TaskRecord :id |t2 :text |two :detail | :pending? true
+                  , :pending ({}) :finished $ {}
+                user-record $ UserRecord :id |u1 :name |Alice :nickname (%none) :avatar (%none) :password (%none) :tasks tasks :notes $ {}
+                session-record $ struct-with (new-session 7)
+                  :user-id $ %some |u1
+                  :messages $ {}
+                    |m1 $ NotificationRecord :id |m1 :text |remove
+                    |m2 $ NotificationRecord :id |m2 :text |keep
+              DatabaseRecord :today |2026-09-26 :users
+                {} $ |u1 user-record
+                , :sessions $ {} (7 session-record)
+                  8 $ new-session 8
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ []
+        'update-session $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn update-session (db sid f)
+            match
+              get (:sessions db) sid
+              (:none) db
+              (:some session-record)
+                struct-with db $ :sessions $ assoc (:sessions db) sid (f session-record)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number $ :: 'Fn
+              {} (:return 'app.schema/SessionRecord)
+                :args $ [] 'app.schema/SessionRecord
+        'update-user $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn update-user (db sid f)
+            match
+              get (:sessions db) sid
+              (:none) db
+              (:some session-record)
+                match (:user-id session-record)
+                  (:none) db
+                  (:some uid)
+                    match
+                      get (:users db) uid
+                      (:none) db
+                      (:some user-record)
+                        struct-with db $ :users $ assoc (:users db) uid (f user-record)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number $ :: 'Fn
+              {} (:return 'app.schema/UserRecord)
+                :args $ [] 'app.schema/UserRecord
         'user $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def user
             {} (:name nil) (:id nil) (:nickname nil) (:avatar nil) (:password nil)
@@ -1615,6 +2705,108 @@
               :notes $ do note $ {}
           :examples $ []
           :schema $ :: 'Dynamic
+        'user-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn user-to-map (user)
+            {}
+              :id $ :id user
+              :name $ :name user
+              :nickname $ match (:nickname user)
+                (:some v) v
+                (:none) nil
+              :avatar $ match (:avatar user)
+                (:some v) v
+                (:none) nil
+              :password $ match (:password user)
+                (:some v) v
+                (:none) nil
+              :notes $ filter-map-kv (:notes user)
+                fn (k v)
+                  MapEntryDecision :keep k $ note-to-map v
+              :tasks $ let
+                  tasks $ :tasks user
+                {}
+                  :working $ filter-map-kv (:working tasks)
+                    fn (k v)
+                      MapEntryDecision :keep k $ task-to-map v
+                  :pending $ filter-map-kv (:pending tasks)
+                    fn (k v)
+                      MapEntryDecision :keep k $ task-to-map v
+                  :finished $ filter-map-kv (:finished tasks)
+                    fn (k v)
+                      MapEntryDecision :keep k $ task-to-map v
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/UserRecord
+            :return $ :: 'Map 'Tag 'Dynamic
+        'validate-stored-users $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn validate-stored-users (users)
+            foldl (-> users keys .to-list) (%ok users)
+              fn (result user-id)
+                match result
+                  (:err message) (%err message)
+                  (:ok _)
+                    let
+                        candidate $ &map:get users user-id
+                      if (map? candidate)
+                        match (decode-user-record candidate)
+                          (:ok user)
+                            if
+                              = user-id $ :id user
+                              %ok users
+                              %err $ str |storage.cirru/:users/ user-id "|:id differs from map key"
+                          (:err detail)
+                            %err $ str |storage.cirru/:users/ user-id |: detail
+                        %err $ str |storage.cirru/:users/ user-id "|:legacy user record expected Map"
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] $ :: 'Map 'String 'T
+            :generics $ [] 'T
+            :return $ :: 'calcit.core/Result (:: 'Map 'String 'T) 'String
+          :tests $ []
+            %{} 'TestEntry (:name |accepts-legacy-user-map)
+              :code $ quote $ match
+                validate-stored-users $ {} $ |u1
+                  {} (:id |u1) (:name |Alice)
+                    :tasks $ {}
+                      :working $ {} $ |t1
+                        {} (:id |t1) (:text |work) (:detail |) (:pending? false) (:created-time nil)
+                      :pending $ {}
+                      :finished $ {}
+                (:ok users)
+                  = |Alice $ &map:get (&map:get users |u1) :name
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-nested-user-error-with-key)
+              :code $ quote $ match
+                validate-stored-users $ {} $ |u1
+                  {} (:id |u1) (:name |Alice)
+                    :tasks $ {}
+                      :working $ {} $ |t1
+                        {} (:id |t1) (:text 7) (:detail |) (:pending? false)
+                      :pending $ {}
+                      :finished $ {}
+                (:err message)
+                  starts-with? message "|storage.cirru/:users/u1:decode-map-as failed at $.tasks.working.value.text:"
+                (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-typed-user-until-updaters-migrate)
+              :code $ quote $ match
+                decode-user-record $ {} (:id |u1) (:name |Alice)
+                (:ok user)
+                  match
+                    validate-stored-users $ {} $ |u1 user
+                    (:err message)
+                      starts-with? message "|storage.cirru/:users/u1:legacy user record expected Map"
+                    (:ok _) false
+                (:err _) false
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-key-id-mismatch)
+              :code $ quote $ match
+                validate-stored-users $ {} $ |u1
+                  {} (:id |different) (:name |Alice)
+                (:err message) (starts-with? message "|storage.cirru/:users/u1:id differs from map key")
+                (:ok _) false
+              :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.schema
           :require $ recollect.schema :as patch-schema
@@ -1627,7 +2819,7 @@
         '*client-states $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *client-states ({})
           :examples $ []
-          :schema $ :: 'Ref $ :: 'Map 'Number 'Dynamic
+          :schema $ :: 'Ref $ :: 'Map 'Number (:: 'Map 'Tag 'Dynamic)
         '*dirty-clients $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *dirty-clients (#{})
           :examples $ []
@@ -1637,13 +2829,18 @@
             if (path-exists? storage-file)
               let
                   raw-data $ read-file storage-file
-                  loaded-db $ merge schema/database $ assert-type (parse-cirru-edn raw-data) (:: 'Map 'Tag 'Dynamic)
+                  loaded-db $ assert-type
+                    match
+                      schema/load-database $ parse-cirru-edn raw-data
+                      (:ok db) db
+                      (:err reason) (raise reason)
+                    , 'app.schema/DatabaseRecord
                 println |[storage] |loading storage-file |bytes $ count raw-data
-                println |[storage] |loaded storage-file |users $ count $ option:unwrap-or (get loaded-db :users) ({})
+                println |[storage] |loaded storage-file |users $ count $ :users loaded-db
                 , loaded-db
-              do (println |[storage] |missing storage-file) schema/database
+              do (println |[storage] |missing storage-file) schema/empty-database
           :examples $ []
-          :schema $ :: 'Ref $ :: 'Map 'Tag 'Dynamic
+          :schema $ :: 'Ref 'app.schema/DatabaseRecord
         '*reader-reel $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *reader-reel @*reel
           :examples $ []
@@ -1655,7 +2852,7 @@
           :schema $ :: 'Ref 'cumulo-reel.core/ReelState
         '*sync-metrics $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *sync-metrics
-            %{} SyncMetrics (:last-diff-latency-ms 0) (:last-patch-bytes 0) (:pending-clients 0) (:slow-clients 0) (:resync-count 0) (:patch-attempts 0) (:snapshot-attempts 0) (:last-revision 0)
+            SyncMetrics :last-diff-latency-ms 0 :last-patch-bytes 0 :pending-clients 0 :slow-clients 0 :resync-count 0 :patch-attempts 0 :snapshot-attempts 0 :last-revision 0
           :examples $ []
           :schema $ :: 'Ref 'app.server/SyncMetrics
         '*sync-retry-scheduled? $ %{} 'CodeEntry (:doc |)
@@ -1714,7 +2911,7 @@
               match op
                 (:effect/persist) (persist-db!)
                 (:effect/ping)
-                  wss-send! sid $ format-cirru-edn $ %:: schema/ServerMessage :effect/pong
+                  wss-send! sid $ format-cirru-edn $ schema/ServerMessage :effect/pong
                 _ $ let
                     previous-reel @*reel
                     next-reel $ reel-reducer previous-reel updater op sid op-id op-time config/dev?
@@ -1741,7 +2938,7 @@
               (:sync/active client-revision) (mark-client-active! sid client-revision false)
               (:sync/heartbeat client-revision)
                 do (touch-client! sid client-revision)
-                  wss-send! sid $ format-cirru-edn $ %:: schema/ServerMessage :effect/pong
+                  wss-send! sid $ format-cirru-edn $ schema/ServerMessage :effect/pong
                   , &unit
               (:sync/idle client-revision) (mark-client-idle! sid client-revision)
               (:sync/resume client-revision)
@@ -1752,8 +2949,7 @@
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'app.schema/ClientMessage 'Number
         'handle-sync-send! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn handle-sync-send! (sid revision new-store outcome)
-            swap! *client-states update sid $ fn (current) (next-sync-send-state current revision new-store outcome)
+          :code $ quote $ defn handle-sync-send! (sid revision new-store outcome) (swap! *client-states set-client-send-state sid revision new-store outcome)
             match outcome
               (:accepted) &unit
               (:backpressured)
@@ -1772,11 +2968,11 @@
                   dissoc
                     merge state $ {} (:needs-snapshot? true) (:in-flight? false)
                     , :sent-rev :sent-store
-                when
-                  = :active $ option:unwrap $ get
-                    option:unwrap $ get @*client-states sid
-                    , :status
-                  swap! *dirty-clients include sid
+                let
+                    state $ option:unwrap $ get @*client-states sid
+                  when
+                    = :active $ &map:get state :status
+                    swap! *dirty-clients include sid
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -1791,12 +2987,13 @@
                     (parse-float raw) .unwrap-or 11009
               run-server! port
               println $ str "|Server started on port:" port
-            do (; "|init it before doing multi-threading") (identity @*reader-reel)
+            ; "|init it before doing multi-threading"
+            identity @*reader-reel
             on-control-c on-exit!
             set-interval 600000 $ fn () $ persist-db!
             set-interval 60000 $ fn () $ set-today!
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'FfiTask)
+          :schema $ :: 'Fn $ {} (:return 'calcit.core/FfiTask)
             :args $ []
         'mark-client-active! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn mark-client-active! (sid client-revision force-snapshot?)
@@ -1842,7 +3039,7 @@
               fn (sid)
                 let
                     state $ option:unwrap $ get @*client-states sid
-                  swap! *client-states assoc-in ([] sid :dirty-rev) revision
+                  swap! *client-states set-client-dirty-revision sid revision
                   when
                     = :active $ option:unwrap $ get state :status
                     swap! *dirty-clients include sid
@@ -1917,9 +3114,10 @@
                   merge current $ {} (:status :idle) (:in-flight? false) (:last-send-outcome :closed)
                   , :sent-rev :sent-store
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'C)
-            :args $ [] 'C 'Number 'U 'wss.core/WssSendOutcome
-            :generics $ [] 'C 'U
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'V) 'Number 'U 'wss.core/WssSendOutcome
+            :generics $ [] 'V 'U
+            :return $ :: 'Map 'Tag 'V
           :tests $ []
             %{} 'TestEntry (:name |accepted-records-pending-store)
               :code $ quote $ assert=
@@ -1981,9 +3179,9 @@
         'persist-db! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn persist-db! ()
             let
-                file-content $ format-cirru-edn $ assoc
-                  :db $ unsafe-coerce @*reel 'cumulo-reel.core/ReelState
-                  , :sessions ({})
+                db $ assert-type (:db @*reel) 'app.schema/DatabaseRecord
+                file-content $ format-cirru-edn $ schema/database-to-map
+                  struct-with db $ :sessions $ {}
                 storage-path storage-file
                 backup-path $ get-backup-path!
               println |[storage] |persisting storage-path |backup backup-path |bytes $ count file-content
@@ -2005,18 +3203,23 @@
                 slow-clients $ count $ filter states
                   fn (state)
                     option:unwrap-or (get state :slow-client?) false
-              merge @*sync-metrics $ {} (:pending-clients pending-clients) (:slow-clients slow-clients)
+              struct-with @*sync-metrics (:pending-clients pending-clients) (:slow-clients slow-clients)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.server/SyncMetrics)
             :args $ []
+          :tests $ [] $ %{} 'TestEntry (:name |typed-metrics-gauges)
+            :code $ quote $ let
+                metrics $ read-sync-metrics
+              assert= 0 $ :pending-clients metrics
+              assert= 0 $ :slow-clients metrics
+            :tags $ #{} :server
         'record-resync! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn record-resync! () (swap! *sync-metrics update :resync-count inc)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
         'record-sync-send! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn record-sync-send! (message-kind revision diff-latency payload)
-            swap! *sync-metrics $ fn (metrics) (next-sync-metrics metrics message-kind revision diff-latency payload)
+          :code $ quote $ defn record-sync-send! (message-kind revision diff-latency payload) (swap! *sync-metrics next-sync-metrics message-kind revision diff-latency payload)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Tag 'Number 'Number 'String
@@ -2073,7 +3276,7 @@
                         :dirty-rev @*sync-revision
                         :in-flight? false
                         :needs-snapshot? true
-                      dispatch! (%:: schema/Op :session/connect) sid
+                      dispatch! (schema/Op :session/connect) sid
                       println "|New client."
                   (:message sid msg)
                     match
@@ -2082,7 +3285,7 @@
                       (:err error) (eprintln "|Invalid client message:" sid error)
                   (:disconnect sid)
                     do (println "|Client closed!")
-                      dispatch! (%:: schema/Op :session/disconnect) sid
+                      dispatch! (schema/Op :session/disconnect) sid
                       swap! *client-caches dissoc sid
                       swap! *client-states dissoc sid
                       swap! *dirty-clients exclude sid
@@ -2091,14 +3294,98 @@
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Number
+        'set-client-dirty-revision $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn set-client-dirty-revision (states sid revision)
+            let
+                state $ option:unwrap $ get states sid
+              assoc states sid $ assoc state :dirty-rev revision
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ []
+              :: 'Map 'Number $ :: 'Map 'Tag 'V
+              , 'Number 'Number
+            :generics $ [] 'V
+            :return $ :: 'Map 'Number $ :: 'Map 'Tag 'V
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-other-client-state)
+            :code $ quote $ let
+                states $ {}
+                  1 $ {} (:status :active) (:dirty-rev 2)
+                  2 $ {} (:status :idle) (:dirty-rev 3)
+                next $ set-client-dirty-revision states 1 7
+              do
+                assert= 7 $ &map:get (&map:get next 1) :dirty-rev
+                assert= :active $ &map:get (&map:get next 1) :status
+                assert= (&map:get states 2) (&map:get next 2)
+                assert= 2 $ &map:get (&map:get states 1) :dirty-rev
+            :tags $ #{} :server
+        'set-client-last-heartbeat $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn set-client-last-heartbeat (states sid timestamp)
+            let
+                state $ option:unwrap $ get states sid
+              assoc states sid $ assoc state :last-heartbeat timestamp
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ []
+              :: 'Map 'Number $ :: 'Map 'Tag 'V
+              , 'Number 'Number
+            :generics $ [] 'V
+            :return $ :: 'Map 'Number $ :: 'Map 'Tag 'V
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-other-client-state)
+            :code $ quote $ let
+                states $ {}
+                  1 $ {} (:status :active) (:last-heartbeat 2)
+                  2 $ {} (:status :idle) (:last-heartbeat 3)
+                next $ set-client-last-heartbeat states 1 7
+              do
+                assert= 7 $ &map:get (&map:get next 1) :last-heartbeat
+                assert= :active $ &map:get (&map:get next 1) :status
+                assert= (&map:get states 2) (&map:get next 2)
+            :tags $ #{} :server
+        'set-client-send-state $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn set-client-send-state (states sid revision new-store outcome)
+            match (get states sid)
+              (:some current)
+                assoc states sid $ next-sync-send-state current revision new-store outcome
+              (:none) states
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ []
+              :: 'Map 'Number $ :: 'Map 'Tag 'V
+              , 'Number 'Number 'U 'wss.core/WssSendOutcome
+            :generics $ [] 'V 'U
+            :return $ :: 'Map 'Number $ :: 'Map 'Tag 'V
+          :tests $ []
+            %{} 'TestEntry (:name |accepted-update-preserves-other-client)
+              :code $ quote $ let
+                  states $ {}
+                    1 $ {} $ :status :active
+                    2 $ {} $ :status :idle
+                  next $ set-client-send-state states 1 7
+                    {} $ :value 1
+                    %:: wss.core/WssSendOutcome :accepted
+                do
+                  assert= 7 $ &map:get (&map:get next 1) :sent-rev
+                  assert= true $ &map:get (&map:get next 1) :in-flight?
+                  assert= (&map:get states 2) (&map:get next 2)
+                  assert= false $ contains? (&map:get states 1) :sent-rev
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |missing-client-is-unchanged)
+              :code $ quote $ let
+                  states $ {} $ 1
+                    {} $ :status :active
+                  next $ set-client-send-state states 3 7
+                    {} $ :value 1
+                    %:: wss.core/WssSendOutcome :accepted
+                assert= states next
+              :tags $ #{} :server
         'set-today! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-today! ()
             let
                 today $ wo-log $ format-time (current-date!) (%some |%Y-%m-%d)
-                reel $ unsafe-coerce @*reel 'cumulo-reel.core/ReelState
-                old-today $ &map:get (:db reel) :today
+                reel @*reel
+                old-today $ :today $ assert-type (:db reel) 'app.schema/DatabaseRecord
               when (not= today old-today)
-                dispatch! (%:: schema/Op :today today) 0
+                dispatch! (schema/Op :today today) 0
             , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -2118,7 +3405,7 @@
                   = :active $ option:unwrap $ get state :status
                   not $ option:unwrap-or (get state :in-flight?) false
                 let
-                    db $ :db reel
+                    db $ schema/database-to-map $ assert-type (:db reel) 'app.schema/DatabaseRecord
                     records $ :records reel
                     session $ schema/read-path db $ [] :sessions sid
                     old-store-option $ get @*client-caches sid
@@ -2134,13 +3421,13 @@
                     base-revision $ option:unwrap-or (get state :acked-rev) 0
                   if send-snapshot?
                     let
-                        payload $ format-cirru-edn $ %:: schema/ServerMessage :snapshot revision new-store
+                        payload $ format-cirru-edn $ schema/ServerMessage :snapshot revision new-store
                       record-sync-send! :snapshot revision diff-latency payload
                       handle-sync-send! sid revision new-store $ wss-send! sid payload
                     if
                       not= changes $ []
                       let
-                          payload $ format-cirru-edn $ %:: schema/ServerMessage :patch base-revision revision changes
+                          payload $ format-cirru-edn $ schema/ServerMessage :patch base-revision revision changes
                         record-sync-send! :patch revision diff-latency payload
                         handle-sync-send! sid revision new-store $ wss-send! sid payload
                       , &unit
@@ -2177,7 +3464,7 @@
                 state $ option:unwrap $ get @*client-states sid
               if
                 = :active $ option:unwrap $ get state :status
-                swap! *client-states assoc-in ([] sid :last-heartbeat) (now-ms)
+                swap! *client-states set-client-last-heartbeat sid $ now-ms
                 mark-client-active! sid client-revision true
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -2245,39 +3532,88 @@
                 base-data $ {} (:logged-in? logged-in?) (:session session-data) (:router router)
                   :reel-length $ count records
                 user $ schema/read-path db $ [] :users (&map:get session-data :user-id)
-              merge base-data $ if logged-in?
-                {}
-                  :user $ twig-user user
-                  :router $ assoc router :data $ case-default (&map:get router :name) ({})
-                    :home $ {} $ :tasks
-                      schema/read-path user $ [] :tasks :working
-                    :history $ {}
-                      :week $ &map:get router :data
-                      :tasks $ twig-tasks-by-week (&map:get router :data)
-                        schema/read-path user $ [] :tasks :finished
-                    :notes $ twig-notes-by-month (&map:get router :data) (&map:get user :notes)
-                    :profile $ twig-members (&map:get db :sessions) (&map:get db :users)
-                  :count $ count $ &map:get db :sessions
-                  :color $ rand-hex-color!
-                  :today $ &map:get db :today
-                {}
+              merge base-data $ decode-map-as
+                if logged-in?
+                  {}
+                    :user $ twig-user $ decode-map-as user (:: 'Map 'Tag 'Dynamic)
+                    :router $ assoc router :data $ case-default (&map:get router :name) ({})
+                      :home $ {} $ :tasks
+                        schema/read-path user $ [] :tasks :working
+                      :history $ {}
+                        :week $ &map:get router :data
+                        :tasks $ twig-tasks-by-week
+                          decode-map-as (&map:get router :data) (:: 'Map 'Tag 'Dynamic)
+                          decode-map-as
+                            schema/read-path user $ [] :tasks :finished
+                            :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                      :notes $ twig-notes-by-month
+                        decode-map-as (&map:get router :data) (:: 'Map 'Tag 'Dynamic)
+                        decode-map-as
+                          if
+                            map? $ &map:get user :notes
+                            &map:get user :notes
+                            {}
+                          :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                      :profile $ twig-members (&map:get db :sessions) (&map:get db :users)
+                    :count $ count $ &map:get db :sessions
+                    :color $ rand-hex-color!
+                    :today $ &map:get db :today
+                  {}
+                :: 'Map 'Tag 'Dynamic
           :examples $ []
-          :schema $ :: 'Dynamic
-          :tests $ [] $ %{} 'TestEntry (:name |defaults-missing-session)
-            :code $ quote $ let
-                init-db $ {}
-                init-records $ []
-                result $ twig-container init-db nil init-records
-              do
-                assert= true $ map? result
-                assert= schema/session $ &map:get result :session
-            :tags $ #{} :server
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'D) 'S $ :: 'List 'R
+            :generics $ [] 'D 'S 'R
+            :return $ :: 'Map 'Tag 'Dynamic
+          :tests $ []
+            %{} 'TestEntry (:name |defaults-missing-session)
+              :code $ quote $ let
+                  init-db $ decode-map-as ({}) (:: 'Map 'Tag 'Dynamic)
+                  init-records $ []
+                  result $ twig-container init-db nil init-records
+                do
+                  assert= true $ map? result
+                  assert= schema/session $ &map:get result :session
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |omits-private-fields-for-logged-in-user)
+              :code $ quote $ let
+                  user $ -> schema/user (assoc :id |u) (assoc :name |Alice) (assoc :password |secret)
+                  db $ assoc-in schema/database ([] :users |u) user
+                  session $ assoc schema/session :user-id |u
+                  twig $ twig-container
+                    decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                    , session $ []
+                  visible-user $ &map:get twig :user
+                do
+                  assert= |Alice $ &map:get visible-user :name
+                  assert= false $ contains? visible-user :password
+                  assert= false $ contains? visible-user :tasks
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |legacy-user-without-notes-opens-notes)
+              :code $ quote $ let
+                  db $ assoc-in schema/database ([] :users |u1)
+                    {} (:id |u1) (:name |Alice)
+                  session0 $ assoc schema/session :user-id |u1
+                  session $ assoc session0 :router $ {} (:name :notes)
+                    :data $ {} (:year 2026) (:month 8)
+                  twig $ twig-container
+                    decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                    , session $ []
+                  notes $ schema/read-path twig $ [] :router :data
+                assert |legacy-notes-stays-map $ map? notes
+                assert |legacy-notes-is-empty $ empty? notes
+              :tags $ #{} :server
         'twig-members $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-members (sessions users)
             -> sessions $ filter-map-kv $ fn (k session)
               %:: MapEntryDecision :keep k $ schema/read-path users $ [] (&map:get session :user-id) :name
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ []
+              :: 'Map 'K $ :: 'Map 'Tag 'S
+              :: 'Map 'String $ :: 'Map 'Tag 'U
+            :generics $ [] 'K 'S 'U
+            :return $ :: 'Map 'K 'Dynamic
         'twig-notes-by-month $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-notes-by-month (data notes)
             let
@@ -2286,12 +3622,23 @@
               -> notes (identity)
                 &map:filter-kv $ fn (k task)
                   let
-                      time $ extract-time $ :: Date0 (&map:get task :time)
+                      time $ extract-time $ Date0 :date (&map:get task :time)
                     and
                       = year $ &map:get time :year
                       = month $ &map:get time :month
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'D) (:: 'Map 'K 'N)
+            :generics $ [] 'D 'K 'N
+            :return $ :: 'Map 'K 'N
+          :tests $ [] $ %{} 'TestEntry (:name |filters-persisted-note-by-month)
+            :code $ quote $ let
+                stamp $ get-timestamp $ from-ymd 2026 9 25
+                result $ twig-notes-by-month
+                  {} (:year 2026) (:month 8)
+                  {} $ |n1 $ {} (:time stamp) (:text |test)
+              assert= 1 $ count result
+            :tags $ #{} :server
         'twig-tasks-by-week $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-tasks-by-week (data tasks)
             let
@@ -2309,7 +3656,10 @@
                       &> t $ get-timestamp start-time
                       &< t $ get-timestamp end-time
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'Tag 'D) (:: 'Map 'K 'T)
+            :generics $ [] 'D 'K 'T
+            :return $ :: 'Map 'K 'T
         'week-millis $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def week-millis (* 7 24 3600 1000)
           :examples $ []
@@ -2328,7 +3678,16 @@
           :code $ quote $ defn twig-user (user)
             -> user (dissoc :password) (dissoc :tasks)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {}
+            :args $ [] $ :: 'Map 'Tag 'V
+            :generics $ [] 'V
+            :return $ :: 'Map 'Tag 'V
+          :tests $ [] $ %{} 'TestEntry (:name |omits-private-and-task-fields)
+            :code $ quote $ assert=
+              {} $ :name |Alice
+              twig-user $ {} (:name |Alice) (:password |secret)
+                :tasks $ {}
+            :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.twig.user
           :require $ [] recollect.twig :refer $ [] deftwig
@@ -2357,7 +3716,68 @@
               (:note/remove op-data) (note/remove-note db op-data sid op-id op-time)
               _ $ do (eprintln "|Unknown op:" op) db
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'app.schema/Op 'Number 'String 'Number
+          :tests $ []
+            %{} 'TestEntry (:name |typed-business-lifecycle)
+              :code $ quote $ let
+                  connected $ updater schema/empty-database (schema/Op :session/connect) 7 |connect 1
+                  signed $ updater connected
+                    schema/Op :user/sign-up $ [] |Alice |secret
+                    , 7 |u1 2
+                  created $ updater signed (schema/Op :task/create-working |first) 7 |t1 3
+                  edited $ updater created
+                    schema/Op :task/update-working $ schema/TaskEdit :id |t1 :text |edited
+                    , 7 |edit 4
+                  finished $ updater edited (schema/Op :task/finish-working |t1) 7 |finish 5
+                  restored $ updater finished (schema/Op :task/put-back |t1) 7 |restore 6
+                  with-note $ updater restored (schema/Op :note/add |note) 7 |n1 7
+                  note-edited $ updater with-note
+                    schema/Op :note/edit $ schema/NoteEdit :id |n1 :text |new-note
+                    , 7 |edit-note 8
+                  legacy $ schema/database-to-map note-edited
+                  removed $ updater note-edited (schema/Op :note/remove |n1) 7 |remove-note 9
+                  logged-out $ updater removed (schema/Op :user/log-out) 7 |logout 10
+                  logged-in $ updater logged-out
+                    schema/Op :user/log-in $ [] |Alice |secret
+                    , 7 |login 11
+                  disconnected $ updater logged-in (schema/Op :session/disconnect) 7 |disconnect 12
+                assert= |edited $ schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :text
+                assert= 6 $ schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :touched-time
+                assert= |new-note $ schema/read-path legacy $ [] :users |u1 :notes |n1 :text
+                assert= |u1 $ schema/read-path (schema/database-to-map logged-in) ([] :sessions 7 :user-id)
+                assert= nil $ schema/read-path (schema/database-to-map removed) ([] :users |u1 :notes |n1)
+                assert= logged-out $ updater logged-out (schema/Op :task/create-working |forbidden) 7 |bad 12
+                assert= disconnected $ updater disconnected (schema/Op :note/add |late) 7 |bad 13
+                assert= disconnected $ updater disconnected
+                  schema/Op :user/sign-up $ [] |Bob |secret
+                  , 7 |bad 14
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |authentication-and-missing-records)
+              :code $ quote $ let
+                  connected $ updater schema/empty-database (schema/Op :session/connect) 7 |connect 1
+                  signed $ updater connected
+                    schema/Op :user/sign-up $ [] |Alice |secret
+                    , 7 |u1 2
+                  logged-out $ updater signed (schema/Op :user/log-out) 7 |logout 3
+                  wrong $ updater logged-out
+                    schema/Op :user/log-in $ [] |Alice |wrong
+                    , 7 |wrong 4
+                  duplicate $ updater wrong
+                    schema/Op :user/sign-up $ [] |Alice |secret
+                    , 7 |duplicate 5
+                  legacy $ schema/database-to-map duplicate
+                assert= nil $ schema/read-path legacy $ [] :sessions 7 :user-id
+                assert= 1 $ count $ :users duplicate
+                assert= "|Wrong password for Alice" $ schema/read-path legacy $ [] :sessions 7 :messages |wrong :text
+                assert= "|Name is taken: Alice" $ schema/read-path legacy $ [] :sessions 7 :messages |duplicate :text
+                assert= signed $ updater signed (schema/Op :task/touch-working |absent) 7 |op 6
+                assert= signed $ updater signed (schema/Op :task/pend |absent) 7 |op 6
+                assert= signed $ updater signed (schema/Op :task/finish-working |absent) 7 |op 6
+                assert= signed $ updater signed
+                  schema/Op :note/edit $ schema/NoteEdit :id |absent :text |x
+                  , 7 |op 6
+              :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater
           :require ([] app.updater.session :as session) ([] app.updater.user :as user) ([] app.updater.router :as router) ([] app.updater.misc :as misc) ([] app.updater.task :as task) ([] app.updater.note :as note) ([] app.schema :as schema)
@@ -2365,48 +3785,71 @@
     'app.updater.misc $ %{} 'FileEntry
       :defs $ {} $ 'set-today
         %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn set-today (db op-data sid op-id op-time) (assoc db :today op-data)
+          :code $ quote $ defn set-today (db op-data sid op-id op-time)
+            struct-with db $ :today op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
+          :tests $ []
+            %{} 'TestEntry (:name |preserves-other-fields)
+              :code $ quote $ let
+                  db $ schema/test-database
+                  updated $ set-today db |2026-09-27 7 |op 1
+                assert= |2026-09-27 $ :today updated
+                assert= (:users db) (:users updated)
+                assert= (:sessions db) (:sessions updated)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |adds-missing-today)
+              :code $ quote $ let
+                  loaded $ assert-type
+                    match
+                      schema/load-database $ {}
+                      (:ok value) value
+                      (:err message) (raise message)
+                    , 'app.schema/DatabaseRecord
+                  updated $ set-today loaded |2026-09-27 7 |op 1
+                assert= |2026-09-27 $ :today updated
+              :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.misc
+          :require $ app.schema :as schema
     'app.updater.note $ %{} 'FileEntry
       :defs $ {}
         'add-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn add-note (db op-data sid op-id op-time)
-            let
-                session $ schema/read-path db $ [] :sessions sid
-                user-id $ &map:get session :user-id
-                new-note $ merge schema/note $ {} (:id op-id) (:time op-time) (:text op-data)
-              assoc-in db ([] :users user-id :notes op-id) new-note
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              struct-with user-record $ :notes $ assoc (:notes user-record) op-id (schema/NoteRecord :id op-id :text op-data :time op-time)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
         'edit-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn edit-note (db op-data sid op-id op-time)
-            let
-                session $ schema/read-path db $ [] :sessions sid
-                user-id $ &map:get session :user-id
-                note-id $ &map:get op-data :id
-                text $ &map:get op-data :text
-              update-in db ([] :users user-id :notes note-id)
-                fn (note-option)
-                  match note-option
-                    (:some note) (assoc note :text text)
-                    (:none) nil
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              match
+                get (:notes user-record) (:id op-data)
+                (:none) user-record
+                (:some note)
+                  struct-with user-record $ :notes $ assoc (:notes user-record) (:id op-data)
+                    struct-with note $ :text $ :text op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'app.schema/NoteEdit 'Number 'String 'Number
         'remove-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-note (db op-data sid op-id op-time)
-            let
-                session $ schema/read-path db $ [] :sessions sid
-                user-id $ &map:get session :user-id
-              update-in db ([] :users user-id :notes)
-                fn (notes-option)
-                  let
-                      notes $ option:unwrap-or notes-option $ {}
-                    dissoc notes op-data
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              struct-with user-record $ :notes $ dissoc (:notes user-record) op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.note
           :require $ [] app.schema :as schema
@@ -2414,33 +3857,88 @@
       :defs $ {} $ 'change
         %{} 'CodeEntry (:doc |)
           :code $ quote $ defn change (db op-data sid op-id op-time)
-            assoc-in db ([] :sessions sid :router) op-data
+            schema/update-session db sid $ fn (session-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/SessionRecord
+                :return 'app.schema/SessionRecord
+              struct-with session-record $ :router op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'app.schema/Route 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.router
+          :require $ app.schema :as schema
     'app.updater.session $ %{} 'FileEntry
       :defs $ {}
         'connect $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn connect (db sid op-id op-time)
-            assoc-in db ([] :sessions sid)
-              merge schema/session $ {} $ :id sid
+            struct-with db $ :sessions $ assoc (:sessions db) sid (schema/new-session sid)
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number 'String 'Number
+          :tests $ [] $ %{} 'TestEntry (:name |initializes-session-and-preserves-other-fields)
+            :code $ quote $ let
+                db $ schema/test-database
+                updated $ connect db 9 |op 1
+              assert= (:users db) (:users updated)
+              assert= (:today db) (:today updated)
+              assert=
+                get (:sessions db) 7
+                get (:sessions updated) 7
+              assert=
+                %some $ schema/new-session 9
+                get (:sessions updated) 9
+            :tags $ #{} :server
         'disconnect $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn disconnect (db sid op-id op-time)
-            update db :sessions $ fn (session) (dissoc session sid)
+            struct-with db $ :sessions $ dissoc (:sessions db) sid
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number 'String 'Number
+          :tests $ [] $ %{} 'TestEntry (:name |removes-only-target-session)
+            :code $ quote $ let
+                db $ schema/test-database
+                updated $ disconnect db 7 |op 1
+              assert= (%none)
+                get (:sessions updated) 7
+              assert=
+                get (:sessions db) 8
+                get (:sessions updated) 8
+              assert= (:users db) (:users updated)
+            :tags $ #{} :server
         'remove-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-message (db op-data sid op-id op-time)
-            update-in db ([] :sessions sid :messages)
-              fn (messages-option)
-                let
-                    messages $ option:unwrap-or messages-option $ {}
-                  dissoc messages $ &map:get op-data :id
+            schema/update-session db sid $ fn (session-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/SessionRecord
+                :return 'app.schema/SessionRecord
+              struct-with session-record $ :messages $ dissoc (:messages session-record) op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
+          :tests $ []
+            %{} 'TestEntry (:name |removes-only-target-session-message)
+              :code $ quote $ let
+                  db $ schema/test-database
+                  updated $ remove-message db |m1 7 |op 1
+                  session-record $
+                    get (:sessions updated) 7
+                    , .unwrap
+                assert= (%none)
+                  get (:messages session-record) |m1
+                assert=
+                  %some $ schema/NotificationRecord :id |m2 :text |keep
+                  get (:messages session-record) |m2
+                assert=
+                  get (:sessions db) 8
+                  get (:sessions updated) 8
+                assert= updated $ remove-message updated |m1 7 |op 2
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |missing-session-is-no-op)
+              :code $ quote $ let
+                  db $ schema/test-database
+                assert= db $ remove-message db |m1 99 |op 1
+              :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.session
           :require $ [] app.schema :as schema
@@ -2448,109 +3946,146 @@
       :defs $ {}
         'create-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn create-working (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              assoc-in db ([] :users user-id :tasks :working op-id)
-                merge schema/task $ {} (:id op-id) (:text op-data) (:created-time op-time)
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                  task $ schema/TaskRecord :id op-id :text op-data :detail | :pending? false :created-time $ %some op-time
+                struct-with user-record $ :tasks $ struct-with tasks
+                  :working $ assoc (:working tasks) op-id task
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
         'finish-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn finish-working (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db ([] :users user-id :tasks)
-                fn (tasks-option)
-                  let
-                      tasks $ option:unwrap-or tasks-option $ {}
-                      task $ schema/read-path tasks $ [] :working op-data
-                    if
-                      not $ nil? task
-                      -> tasks
-                        update :working $ fn (items) (dissoc items op-data)
-                        assoc-in ([] :finished op-data) (assoc task :finished-time op-time)
-                      , tasks
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                match
+                  get (:working tasks) op-data
+                  (:none) user-record
+                  (:some task)
+                    struct-with user-record $ :tasks $ struct-with tasks
+                      :working $ dissoc (:working tasks) op-data
+                      :finished $ assoc (:finished tasks) op-data $ struct-with task
+                        :finished-time $ %some op-time
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
         'pend $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn pend (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db ([] :users user-id :tasks :working op-data :pending?) not
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                  id op-data
+                match
+                  get (:working tasks) id
+                  (:none) user-record
+                  (:some task)
+                    struct-with user-record $ :tasks $ struct-with tasks
+                      :working $ assoc (:working tasks) id $ struct-with task
+                        :pending? $ not $ :pending? task
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
+          :tests $ [] $ %{} 'TestEntry (:name |toggles-pending-and-preserves-other-tasks)
+            :code $ quote $ let
+                db $ schema/test-database
+                once $ pend db |t1 7 |op1 1
+                twice $ pend once |t1 7 |op2 2
+                legacy $ schema/database-to-map once
+              assert= true $ schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :pending?
+              assert= db twice
+              assert= true $ schema/read-path (schema/database-to-map twice) ([] :users |u1 :tasks :working |t2 :pending?)
+            :tags $ #{} :server
         'put-back $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn put-back (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db ([] :users user-id :tasks)
-                fn (tasks-option)
-                  let
-                      tasks $ option:unwrap-or tasks-option $ {}
-                      task $ schema/read-path tasks $ [] :finished op-data
-                    if
-                      not $ nil? task
-                      -> tasks
-                        update :finished $ fn (items) (dissoc items op-data)
-                        assoc-in ([] :working op-data) (assoc task :touched-time op-time)
-                      , tasks
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                match
+                  get (:finished tasks) op-data
+                  (:none) user-record
+                  (:some task)
+                    struct-with user-record $ :tasks $ struct-with tasks
+                      :finished $ dissoc (:finished tasks) op-data
+                      :working $ assoc (:working tasks) op-data $ struct-with task
+                        :touched-time $ %some op-time
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
         'remove-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-working (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-                working-path $ [] :users user-id :tasks :working
-                raw-tasks $ schema/read-path db working-path
-              if (map? raw-tasks)
-                let
-                    tasks $ assert-type raw-tasks $ :: 'Map 'String 'Dynamic
-                  assoc-in db working-path $ dissoc tasks op-data
-                , db
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                struct-with user-record $ :tasks $ struct-with tasks
+                  :working $ dissoc (:working tasks) op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |removes-only-new-fixture-task)
             :code $ quote $ let
-                sid 990001
-                user-id |timegrass-test-user
-                target-id |timegrass-test-delete-target
-                keep-id |timegrass-test-keep
-                target-task $ {} (:id target-id) (:text |delete-me)
-                keep-task $ {} (:id keep-id) (:text |keep-me)
-                db $ {}
-                  :sessions $ {} $ sid
-                    {} $ :user-id user-id
-                  :users $ {} $ user-id
-                    {} $ :tasks $ {}
-                      :working $ {} (target-id target-task) (keep-id keep-task)
-                updated $ remove-working db target-id sid |timegrass-test-op 1
-              do
-                assert |fresh-target-must-be-removed $ nil? $ schema/read-path updated ([] :users user-id :tasks :working target-id)
-                assert |unrelated-fixture-must-remain $ &= keep-task $ schema/read-path updated ([] :users user-id :tasks :working keep-id)
+                db $ schema/test-database
+                updated $ schema/database-to-map $ remove-working db |t1 7 |op 1
+                original $ schema/database-to-map db
+              assert= nil $ schema/read-path updated $ [] :users |u1 :tasks :working |t1
+              assert=
+                schema/read-path original $ [] :users |u1 :tasks :working |t2
+                schema/read-path updated $ [] :users |u1 :tasks :working |t2
             :tags $ #{} :server
         'touch-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn touch-working (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db ([] :users user-id :tasks :working op-data)
-                fn (task-option)
-                  match task-option
-                    (:some task) (assoc task :touched-time op-time)
-                    (:none) nil
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                  id op-data
+                match
+                  get (:working tasks) id
+                  (:none) user-record
+                  (:some task)
+                    struct-with user-record $ :tasks $ struct-with tasks
+                      :working $ assoc (:working tasks) id $ struct-with task
+                        :touched-time $ %some op-time
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
         'update-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn update-working (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db
-                [] :users user-id :tasks :working $ &map:get op-data :id
-                fn (task-option)
-                  match task-option
-                    (:some task)
-                      assoc task :text $ &map:get op-data :text
-                    (:none) nil
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                  id $ :id op-data
+                match
+                  get (:working tasks) id
+                  (:none) user-record
+                  (:some task)
+                    struct-with user-record $ :tasks $ struct-with tasks
+                      :working $ assoc (:working tasks) id $ struct-with task
+                        :text $ :text op-data
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'app.schema/TaskEdit 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.task
           :require $ [] app.schema :as schema
@@ -2558,60 +4093,110 @@
       :defs $ {}
         'log-in $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn log-in (db op-data sid op-id op-time)
-            let-sugar
-                  [] username password
-                  , op-data
-                maybe-user $ -> (&map:get db :users) (vals) (.to-list)
-                  find $ fn (user)
-                    and $ = username $ &map:get user :name
-              update-in db ([] :sessions sid)
-                fn (session-option)
-                  let
-                      session $ option:unwrap-or session-option schema/session
-                    match maybe-user
-                      (:some user)
-                        if
-                          = (md5 password) (&map:get user :password)
-                          assoc session :user-id $ &map:get user :id
-                          assoc session :messages $ assoc (&map:get session :messages) op-id $ {} (:id op-id)
-                            :text $ str "|Wrong password for " username
-                      (:none)
-                        assoc session :messages $ assoc (&map:get session :messages) op-id $ {} (:id op-id)
-                          :text $ str "|No user named: " username
+            if
+              and
+                = 2 $ count op-data
+                contains? (:sessions db) sid
+              let
+                  username $
+                    nth op-data 0
+                    , .unwrap
+                  password $
+                    nth op-data 1
+                    , .unwrap
+                  existing $ find
+                    -> (:users db) (vals) (.to-list)
+                    fn (user-record)
+                      hint-fn $ {}
+                        :args $ [] 'app.schema/UserRecord
+                        :return 'Bool
+                      = username $ :name user-record
+                match existing
+                  (:none)
+                    schema/add-session-message db sid op-id $ str "|No user named: " username
+                  (:some user-record)
+                    if
+                      = (:password user-record)
+                        %some $ md5 password
+                      schema/update-session db sid $ fn (session-record)
+                        hint-fn $ {}
+                          :args $ [] 'app.schema/SessionRecord
+                          :return 'app.schema/SessionRecord
+                        struct-with session-record $ :user-id $ %some (:id user-record)
+                      schema/add-session-message db sid op-id $ str "|Wrong password for " username
+              , db
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord (:: 'List 'String) 'Number 'String 'Number
         'log-out $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn log-out (db sid op-id op-time)
-            assoc-in db ([] :sessions sid :user-id) nil
+            schema/update-session db sid $ fn (session-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/SessionRecord
+                :return 'app.schema/SessionRecord
+              struct-with session-record $ :user-id $ %none
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number 'String 'Number
         'sign-up $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn sign-up (db op-data sid op-id op-time)
-            let-sugar
-                  [] username password
-                  , op-data
-                maybe-user $ find
-                    vals $ &map:get db :users
-                    , .to-list
-                  fn (user)
-                    = username $ &map:get user :name
-              match maybe-user
-                (:some _user)
-                  update-in db ([] :sessions sid :messages)
-                    fn (messages-option)
-                      let
-                          messages $ option:unwrap-or messages-option $ {}
-                        assoc messages op-id $ {} (:id op-id)
-                          :text $ str "|Name is taken: " username
-                (:none)
-                  -> db
-                    assoc-in ([] :sessions sid :user-id) op-id
-                    assoc-in ([] :users op-id)
-                      {} (:id op-id) (:name username) (:nickname username)
-                        :password $ md5 password
-                        :avatar nil
+            if
+              and
+                = 2 $ count op-data
+                contains? (:sessions db) sid
+              let
+                  username $
+                    nth op-data 0
+                    , .unwrap
+                  password $
+                    nth op-data 1
+                    , .unwrap
+                  existing $ find
+                    -> (:users db) (vals) (.to-list)
+                    fn (user-record)
+                      hint-fn $ {}
+                        :args $ [] 'app.schema/UserRecord
+                        :return 'Bool
+                      = username $ :name user-record
+                match existing
+                  (:some _)
+                    schema/add-session-message db sid op-id $ str "|Name is taken: " username
+                  (:none)
+                    let
+                        user-record $ schema/UserRecord :id op-id :name username :nickname (%some username) :avatar (%none) :password
+                          %some $ md5 password
+                          , :tasks
+                            schema/UserTasks :working ({}) :pending ({}) :finished $ {}
+                            , :notes $ {}
+                        with-user $ struct-with db $ :users
+                          assoc (:users db) op-id user-record
+                      schema/update-session with-user sid $ fn (session-record)
+                        hint-fn $ {}
+                          :args $ [] 'app.schema/SessionRecord
+                          :return 'app.schema/SessionRecord
+                        struct-with session-record $ :user-id $ %some op-id
+              , db
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord (:: 'List 'String) 'Number 'String 'Number
+          :tests $ [] $ %{} 'TestEntry (:name |new-user-retains-default-collections)
+            :code $ quote $ let
+                db $ struct-with schema/empty-database $ :sessions
+                  {} $ 7 $ schema/new-session 7
+                updated $ sign-up db ([] |Alice |secret) 7 |u1 1
+                user-record $
+                  get (:users updated) |u1
+                  , .unwrap
+                session-record $
+                  get (:sessions updated) 7
+                  , .unwrap
+              assert= (%some |u1) (:user-id session-record)
+              assert= ({}) (:notes user-record)
+              assert= ({})
+                :working $ :tasks user-record
+              assert= ({})
+                :finished $ :tasks user-record
+            :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.user
           :require

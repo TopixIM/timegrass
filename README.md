@@ -22,8 +22,12 @@ yarn watch-page
 yarn dev-page
 
 # realtime server
-mode=dev calcit calcit.cirru --entry server --compat-types -w
+mode=dev calcit calcit.cirru --entry server -w
 ```
+
+本地浏览器地址需显式带上 `?mode=dev&host=127.0.0.1&port=11009`；`mode=dev`
+只设置服务端进程环境变量，不会自动设置浏览器运行时参数。缺少该参数时浏览器会连接
+正式服务地址，开发与验收时请先确认控制台显示本地 WebSocket 地址。
 
 `calcit.cirru` now uses explicit entries: the default browser entry runs in
 JavaScript mode and the `server` entry runs natively. `storage.cirru` remains
@@ -48,26 +52,45 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-Calcit 0.14 enables strict preprocessing by default. This existing project uses
-`--compat-types` while its recorded quality baseline is reduced incrementally;
-both browser and server entries already enforce zero dynamic method dispatch.
+Calcit 默认执行严格类型检查。浏览器和服务端入口均以严格检查作为门禁；兼容模式
+测试仅用于迁移期回归，不能替代严格检查。数据库目前仍是异构结构，updater 的输入
+与返回值通过 `app.schema/database` 标记为 `Map<Tag, Dynamic>`；这是过渡边界，
+不是字段级模型。用户集合在遍历前进行类型解码。不再用旧的 Dynamic 数量基线作为
+合并门禁。数据库字段契约与持久化入口的后续收敛见
+[Timegrass #102](https://github.com/TopixIM/timegrass/issues/102)。
+
+服务端读取 `storage.cirru` 时先验证顶层 Map、`:today` 字符串及 `:users`、
+`:sessions` Map；缺失字段按默认值补齐，持久化的旧 session 在启动时清空。
+字段类型不符会带着 `storage.cirru/:field` 路径报错，不再直接把解析结果断言为
+数据库类型。用户、任务、笔记等内层字段仍需继续建模与迁移，见 #102。
+
+任务创建文本和任务 ID 操作采用 String payload，网络入口拒绝 nil/数字，客户端从
+投影读取任务 ID 时显式解码。历史周查询使用与服务端日期解析一致的时间格式；
+Dayjs adapter 检查与本地业务烟测覆盖该路径。
+登录与注册载荷为两个 String 组成的 List；服务端拒绝长度或元素类型错误的载荷，
+本地存储自动登录也复用同一入口解码。隔离存储中的注册与刷新后自动登录已验证。
+任务、笔记编辑载荷分别使用带 `id`/`text` String 字段的 Struct；网络入口将
+Cirru EDN 解析出的 Struct 转成 Map 后按声明类型解码。定义测试覆盖序列化往返，
+隔离浏览器中编辑任务和笔记并刷新后均能读到更新。
 
 ### Upgrade validation
 
-Use released module tags and validate the full graph before committing:
+使用已发布的模块版本，并在提交前验证完整依赖图：
 
 ```bash
 caps --ci
 caps verify --toolchain
 calcit edit format
-calcit calcit.cirru --compat-types --check-only
-calcit calcit.cirru --entry server --compat-types --check-only
-calcit calcit.cirru --compat-types analyze deprecated
-calcit calcit.cirru --compat-types analyze dynamic-methods --max 0
-yarn check-sync
+calcit calcit.cirru --entry server --compat-types test --require-match
+yarn check-client
 yarn compile-page
 yarn release-page
+yarn check-dayjs-adapter
+yarn check-server
 ```
+
+`yarn check-server` 必须使用与 `@calcit/procs` 一致的 Calcit 0.20.0，且严格检查与
+definition 测试全部通过；不能以兼容模式测试通过代替它。
 
 Never test a migration against the live `storage.cirru`. Copy it outside the
 repository, then verify the same load/persist path used by the server. The
