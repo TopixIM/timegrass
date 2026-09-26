@@ -36,7 +36,7 @@
           :doc "|Current nominal ws-edn client retained across browser recovery events."
           :code $ quote $ defatom *ws-client (%none)
           :examples $ []
-          :schema $ :: 'Ref $ :: 'Option 'ws-edn.client/WsClient
+          :schema $ :: 'Ref $ :: 'calcit.core/Option 'ws-edn.client/WsClient
         'ClientPatchError $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defenum ClientPatchError (:revision-mismatch 'Number 'Number) (:invalid-patch 'recollect.patch/PatchError)
           :examples $ []
@@ -73,7 +73,7 @@
           :schema $ :: 'Trait
         'ack-sync! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn ack-sync! (revision)
-            ws-send! $ %:: schema/ClientMessage :sync/ack revision
+            ws-send! $ schema/ClientMessage :sync/ack revision
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Number
@@ -139,46 +139,44 @@
             :features $ #{} :js-ffi
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dispatch! (op)
-            do
-              match op
-                (:states ignored-cursor ignored-state) &unit
-                _ $ js-ffi.shared/console-info! $ str-spaced |[operation] |sending
-                  str $ &enum:nth op 0
-              match op
-                (:states cursor s)
-                  reset! *states $ update-states @*states cursor s
-                (:effect/connect) (connect!)
-                _ $ ws-send! $ %:: schema/ClientMessage :dispatch op
+            match op
+              (:states ignored-cursor ignored-state) &unit
+              _ $ js-ffi.shared/console-info! $ str-spaced |[operation] |sending
+                str $ &enum:nth op 0
+            match op
+              (:states cursor s)
+                reset! *states $ update-states @*states cursor s
+              (:effect/connect) (connect!)
+              _ $ ws-send! $ schema/ClientMessage :dispatch op
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'app.schema/Op
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! ()
-            do
-              let
-                  dayjs-host $ unsafe-coerce dayjs DayjsFactoryHost
-                  plugin $ unsafe-coerce week-of-year JsObject
-                dayjs-host .extend! plugin
-              println "|Running mode:" $ if config/dev? |dev |release
-              if config/dev? $ load-console-formatter!
-              render-app!
-              connect!
-              add-watch *store :changes $ fn (store prev) (render-app!)
-              add-watch *states :changes $ fn (states prev) (render-app!)
-              on-page-touch $ fn ()
-                if
-                  = @*store $ :: :offline
-                  recover-connection!
+            let
+                dayjs-host $ unsafe-coerce dayjs DayjsFactoryHost
+                plugin $ unsafe-coerce week-of-year JsObject
+              dayjs-host .extend! plugin
+            println "|Running mode:" $ if config/dev? |dev |release
+            if config/dev? $ load-console-formatter!
+            render-app!
+            connect!
+            add-watch *store :changes $ fn (store prev) (render-app!)
+            add-watch *states :changes $ fn (states prev) (render-app!)
+            on-page-touch $ fn ()
+              if
+                = @*store $ :: :offline
+                recover-connection!
+              , &unit
+            js/window.addEventListener |visibilitychange $ fn (event)
+              when @*connected? $ send-activity!
+              , &unit
+            visibility-heartbeat
+              fn ()
+                when @*connected? $ ws-send! $ schema/ClientMessage :sync/heartbeat @*sync-revision
                 , &unit
-              js/window.addEventListener |visibilitychange $ fn (event)
-                when @*connected? $ send-activity!
-                , &unit
-              visibility-heartbeat
-                fn ()
-                  when @*connected? $ ws-send! $ %:: schema/ClientMessage :sync/heartbeat @*sync-revision
-                  , &unit
-                , 3000
-              println "|App started!"
+              , 3000
+            println "|App started!"
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -195,8 +193,7 @@
                 match message
                   (:snapshot revision store)
                     do (reset! *store store) (reset! *sync-revision revision) (ack-sync! revision)
-                  (:patch base-revision revision changes)
-                    do $ apply-server-patch! base-revision revision changes
+                  (:patch base-revision revision changes) (apply-server-patch! base-revision revision changes)
                   (:effect/pong) &unit
               (:err error)
                 js-ffi.shared/console-error! $ str-spaced "|Invalid server message:" error
@@ -252,15 +249,15 @@
             :args $ []
         'request-snapshot! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn request-snapshot! ()
-            ws-send! $ %:: schema/ClientMessage :sync/resume @*sync-revision
+            ws-send! $ schema/ClientMessage :sync/resume @*sync-revision
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
         'send-activity! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn send-activity! ()
             if (activity/page-visible?)
-              ws-send! $ %:: schema/ClientMessage :sync/active @*sync-revision
-              ws-send! $ %:: schema/ClientMessage :sync/idle @*sync-revision
+              ws-send! $ schema/ClientMessage :sync/active @*sync-revision
+              ws-send! $ schema/ClientMessage :sync/idle @*sync-revision
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -274,7 +271,7 @@
                     schema/decode-operation $ :: :user/log-in $ parse-cirru-edn (unsafe-coerce raw 'String)
                     (:ok op) (dispatch! op)
                     (:err _) (println "|Invalid saved login credentials")
-                do $ println "|Found no storage."
+                println "|Found no storage."
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -289,13 +286,13 @@
                   , store
                 (:ok next-store) (%ok next-store)
                 (:err error)
-                  %err $ %:: ClientPatchError :invalid-patch error
-              %err $ %:: ClientPatchError :revision-mismatch base-revision local-revision
+                  %err $ ClientPatchError :invalid-patch error
+              %err $ ClientPatchError :revision-mismatch base-revision local-revision
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'T 'Number 'Number $ :: 'List 'recollect.schema/change-op
             :generics $ [] 'T
-            :return $ :: 'Result 'T 'app.client/ClientPatchError
+            :return $ :: 'calcit.core/Result 'T 'app.client/ClientPatchError
           :tests $ []
             %{} 'TestEntry (:name |accepts-valid-revisioned-patch)
               :code $ quote $ let
@@ -852,7 +849,7 @@
           :schema $ :: 'Fn $ {}
             :args $ [] 'Input
             :generics $ [] 'Input
-            :return $ :: 'Result 'Number 'String
+            :return $ :: 'calcit.core/Result 'Number 'String
           :tests $ []
             %{} 'TestEntry (:name |accepts-number)
               :code $ quote $ assert= true
@@ -1329,8 +1326,8 @@
                 (:none) nil
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] 'String (:: 'Option 'respo.schema/Component)
-              :: 'Option $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] 'String (:: 'calcit.core/Option 'respo.schema/Component)
+              :: 'calcit.core/Option $ :: 'Fn $ {} (:return 'Unit)
                 :args $ [] (:: 'Map 'Tag 'Dynamic)
                   :: 'Fn $ {} (:return 'Unit)
                     :args $ [] 'app.schema/Op
@@ -1600,7 +1597,7 @@
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
-            :return $ :: 'Result 'app.schema/ClientMessage 'app.schema/MessageDecodeError
+            :return $ :: 'calcit.core/Result 'app.schema/ClientMessage 'app.schema/MessageDecodeError
           :tests $ []
             %{} 'TestEntry (:name |decodes-sync-control)
               :code $ quote $ assert=
@@ -1658,7 +1655,7 @@
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
-            :return $ :: 'Result 'app.schema/database 'String
+            :return $ :: 'calcit.core/Result 'app.schema/database 'String
           :tests $ []
             %{} 'TestEntry (:name |defaults-missing-fields)
               :code $ quote $ match
@@ -1752,7 +1749,7 @@
           :schema $ :: 'Fn $ {}
             :args $ [] 'T
             :generics $ [] 'T
-            :return $ :: 'Result 'app.schema/NoteRecord 'String
+            :return $ :: 'calcit.core/Result 'app.schema/NoteRecord 'String
           :tests $ []
             %{} 'TestEntry (:name |legacy-nil-update-to-option)
               :code $ quote $ match
@@ -1890,7 +1887,7 @@
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
-            :return $ :: 'Result 'app.schema/Op 'app.schema/MessageDecodeError
+            :return $ :: 'calcit.core/Result 'app.schema/Op 'app.schema/MessageDecodeError
           :tests $ []
             %{} 'TestEntry (:name |accepts-today-string)
               :code $ quote $ assert=
@@ -2045,7 +2042,7 @@
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
-            :return $ :: 'Result 'app.schema/ServerMessage 'app.schema/MessageDecodeError
+            :return $ :: 'calcit.core/Result 'app.schema/ServerMessage 'app.schema/MessageDecodeError
           :tests $ []
             %{} 'TestEntry (:name |decodes-pong)
               :code $ quote $ assert=
@@ -2090,7 +2087,7 @@
           :schema $ :: 'Fn $ {}
             :args $ [] 'T
             :generics $ [] 'T
-            :return $ :: 'Result 'app.schema/TaskRecord 'String
+            :return $ :: 'calcit.core/Result 'app.schema/TaskRecord 'String
           :tests $ []
             %{} 'TestEntry (:name |legacy-nil-time-to-option)
               :code $ quote $ match
@@ -2155,7 +2152,7 @@
           :schema $ :: 'Fn $ {}
             :args $ [] 'T
             :generics $ [] 'T
-            :return $ :: 'Result 'app.schema/UserRecord 'String
+            :return $ :: 'calcit.core/Result 'app.schema/UserRecord 'String
           :tests $ []
             %{} 'TestEntry (:name |defaults-legacy-optional-fields)
               :code $ quote $ match
@@ -2224,7 +2221,7 @@
           :schema $ :: 'Fn $ {}
             :args $ [] 'String
             :generics $ [] 'T
-            :return $ :: 'Result 'app.schema/MessageDecodeError 'T
+            :return $ :: 'calcit.core/Result 'app.schema/MessageDecodeError 'T
         'normalize-note-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-note-map (raw)
             if (map? raw)
@@ -2365,7 +2362,7 @@
           :schema $ :: 'Fn $ {}
             :args $ [] $ :: 'Map 'String 'T
             :generics $ [] 'T
-            :return $ :: 'Result (:: 'Map 'String 'T) 'String
+            :return $ :: 'calcit.core/Result (:: 'Map 'String 'T) 'String
           :tests $ []
             %{} 'TestEntry (:name |accepts-legacy-user-map)
               :code $ quote $ match
@@ -2594,7 +2591,7 @@
             set-interval 600000 $ fn () $ persist-db!
             set-interval 60000 $ fn () $ set-today!
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'FfiTask)
+          :schema $ :: 'Fn $ {} (:return 'calcit.core/FfiTask)
             :args $ []
         'mark-client-active! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn mark-client-active! (sid client-revision force-snapshot?)
