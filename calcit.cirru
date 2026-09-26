@@ -1330,6 +1330,97 @@
                 :args $ [] (:: 'Map 'Tag 'Dynamic)
                   :: 'Fn $ {} (:return 'Unit)
                     :args $ [] 'app.schema/Op
+          :tests $ []
+            %{} 'TestEntry (:name |absent-handler)
+              :code $ quote $ let
+                  component $ comp-title |Title
+                  tree $ .unwrap $ :tree component
+                assert-type tree respo.schema/Element
+                assert= 0 $ .count $ :style tree
+                assert= 2 $ .count $ :children tree
+              :tags $ #{} :js :title-contract
+            %{} 'TestEntry (:name |explicit-none)
+              :code $ quote $ let
+                  component $ comp-title |Title (%none) (%none)
+                  tree $ .unwrap $ :tree component
+                assert-type tree respo.schema/Element
+                assert= 0 $ .count $ :style tree
+                assert= 2 $ .count $ :children tree
+              :tags $ #{} :js :title-contract
+            %{} 'TestEntry (:name |callback-once)
+              :code $ quote $ let
+                  evaluations $ atom 0
+                  calls $ atom 0
+                  handler $ fn (e d!)
+                    reset! calls $ inc @calls
+                  dispatch! $ fn (op) &unit
+                hint-fn handler $ {}
+                  :return $ quote Unit
+                  :args $ []
+                    :: (quote Map) (quote Tag) (quote Dynamic)
+                    :: (quote Fn)
+                      {}
+                        :return $ quote Unit
+                        :args $ [] $ quote app.schema/Op
+                hint-fn dispatch! $ {}
+                  :args $ [] $ quote app.schema/Op
+                  :return $ quote Unit
+                let
+                    component $ comp-title |Title (%none)
+                      do
+                        reset! evaluations $ inc @evaluations
+                        %some handler
+                    tree $ .unwrap $ :tree component
+                  assert-type tree respo.schema/Element
+                  assert= 1 @evaluations
+                  assert= 0 @calls
+                  let
+                      click $ .unwrap $ .get (:event tree) :click
+                    click ({}) dispatch!
+                    assert= 1 @calls
+                    click ({}) dispatch!
+                    assert= 2 @calls
+                    assert= 1 @evaluations
+              :tags $ #{} :js :title-contract
+            %{} 'TestEntry (:name |child-once)
+              :code $ quote $ let
+                  evaluations $ atom 0
+                  component $ comp-title |Parent $ %some
+                    do
+                      reset! evaluations $ inc @evaluations
+                      comp-title |Child
+                  tree $ .unwrap $ :tree component
+                assert-type tree respo.schema/Element
+                assert= 1 @evaluations
+                assert= 3 $ .count $ :children tree
+              :tags $ #{} :js :title-contract
+            %{} 'TestEntry (:name |legacy-empty-handler-values)
+              :code $ quote $ let
+                  evaluations $ atom 0
+                  old-nil $ do
+                    reset! evaluations $ inc @evaluations
+                    , nil
+                  old-false $ do
+                    reset! evaluations $ inc @evaluations
+                    , false
+                  dispatch! $ fn (op) (raise |Unexpected-dispatch)
+                hint-fn dispatch! $ {}
+                  :args $ [] $ quote app.schema/Op
+                  :return $ quote Unit
+                assert= true $ nil? old-nil
+                assert= false old-false
+                assert= false $ fn? old-nil
+                assert= false $ fn? old-false
+                let
+                    component $ comp-title |Title (%none) (%none)
+                    tree $ .unwrap $ :tree component
+                  assert-type tree respo.schema/Element
+                  let
+                      click $ .unwrap $ .get (:event tree) :click
+                    click ({}) dispatch!
+                  assert= 0 $ .count $ :style tree
+                  assert= 2 @evaluations
+              :tags $ #{} :js :title-contract
         'css-task-base $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-task-base
             {}

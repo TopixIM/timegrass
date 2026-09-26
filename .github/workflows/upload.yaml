@@ -52,6 +52,9 @@ jobs:
     - name: Verify typed dayjs adapter in generated JavaScript
       run: yarn check-dayjs-adapter
 
+    - name: Verify optional title contract from Calcit tests
+      run: yarn check-title-contract
+
     - name: Verify session message operations in generated JavaScript
       run: yarn check-session-messages
 
@@ -63,7 +66,7 @@ jobs:
         calcit calcit.cirru --check-only
         calcit calcit.cirru test --tag :client --require-match
         calcit calcit.cirru --entry server --check-only
-        calcit calcit.cirru --entry server test --require-match
+        calcit calcit.cirru --entry server test --exclude-tag :js --require-match
 
     - run: mkdir -p dist-server && cp calcit.cirru package.json deps.cirru dist-server/
       name: Copy server scripts

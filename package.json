@@ -9,9 +9,10 @@
   "main": "index.js",
   "scripts": {
     "check-client": "calcit calcit.cirru --check-only && calcit calcit.cirru test --tag :client --require-match",
-    "check-server": "calcit calcit.cirru --entry server --check-only && calcit calcit.cirru --entry server test --require-match",
+    "check-server": "calcit calcit.cirru --entry server --check-only && calcit calcit.cirru --entry server test --exclude-tag :js --require-match",
     "check-sync": "yarn check-client && yarn check-server && calcit calcit.cirru analyze deprecated",
     "check-dayjs-adapter": "node check-dayjs-adapter.mjs",
+    "check-title-contract": "node check-title-contract.mjs",
     "check-session-messages": "node check-session-messages.mjs",
     "check-typed-database": "calcit calcit.cirru --entry server --emit-path .calcit/js-server js && node check-typed-database.mjs",
     "compile-page": "calcit calcit.cirru js",
