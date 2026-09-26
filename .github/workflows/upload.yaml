@@ -52,6 +52,9 @@ jobs:
     - name: Verify typed dayjs adapter in generated JavaScript
       run: yarn check-dayjs-adapter
 
+    - name: Verify session message operations in generated JavaScript
+      run: yarn check-session-messages
+
     - name: Enforce strict Calcit types
       run: |
         calcit calcit.cirru --check-only

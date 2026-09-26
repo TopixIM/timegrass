@@ -382,7 +382,10 @@
                   when dev? $ comp-inspect |Store store $ {} (:bottom 0) (:left 0) (:z-index 9999)
                   comp-messages (&map:get session :messages) ({})
                     fn (info d!)
-                      d! $ :: :session/remove-message info
+                      match
+                        schema/decode-operation $ :: :session/remove-message info
+                        (:ok op) (d! op)
+                        (:err _) &unit
                   when dev? $ comp-reel (&map:get store :reel-length) ({})
               (:: :initial) (comp-offline :initial)
               (:: :offline) (comp-offline :offline)
@@ -1488,7 +1491,7 @@
           :examples $ []
           :schema $ :: 'StructDef
         'Op $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'Dynamic)
+          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'String)
             :user/log-in $ :: 'List 'String
             :user/sign-up $ :: 'List 'String
             :user/log-out
@@ -1784,7 +1787,13 @@
                 (:session/disconnect)
                   %ok $ %:: Op :session/disconnect
                 (:session/remove-message value)
-                  %ok $ %:: Op :session/remove-message value
+                  let
+                      raw-id $ if (map? value) (&map:get value :id) value
+                    match (try-decode-map-as raw-id 'String)
+                      (:ok message-id)
+                        %ok $ Op :session/remove-message message-id
+                      (:err message)
+                        invalid-message $ str "|Invalid session/remove-message operation: " message
                 (:user/log-in value)
                   match
                     try-decode-map-as value $ :: 'List 'String
@@ -2007,6 +2016,26 @@
                   decode-operation $ parse-cirru-edn $ format-cirru-edn
                     %:: Op :note/edit $ %{} NoteEdit (:id |n1) (:text |Updated)
               :tags $ #{} :server
+            %{} 'TestEntry (:name |accepts-message-removal-ids)
+              :code $ quote $ let
+                  expected $ %ok $ Op :session/remove-message |m1
+                assert= expected $ decode-operation $ :: :session/remove-message |m1
+                assert= expected $ decode-operation $ :: :session/remove-message
+                  {} (:id |m1) (:token nil) (:index 0)
+                assert= expected $ decode-operation $ parse-cirru-edn
+                  format-cirru-edn $ Op :session/remove-message |m1
+              :tags $ #{} :client :server
+            %{} 'TestEntry (:name |rejects-invalid-message-removal-ids)
+              :code $ quote $ do
+                assert= true $ result:err? $ decode-operation (:: :session/remove-message nil)
+                assert= true $ result:err? $ decode-operation (:: :session/remove-message 7)
+                assert= true $ result:err? $ decode-operation
+                  :: :session/remove-message $ {}
+                assert= true $ result:err? $ decode-operation
+                  :: :session/remove-message $ {} $ :id nil
+                assert= true $ result:err? $ decode-operation
+                  :: :session/remove-message $ {} $ :id 7
+              :tags $ #{} :client :server
         'decode-server-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-server-message (data)
             let
@@ -3425,15 +3454,42 @@
               assert= |two $ schema/read-path updated $ [] :sessions 2
             :tags $ #{} :server
         'remove-message $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn remove-message (db op-data sid op-id op-time)
-            update-in db ([] :sessions sid :messages)
-              fn (messages-option)
-                let
-                    messages $ option:unwrap-or messages-option $ {}
-                  dissoc messages $ &map:get op-data :id
+          :code $ quote $ defn remove-message (db message-id sid op-id op-time)
+            if
+              contains? (&map:get db :sessions) sid
+              update-in db ([] :sessions sid :messages)
+                fn (messages-option)
+                  let
+                      messages $ option:unwrap-or messages-option $ {}
+                    dissoc messages message-id
+              , db
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :tests $ []
+            %{} 'TestEntry (:name |removes-only-target-session-message)
+              :code $ quote $ let
+                  db $ {} (:today |2026-09-26)
+                    :sessions $ {}
+                      7 $ {} $ :messages
+                        {} (|m1 |remove) (|m2 |keep)
+                      8 $ {} $ :messages
+                        {} $ |m1 |other-session
+                  expected $ {} (:today |2026-09-26)
+                    :sessions $ {}
+                      7 $ {} $ :messages
+                        {} $ |m2 |keep
+                      8 $ {} $ :messages
+                        {} $ |m1 |other-session
+                assert= expected $ remove-message db |m1 7 |op 1
+                assert= expected $ remove-message expected |m1 7 |op 2
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |missing-session-is-no-op)
+              :code $ quote $ let
+                  db $ {} (:today |2026-09-26)
+                    :sessions $ {}
+                assert= db $ remove-message db |m1 7 |op 1
+              :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.session
           :require $ [] app.schema :as schema
