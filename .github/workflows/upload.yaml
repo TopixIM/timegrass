@@ -55,6 +55,9 @@ jobs:
     - name: Verify session message operations in generated JavaScript
       run: yarn check-session-messages
 
+    - name: Verify typed database operations in generated JavaScript
+      run: yarn check-typed-database
+
     - name: Enforce strict Calcit types
       run: |
         calcit calcit.cirru --check-only

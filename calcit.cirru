@@ -542,7 +542,7 @@
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ :: :router/change $ {} (:name :history)
+                          d! $ schema/route-operation $ {} (:name :history)
                             :data $ let
                                 change-year? $ <= week 1
                                 y $ if change-year? (dec year) year
@@ -557,7 +557,7 @@
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ :: :router/change $ {} (:name :history)
+                          d! $ schema/route-operation $ {} (:name :history)
                             :data $ let
                                 change-year? $ >= week 53
                                 y $ if change-year? (inc year) year
@@ -639,6 +639,7 @@
             feather.core :refer $ comp-icon
             app.style :refer $ merge-styles
             app.comp.navigation :refer $ format-timestamp decode-timestamp week-bounds date-labels
+            app.schema :as schema
     'app.comp.login $ %{} 'FileEntry
       :defs $ {}
         'comp-login $ %{} 'CodeEntry (:doc |)
@@ -774,7 +775,7 @@
                     :style $ {} (:cursor |pointer) (:user-select :none)
                     :tab-index 0
                     :on-click $ fn (e d!)
-                      d! $ :: :router/change $ {} (:name :profile)
+                      d! $ schema/route-operation $ {} (:name :profile)
                   <> $ if logged-in? |Me |Guest
                   =< 8 nil
                   <> $ str count-members
@@ -833,10 +834,7 @@
             let
                 host $ unsafe-coerce (dayjs date-string) 'app.comp.navigation/DayjsHost
               if (.valid? host)
-                %{} DateLabels
-                  :weekday $ .format host |ddd
-                  :month-day $ .format host |MM-DD
-                  :week $ .week host
+                DateLabels :weekday (.format host |ddd) :month-day (.format host |MM-DD) :week $ .week host
                 raise |Invalid-dayjs-date
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.comp.navigation/DateLabels)
@@ -885,7 +883,7 @@
                     {} $ :opacity 1
                     {}
                 :on-click $ fn (e d!)
-                  d! $ :: :router/change $ get-route
+                  d! $ schema/route-operation $ get-route
                 :tab-index 0
               <> title nil
           :examples $ []
@@ -904,9 +902,7 @@
                 end $ .end-of target |week
               if
                 and (.valid? start) (.valid? end)
-                %{} WeekBounds
-                  :start $ .format start date-time-format
-                  :end $ .format end date-time-format
+                WeekBounds :start (.format start date-time-format) :end $ .format end date-time-format
                 raise |Invalid-dayjs-week
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.comp.navigation/WeekBounds)
@@ -925,6 +921,7 @@
             respo-alerts.core :refer $ comp-prompt
             |dayjs :default dayjs
             app.style :refer $ merge-styles
+            app.schema :as schema
     'app.comp.notes-page $ %{} 'FileEntry
       :defs $ {}
         'comp-note $ %{} 'CodeEntry (:doc |)
@@ -958,9 +955,9 @@
                       &{} :font-size 16 :curspr :pointer :color $ hsl 200 80 80
                       fn (e d!)
                         .show edit-plugin d! $ fn (result)
-                          d! $ :: :note/edit $ %{} schema/NoteEdit
-                            :id $ decode-map-as (&map:get note :id) 'String
-                            :text $ decode-map-as result 'String
+                          d! $ :: :note/edit $ schema/NoteEdit :id
+                            decode-map-as (&map:get note :id) 'String
+                            , :text (decode-map-as result 'String)
                     =< 8 nil
                     comp-icon :delete
                       &{} :font-size 16 :cursor :pointer :color $ hsl 10 80 60
@@ -1007,7 +1004,7 @@
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ :: :router/change $ {} (:name :notes)
+                          d! $ schema/route-operation $ {} (:name :notes)
                             :data $ if (<= month 0)
                               {}
                                 :year $ dec year
@@ -1020,7 +1017,7 @@
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ :: :router/change $ {} (:name :notes)
+                          d! $ schema/route-operation $ {} (:name :notes)
                             :data $ if (>= month 11)
                               {}
                                 :year $ inc year
@@ -1288,8 +1285,7 @@
                         :edit $ do
                           d! $ :: :states cursor new-state
                           .show update-plugin d! $ fn (text)
-                            d! $ :: :task/update-working $ %{} schema/TaskEdit (:id task-id)
-                              :text $ decode-map-as text 'String
+                            d! $ :: :task/update-working $ schema/TaskEdit :id task-id :text (decode-map-as text 'String)
                             , &unit
                         :copy $ do
                           copy! $ &map:get task :text
@@ -1357,13 +1353,6 @@
                 :font-weight 300
           :examples $ []
           :schema $ :: 'String
-        'effect-focus $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defeffect effect-focus () (action el *local)
-            case action
-              :mount $ -> el (.!querySelector |input) (.!focus)
-              do
-          :examples $ []
-          :schema $ :: 'Dynamic
         'task-menu-action $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn task-menu-action (item) (&enum:nth item 1)
           :examples $ []
@@ -1477,6 +1466,16 @@
           :code $ quote $ defenum ClientMessage (:sync/active 'Number) (:sync/heartbeat 'Number) (:sync/idle 'Number) (:sync/resume 'Number) (:sync/ack 'Number) (:dispatch 'app.schema/Op)
           :examples $ []
           :schema $ :: 'Enum
+        'DatabaseRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct DatabaseRecord (:today 'String)
+            :users $ :: 'Map 'String 'app.schema/UserRecord
+            :sessions $ :: 'Map 'Number 'app.schema/SessionRecord
+          :examples $ []
+          :schema $ :: 'StructDef
+        'HistoryRoute $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct HistoryRoute (:year 'Number) (:week 'Number) (:start 'String) (:end 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
         'MessageDecodeError $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defenum MessageDecodeError (:invalid 'String)
           :examples $ []
@@ -1490,12 +1489,20 @@
             :updated-time $ :: 'Option 'Number
           :examples $ []
           :schema $ :: 'StructDef
+        'NotesRoute $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct NotesRoute (:year 'Number) (:month 'Number)
+          :examples $ []
+          :schema $ :: 'StructDef
+        'NotificationRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct NotificationRecord (:id 'String) (:text 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
         'Op $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'String)
             :user/log-in $ :: 'List 'String
             :user/sign-up $ :: 'List 'String
             :user/log-out
-            :router/change 'Dynamic
+            :router/change 'app.schema/Route
             :task/create-working 'String
             :task/remove-working 'String
             :task/finish-working 'String
@@ -1513,6 +1520,10 @@
             :states 'Dynamic 'Dynamic
           :examples $ []
           :schema $ :: 'Enum
+        'Route $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defenum Route (:home) (:profile) (:history 'app.schema/HistoryRoute) (:notes 'app.schema/NotesRoute)
+          :examples $ []
+          :schema $ :: 'EnumDef
         'ServerMessage $ %{} 'CodeEntry
           :doc "|Typed server snapshot, patch, and heartbeat envelope."
           :code $ quote $ defenum ServerMessage (:snapshot 'Number 'Map)
@@ -1520,6 +1531,14 @@
             :effect/pong
           :examples $ []
           :schema $ :: 'Enum
+        'SessionRecord $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct SessionRecord (:id 'Number)
+            :user-id $ :: 'Option 'String
+            :nickname $ :: 'Option 'String
+            :router 'app.schema/Route
+            :messages $ :: 'Map 'String 'app.schema/NotificationRecord
+          :examples $ []
+          :schema $ :: 'StructDef
         'TaskEdit $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct TaskEdit (:id 'String) (:text 'String)
           :examples $ []
@@ -1548,6 +1567,16 @@
             :finished $ :: 'Map 'String 'app.schema/TaskRecord
           :examples $ []
           :schema $ :: 'StructDef
+        'add-session-message $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn add-session-message (db sid id text)
+            update-session db sid $ fn (session-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/SessionRecord
+                :return 'app.schema/SessionRecord
+              struct-with session-record $ :messages $ assoc (:messages session-record) id (NotificationRecord :id id :text text)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number 'String 'String
         'complain $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def complain
             {} (:id nil) (:text |) (:time nil)
@@ -1561,6 +1590,20 @@
               :today |2018-08-07
           :examples $ []
           :schema $ :: 'Map 'Tag 'Dynamic
+        'database-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn database-to-map (db)
+            {}
+              :today $ :today db
+              :users $ filter-map-kv (:users db)
+                fn (k v)
+                  MapEntryDecision :keep k $ user-to-map v
+              :sessions $ filter-map-kv (:sessions db)
+                fn (k v)
+                  MapEntryDecision :keep k $ session-to-map v
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/DatabaseRecord
+            :return $ :: 'Map 'Tag 'Dynamic
         'decode-client-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-client-message (data)
             let
@@ -1570,32 +1613,32 @@
               match message
                 (:sync/active revision)
                   if (number? revision)
-                    %ok $ %:: ClientMessage :sync/active revision
+                    %ok $ ClientMessage :sync/active revision
                     invalid-message $ str "|Expected numeric active revision, got: " revision
                 (:sync/heartbeat revision)
                   if (number? revision)
-                    %ok $ %:: ClientMessage :sync/heartbeat revision
+                    %ok $ ClientMessage :sync/heartbeat revision
                     invalid-message $ str "|Expected numeric heartbeat revision, got: " revision
                 (:sync/idle revision)
                   if (number? revision)
-                    %ok $ %:: ClientMessage :sync/idle revision
+                    %ok $ ClientMessage :sync/idle revision
                     invalid-message $ str "|Expected numeric idle revision, got: " revision
                 (:sync/resume revision)
                   if (number? revision)
-                    %ok $ %:: ClientMessage :sync/resume revision
+                    %ok $ ClientMessage :sync/resume revision
                     invalid-message $ str "|Expected numeric resume revision, got: " revision
                 (:sync/ack revision)
                   if (number? revision)
-                    %ok $ %:: ClientMessage :sync/ack revision
+                    %ok $ ClientMessage :sync/ack revision
                     invalid-message $ str "|Expected numeric acknowledgement revision, got: " revision
                 (:dispatch op)
                   match (decode-operation op)
                     (:ok typed-op)
-                      %ok $ %:: ClientMessage :dispatch typed-op
+                      %ok $ ClientMessage :dispatch typed-op
                     (:err error) (%err error)
                 _ $ match (decode-operation message)
                   (:ok typed-op)
-                    %ok $ %:: ClientMessage :dispatch typed-op
+                    %ok $ ClientMessage :dispatch typed-op
                   (:err error) (%err error)
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -1779,13 +1822,13 @@
                 (:today value)
                   match (try-decode-map-as value 'String)
                     (:ok today)
-                      %ok $ %:: Op :today today
+                      %ok $ Op :today today
                     (:err message)
                       invalid-message $ str "|Invalid today operation: " message
                 (:session/connect)
-                  %ok $ %:: Op :session/connect
+                  %ok $ Op :session/connect
                 (:session/disconnect)
-                  %ok $ %:: Op :session/disconnect
+                  %ok $ Op :session/disconnect
                 (:session/remove-message value)
                   let
                       raw-id $ if (map? value) (&map:get value :id) value
@@ -1800,7 +1843,7 @@
                     (:ok credentials)
                       if
                         = 2 $ count credentials
-                        %ok $ %:: Op :user/log-in credentials
+                        %ok $ Op :user/log-in credentials
                         invalid-message "|Invalid user/log-in operation: expected two credentials"
                     (:err message)
                       invalid-message $ str "|Invalid user/log-in operation: " message
@@ -1810,30 +1853,34 @@
                     (:ok credentials)
                       if
                         = 2 $ count credentials
-                        %ok $ %:: Op :user/sign-up credentials
+                        %ok $ Op :user/sign-up credentials
                         invalid-message "|Invalid user/sign-up operation: expected two credentials"
                     (:err message)
                       invalid-message $ str "|Invalid user/sign-up operation: " message
                 (:user/log-out)
-                  %ok $ %:: Op :user/log-out
+                  %ok $ Op :user/log-out
                 (:router/change value)
-                  %ok $ %:: Op :router/change value
+                  match (decode-route value)
+                    (:ok route)
+                      %ok $ Op :router/change route
+                    (:err message)
+                      invalid-message $ str "|Invalid router/change operation: " message
                 (:task/create-working value)
                   match (try-decode-map-as value 'String)
                     (:ok text)
-                      %ok $ %:: Op :task/create-working text
+                      %ok $ Op :task/create-working text
                     (:err message)
                       invalid-message $ str "|Invalid task/create-working operation: " message
                 (:task/remove-working value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
-                      %ok $ %:: Op :task/remove-working task-id
+                      %ok $ Op :task/remove-working task-id
                     (:err message)
                       invalid-message $ str "|Invalid task/remove-working operation: " message
                 (:task/finish-working value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
-                      %ok $ %:: Op :task/finish-working task-id
+                      %ok $ Op :task/finish-working task-id
                     (:err message)
                       invalid-message $ str "|Invalid task/finish-working operation: " message
                 (:task/update-working value)
@@ -1841,31 +1888,31 @@
                       payload $ if (struct? value) (&struct:to-map value) value
                     match (try-decode-map-as payload TaskEdit)
                       (:ok edit)
-                        %ok $ %:: Op :task/update-working edit
+                        %ok $ Op :task/update-working edit
                       (:err message)
                         invalid-message $ str "|Invalid task/update-working operation: " message
                 (:task/touch-working value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
-                      %ok $ %:: Op :task/touch-working task-id
+                      %ok $ Op :task/touch-working task-id
                     (:err message)
                       invalid-message $ str "|Invalid task/touch-working operation: " message
                 (:task/put-back value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
-                      %ok $ %:: Op :task/put-back task-id
+                      %ok $ Op :task/put-back task-id
                     (:err message)
                       invalid-message $ str "|Invalid task/put-back operation: " message
                 (:task/pend value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
-                      %ok $ %:: Op :task/pend task-id
+                      %ok $ Op :task/pend task-id
                     (:err message)
                       invalid-message $ str "|Invalid task/pend operation: " message
                 (:note/add value)
                   match (try-decode-map-as value 'String)
                     (:ok text)
-                      %ok $ %:: Op :note/add text
+                      %ok $ Op :note/add text
                     (:err message)
                       invalid-message $ str "|Invalid note/add operation: " message
                 (:note/edit value)
@@ -1873,25 +1920,25 @@
                       payload $ if (struct? value) (&struct:to-map value) value
                     match (try-decode-map-as payload NoteEdit)
                       (:ok edit)
-                        %ok $ %:: Op :note/edit edit
+                        %ok $ Op :note/edit edit
                       (:err message)
                         invalid-message $ str "|Invalid note/edit operation: " message
                 (:note/remove value)
                   match (try-decode-map-as value 'String)
                     (:ok note-id)
-                      %ok $ %:: Op :note/remove note-id
+                      %ok $ Op :note/remove note-id
                     (:err message)
                       invalid-message $ str "|Invalid note/remove operation: " message
                 (:effect/persist)
-                  %ok $ %:: Op :effect/persist
+                  %ok $ Op :effect/persist
                 (:effect/ping)
-                  %ok $ %:: Op :effect/ping
+                  %ok $ Op :effect/ping
                 (:effect/pong)
-                  %ok $ %:: Op :effect/pong
+                  %ok $ Op :effect/pong
                 (:effect/connect)
-                  %ok $ %:: Op :effect/connect
+                  %ok $ Op :effect/connect
                 (:states cursor state)
-                  %ok $ %:: Op :states cursor state
+                  %ok $ Op :states cursor state
                 _ $ invalid-message $ str "|Unknown application operation: " op
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -2036,6 +2083,107 @@
                 assert= true $ result:err? $ decode-operation
                   :: :session/remove-message $ {} $ :id 7
               :tags $ #{} :client :server
+            %{} 'TestEntry (:name |router-wire-compatibility)
+              :code $ quote $ let
+                  route $ Route :notes $ NotesRoute :year 2026 :month 8
+                  operation $ Op :router/change route
+                assert= (%ok operation)
+                  decode-operation $ :: :router/change $ {} (:name :notes)
+                    :data $ {} (:year 2026) (:month 8)
+                assert= (%ok operation)
+                  decode-operation $ parse-cirru-edn $ format-cirru-edn operation
+                assert= true $ result:err? $ decode-operation (:: :router/change nil)
+                assert= true $ result:err? $ decode-operation
+                  :: :router/change $ {} (:name :notes)
+                    :data $ {} (:year 2026) (:month -1)
+              :tags $ #{} :client :server
+        'decode-route $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-route (raw)
+            if (enum? raw)
+              let
+                  route $ assoc raw 0 $ turn-tag
+                      nth raw 0
+                      , .unwrap
+                match route
+                  (:home)
+                    %ok $ Route :home
+                  (:profile)
+                    %ok $ Route :profile
+                  (:history data)
+                    decode-route-map $ {} (:name :history)
+                      :data $ if (struct? data) (&struct:to-map data) data
+                  (:notes data)
+                    decode-route-map $ {} (:name :notes)
+                      :data $ if (struct? data) (&struct:to-map data) data
+                  _ $ %err |Unknown-route
+              decode-route-map raw
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :return $ :: 'calcit.core/Result 'app.schema/Route 'String
+          :tests $ [] $ %{} 'TestEntry (:name |validates-route-shapes)
+            :code $ quote $ do
+              assert=
+                %ok $ Route :home
+                decode-route $ {} $ :name :home
+              assert= true $ result:ok? $ decode-route
+                {} (:name :notes)
+                  :data $ {} (:year 2026) (:month 8)
+              assert= true $ result:err? $ decode-route
+                {} (:name :notes)
+                  :data $ {} (:year 2026) (:month 12)
+              assert= true $ result:err? $ decode-route
+                {} (:name :history)
+                  :data $ {}
+              assert= true $ result:err? $ decode-route
+                {} $ :name :unknown
+              assert= true $ result:err? $ decode-route nil
+            :tags $ #{} :server
+        'decode-route-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-route-map (raw)
+            let
+                data $ if (struct? raw) (&struct:to-map raw) raw
+              if (map? data)
+                case-default (&map:get data :name) (%err |Unknown-route)
+                  :home $ %ok $ Route :home
+                  :profile $ %ok $ Route :profile
+                  :history $ match
+                    try-decode-map-as (&map:get data :data) HistoryRoute
+                    (:ok route)
+                      if
+                        and
+                          >= (:week route) 1
+                          <= (:week route) 53
+                          =
+                            round $ :year route
+                            :year route
+                          =
+                            round $ :week route
+                            :week route
+                        %ok $ Route :history route
+                        %err |Invalid-history-range
+                    (:err message) (%err message)
+                  :notes $ match
+                    try-decode-map-as (&map:get data :data) NotesRoute
+                    (:ok route)
+                      if
+                        and
+                          >= (:month route) 0
+                          <= (:month route) 11
+                          =
+                            round $ :year route
+                            :year route
+                          =
+                            round $ :month route
+                            :month route
+                        %ok $ Route :notes route
+                        %err |Invalid-notes-range
+                    (:err message) (%err message)
+                %err |Expected-route-map
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :return $ :: 'calcit.core/Result 'app.schema/Route 'String
         'decode-server-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-server-message (data)
             let
@@ -2048,7 +2196,7 @@
                     and (number? revision) (map? store)
                     match (try-decode-map-as store 'Map)
                       (:ok decoded-store)
-                        %ok $ %:: ServerMessage :snapshot revision decoded-store
+                        %ok $ ServerMessage :snapshot revision decoded-store
                       (:err reason)
                         invalid-message $ str "|Invalid snapshot envelope: " reason
                     invalid-message $ str "|Invalid snapshot envelope: " message
@@ -2060,13 +2208,13 @@
                         if
                           every? decoded-list $ fn (change)
                             = (enum-definition change) (%some recollect.schema/change-op)
-                          %ok $ %:: ServerMessage :patch base-revision revision $ assert-type decoded-list (:: 'List 'recollect.schema/change-op)
+                          %ok $ ServerMessage :patch base-revision revision $ assert-type decoded-list (:: 'List 'recollect.schema/change-op)
                           invalid-message $ str "|Invalid patch envelope: " message
                       (:err reason)
                         invalid-message $ str "|Invalid patch envelope: " reason
                     invalid-message $ str "|Invalid patch envelope: " message
                 (:effect/pong)
-                  %ok $ %:: ServerMessage :effect/pong
+                  %ok $ ServerMessage :effect/pong
                 _ $ invalid-message $ str "|Unknown server message: " message
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -2243,14 +2391,69 @@
                     (:err _) false
                 (:err _) false
               :tags $ #{} :server
+        'empty-database $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ def empty-database
+            DatabaseRecord :today |2018-08-07 :users ({}) :sessions $ {}
+          :examples $ []
+          :schema $ :: 'app.schema/DatabaseRecord
         'invalid-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn invalid-message (detail)
-            %:: Result :err $ %:: MessageDecodeError :invalid detail
+            %:: Result :err $ MessageDecodeError :invalid detail
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'String
             :generics $ [] 'T
             :return $ :: 'calcit.core/Result 'app.schema/MessageDecodeError 'T
+        'load-database $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn load-database (raw)
+            match (decode-database raw)
+              (:err message) (%err message)
+              (:ok legacy)
+                let
+                    users $ decode-map-as (&map:get legacy :users) (:: 'Map 'String 'Dynamic)
+                    decoded $ foldl (users .to-list)
+                      %ok $ {}
+                      fn (acc entry)
+                        match acc
+                          (:err message) (%err message)
+                          (:ok result)
+                            let-sugar
+                                  [] id raw-user
+                                  , entry
+                              match (decode-user-record raw-user)
+                                (:ok user)
+                                  %ok $ assoc result id user
+                                (:err message)
+                                  %err $ str |storage.cirru/:users/ id |: message
+                  match decoded
+                    (:err message) (%err message)
+                    (:ok records)
+                      %ok $ DatabaseRecord :today
+                        decode-map-as (&map:get legacy :today) 'String
+                        , :users records :sessions $ {}
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'Dynamic
+            :return $ :: 'calcit.core/Result 'app.schema/DatabaseRecord 'String
+          :tests $ []
+            %{} 'TestEntry (:name |empty-legacy)
+              :code $ quote $ assert= (%ok empty-database)
+                load-database $ {}
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |legacy-round-trip)
+              :code $ quote $ let
+                  db $ struct-with (test-database)
+                    :sessions $ {}
+                  text $ format-cirru-edn $ database-to-map db
+                assert= (%ok db)
+                  load-database $ parse-cirru-edn text
+              :tags $ #{} :server
+        'new-session $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn new-session (sid)
+            SessionRecord :id sid :user-id (%none) :nickname (%none) :router (Route :home) :messages $ {}
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/SessionRecord)
+            :args $ [] 'Number
         'normalize-note-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-note-map (raw)
             if (map? raw)
@@ -2313,6 +2516,19 @@
             {} (:id nil) (:time nil) (:updated-time nil) (:text nil)
           :examples $ []
           :schema $ :: 'Dynamic
+        'note-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn note-to-map (note)
+            {}
+              :id $ :id note
+              :text $ :text note
+              :time $ :time note
+              :updated-time $ match (:updated-time note)
+                (:some t) t
+                (:none) nil
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/NoteRecord
+            :return $ :: 'Map 'Tag 'Dynamic
         'notification $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def notification
             {} (:id nil) (:kind nil) (:text nil)
@@ -2339,6 +2555,34 @@
                 [] :a :b
               assert= |leaf $ read-path |leaf $ []
             :tags $ #{} :server
+        'route-operation $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn route-operation (data)
+            match (decode-route data)
+              (:ok route) (Op :router/change route)
+              (:err message)
+                raise $ str |Invalid-route: message
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/Op)
+            :args $ [] 'Dynamic
+        'route-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn route-to-map (route)
+            match route
+              (:home)
+                {} (:name :home) (:data nil) (:router nil)
+              (:profile)
+                {} (:name :profile) (:data nil) (:router nil)
+              (:history data)
+                {} (:name :history)
+                  :data $ &struct:to-map data
+                  :router nil
+              (:notes data)
+                {} (:name :notes)
+                  :data $ &struct:to-map data
+                  :router nil
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/Route
+            :return $ :: 'Map 'Tag 'Dynamic
         'router $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def router
             {} (:name nil) (:title nil)
@@ -2353,11 +2597,104 @@
               :messages $ {}
           :examples $ []
           :schema $ :: 'Dynamic
+        'session-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn session-to-map (session)
+            {}
+              :id $ :id session
+              :user-id $ match (:user-id session)
+                (:some v) v
+                (:none) nil
+              :nickname $ match (:nickname session)
+                (:some v) v
+                (:none) nil
+              :router $ route-to-map $ :router session
+              :messages $ filter-map-kv (:messages session)
+                fn (k v)
+                  MapEntryDecision :keep k $ &struct:to-map v
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/SessionRecord
+            :return $ :: 'Map 'Tag 'Dynamic
         'task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def task
             {} (:id nil) (:text |) (:detail |) (:pending? false) (:created-time nil) (:touched-time nil) (:finished-time nil) (:archived-time nil)
           :examples $ []
           :schema $ :: 'Dynamic
+        'task-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn task-to-map (task)
+            {}
+              :id $ :id task
+              :text $ :text task
+              :detail $ :detail task
+              :pending? $ :pending? task
+              :created-time $ match (:created-time task)
+                (:some t) t
+                (:none) nil
+              :touched-time $ match (:touched-time task)
+                (:some t) t
+                (:none) nil
+              :finished-time $ match (:finished-time task)
+                (:some t) t
+                (:none) nil
+              :archived-time $ match (:archived-time task)
+                (:some t) t
+                (:none) nil
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/TaskRecord
+            :return $ :: 'Map 'Tag 'Dynamic
+        'test-database $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn test-database ()
+            let
+                tasks $ UserTasks :working
+                  {}
+                    |t1 $ TaskRecord :id |t1 :text |one :detail | :pending? false
+                    |t2 $ TaskRecord :id |t2 :text |two :detail | :pending? true
+                  , :pending ({}) :finished $ {}
+                user-record $ UserRecord :id |u1 :name |Alice :nickname (%none) :avatar (%none) :password (%none) :tasks tasks :notes $ {}
+                session-record $ struct-with (new-session 7)
+                  :user-id $ %some |u1
+                  :messages $ {}
+                    |m1 $ NotificationRecord :id |m1 :text |remove
+                    |m2 $ NotificationRecord :id |m2 :text |keep
+              DatabaseRecord :today |2026-09-26 :users
+                {} $ |u1 user-record
+                , :sessions $ {} (7 session-record)
+                  8 $ new-session 8
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ []
+        'update-session $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn update-session (db sid f)
+            match
+              get (:sessions db) sid
+              (:none) db
+              (:some session-record)
+                struct-with db $ :sessions $ assoc (:sessions db) sid (f session-record)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number $ :: 'Fn
+              {} (:return 'app.schema/SessionRecord)
+                :args $ [] 'app.schema/SessionRecord
+        'update-user $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn update-user (db sid f)
+            match
+              get (:sessions db) sid
+              (:none) db
+              (:some session-record)
+                match (:user-id session-record)
+                  (:none) db
+                  (:some uid)
+                    match
+                      get (:users db) uid
+                      (:none) db
+                      (:some user-record)
+                        struct-with db $ :users $ assoc (:users db) uid (f user-record)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number $ :: 'Fn
+              {} (:return 'app.schema/UserRecord)
+                :args $ [] 'app.schema/UserRecord
         'user $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def user
             {} (:name nil) (:id nil) (:nickname nil) (:avatar nil) (:password nil)
@@ -2368,6 +2705,39 @@
               :notes $ do note $ {}
           :examples $ []
           :schema $ :: 'Dynamic
+        'user-to-map $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn user-to-map (user)
+            {}
+              :id $ :id user
+              :name $ :name user
+              :nickname $ match (:nickname user)
+                (:some v) v
+                (:none) nil
+              :avatar $ match (:avatar user)
+                (:some v) v
+                (:none) nil
+              :password $ match (:password user)
+                (:some v) v
+                (:none) nil
+              :notes $ filter-map-kv (:notes user)
+                fn (k v)
+                  MapEntryDecision :keep k $ note-to-map v
+              :tasks $ let
+                  tasks $ :tasks user
+                {}
+                  :working $ filter-map-kv (:working tasks)
+                    fn (k v)
+                      MapEntryDecision :keep k $ task-to-map v
+                  :pending $ filter-map-kv (:pending tasks)
+                    fn (k v)
+                      MapEntryDecision :keep k $ task-to-map v
+                  :finished $ filter-map-kv (:finished tasks)
+                    fn (k v)
+                      MapEntryDecision :keep k $ task-to-map v
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] 'app.schema/UserRecord
+            :return $ :: 'Map 'Tag 'Dynamic
         'validate-stored-users $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn validate-stored-users (users)
             foldl (-> users keys .to-list) (%ok users)
@@ -2459,16 +2829,18 @@
             if (path-exists? storage-file)
               let
                   raw-data $ read-file storage-file
-                  loaded-db $ match
-                    schema/decode-database $ parse-cirru-edn raw-data
-                    (:ok db) db
-                    (:err reason) (raise reason)
+                  loaded-db $ assert-type
+                    match
+                      schema/load-database $ parse-cirru-edn raw-data
+                      (:ok db) db
+                      (:err reason) (raise reason)
+                    , 'app.schema/DatabaseRecord
                 println |[storage] |loading storage-file |bytes $ count raw-data
-                println |[storage] |loaded storage-file |users $ count $ option:unwrap-or (get loaded-db :users) ({})
+                println |[storage] |loaded storage-file |users $ count $ :users loaded-db
                 , loaded-db
-              do (println |[storage] |missing storage-file) schema/database
+              do (println |[storage] |missing storage-file) schema/empty-database
           :examples $ []
-          :schema $ :: 'Ref $ :: 'Map 'Tag 'Dynamic
+          :schema $ :: 'Ref 'app.schema/DatabaseRecord
         '*reader-reel $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *reader-reel @*reel
           :examples $ []
@@ -2480,7 +2852,7 @@
           :schema $ :: 'Ref 'cumulo-reel.core/ReelState
         '*sync-metrics $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defatom *sync-metrics
-            %{} SyncMetrics (:last-diff-latency-ms 0) (:last-patch-bytes 0) (:pending-clients 0) (:slow-clients 0) (:resync-count 0) (:patch-attempts 0) (:snapshot-attempts 0) (:last-revision 0)
+            SyncMetrics :last-diff-latency-ms 0 :last-patch-bytes 0 :pending-clients 0 :slow-clients 0 :resync-count 0 :patch-attempts 0 :snapshot-attempts 0 :last-revision 0
           :examples $ []
           :schema $ :: 'Ref 'app.server/SyncMetrics
         '*sync-retry-scheduled? $ %{} 'CodeEntry (:doc |)
@@ -2539,7 +2911,7 @@
               match op
                 (:effect/persist) (persist-db!)
                 (:effect/ping)
-                  wss-send! sid $ format-cirru-edn $ %:: schema/ServerMessage :effect/pong
+                  wss-send! sid $ format-cirru-edn $ schema/ServerMessage :effect/pong
                 _ $ let
                     previous-reel @*reel
                     next-reel $ reel-reducer previous-reel updater op sid op-id op-time config/dev?
@@ -2566,7 +2938,7 @@
               (:sync/active client-revision) (mark-client-active! sid client-revision false)
               (:sync/heartbeat client-revision)
                 do (touch-client! sid client-revision)
-                  wss-send! sid $ format-cirru-edn $ %:: schema/ServerMessage :effect/pong
+                  wss-send! sid $ format-cirru-edn $ schema/ServerMessage :effect/pong
                   , &unit
               (:sync/idle client-revision) (mark-client-idle! sid client-revision)
               (:sync/resume client-revision)
@@ -2615,7 +2987,8 @@
                     (parse-float raw) .unwrap-or 11009
               run-server! port
               println $ str "|Server started on port:" port
-            do (; "|init it before doing multi-threading") (identity @*reader-reel)
+            ; "|init it before doing multi-threading"
+            identity @*reader-reel
             on-control-c on-exit!
             set-interval 600000 $ fn () $ persist-db!
             set-interval 60000 $ fn () $ set-today!
@@ -2806,9 +3179,9 @@
         'persist-db! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn persist-db! ()
             let
-                file-content $ format-cirru-edn $ assoc
-                  :db $ unsafe-coerce @*reel 'cumulo-reel.core/ReelState
-                  , :sessions ({})
+                db $ assert-type (:db @*reel) 'app.schema/DatabaseRecord
+                file-content $ format-cirru-edn $ schema/database-to-map
+                  struct-with db $ :sessions $ {}
                 storage-path storage-file
                 backup-path $ get-backup-path!
               println |[storage] |persisting storage-path |backup backup-path |bytes $ count file-content
@@ -2830,10 +3203,16 @@
                 slow-clients $ count $ filter states
                   fn (state)
                     option:unwrap-or (get state :slow-client?) false
-              merge @*sync-metrics $ {} (:pending-clients pending-clients) (:slow-clients slow-clients)
+              struct-with @*sync-metrics (:pending-clients pending-clients) (:slow-clients slow-clients)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.server/SyncMetrics)
             :args $ []
+          :tests $ [] $ %{} 'TestEntry (:name |typed-metrics-gauges)
+            :code $ quote $ let
+                metrics $ read-sync-metrics
+              assert= 0 $ :pending-clients metrics
+              assert= 0 $ :slow-clients metrics
+            :tags $ #{} :server
         'record-resync! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn record-resync! () (swap! *sync-metrics update :resync-count inc)
           :examples $ []
@@ -2897,7 +3276,7 @@
                         :dirty-rev @*sync-revision
                         :in-flight? false
                         :needs-snapshot? true
-                      dispatch! (%:: schema/Op :session/connect) sid
+                      dispatch! (schema/Op :session/connect) sid
                       println "|New client."
                   (:message sid msg)
                     match
@@ -2906,7 +3285,7 @@
                       (:err error) (eprintln "|Invalid client message:" sid error)
                   (:disconnect sid)
                     do (println "|Client closed!")
-                      dispatch! (%:: schema/Op :session/disconnect) sid
+                      dispatch! (schema/Op :session/disconnect) sid
                       swap! *client-caches dissoc sid
                       swap! *client-states dissoc sid
                       swap! *dirty-clients exclude sid
@@ -3004,9 +3383,9 @@
             let
                 today $ wo-log $ format-time (current-date!) (%some |%Y-%m-%d)
                 reel @*reel
-                old-today $ &map:get (:db reel) :today
+                old-today $ :today $ assert-type (:db reel) 'app.schema/DatabaseRecord
               when (not= today old-today)
-                dispatch! (%:: schema/Op :today today) 0
+                dispatch! (schema/Op :today today) 0
             , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -3026,7 +3405,7 @@
                   = :active $ option:unwrap $ get state :status
                   not $ option:unwrap-or (get state :in-flight?) false
                 let
-                    db $ decode-map-as (:db reel) (:: 'Map 'Tag 'Dynamic)
+                    db $ schema/database-to-map $ assert-type (:db reel) 'app.schema/DatabaseRecord
                     records $ :records reel
                     session $ schema/read-path db $ [] :sessions sid
                     old-store-option $ get @*client-caches sid
@@ -3042,13 +3421,13 @@
                     base-revision $ option:unwrap-or (get state :acked-rev) 0
                   if send-snapshot?
                     let
-                        payload $ format-cirru-edn $ %:: schema/ServerMessage :snapshot revision new-store
+                        payload $ format-cirru-edn $ schema/ServerMessage :snapshot revision new-store
                       record-sync-send! :snapshot revision diff-latency payload
                       handle-sync-send! sid revision new-store $ wss-send! sid payload
                     if
                       not= changes $ []
                       let
-                          payload $ format-cirru-edn $ %:: schema/ServerMessage :patch base-revision revision changes
+                          payload $ format-cirru-edn $ schema/ServerMessage :patch base-revision revision changes
                         record-sync-send! :patch revision diff-latency payload
                         handle-sync-send! sid revision new-store $ wss-send! sid payload
                       , &unit
@@ -3337,8 +3716,68 @@
               (:note/remove op-data) (note/remove-note db op-data sid op-id op-time)
               _ $ do (eprintln "|Unknown op:" op) db
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'app.schema/Op 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'app.schema/Op 'Number 'String 'Number
+          :tests $ []
+            %{} 'TestEntry (:name |typed-business-lifecycle)
+              :code $ quote $ let
+                  connected $ updater schema/empty-database (schema/Op :session/connect) 7 |connect 1
+                  signed $ updater connected
+                    schema/Op :user/sign-up $ [] |Alice |secret
+                    , 7 |u1 2
+                  created $ updater signed (schema/Op :task/create-working |first) 7 |t1 3
+                  edited $ updater created
+                    schema/Op :task/update-working $ schema/TaskEdit :id |t1 :text |edited
+                    , 7 |edit 4
+                  finished $ updater edited (schema/Op :task/finish-working |t1) 7 |finish 5
+                  restored $ updater finished (schema/Op :task/put-back |t1) 7 |restore 6
+                  with-note $ updater restored (schema/Op :note/add |note) 7 |n1 7
+                  note-edited $ updater with-note
+                    schema/Op :note/edit $ schema/NoteEdit :id |n1 :text |new-note
+                    , 7 |edit-note 8
+                  legacy $ schema/database-to-map note-edited
+                  removed $ updater note-edited (schema/Op :note/remove |n1) 7 |remove-note 9
+                  logged-out $ updater removed (schema/Op :user/log-out) 7 |logout 10
+                  logged-in $ updater logged-out
+                    schema/Op :user/log-in $ [] |Alice |secret
+                    , 7 |login 11
+                  disconnected $ updater logged-in (schema/Op :session/disconnect) 7 |disconnect 12
+                assert= |edited $ schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :text
+                assert= 6 $ schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :touched-time
+                assert= |new-note $ schema/read-path legacy $ [] :users |u1 :notes |n1 :text
+                assert= |u1 $ schema/read-path (schema/database-to-map logged-in) ([] :sessions 7 :user-id)
+                assert= nil $ schema/read-path (schema/database-to-map removed) ([] :users |u1 :notes |n1)
+                assert= logged-out $ updater logged-out (schema/Op :task/create-working |forbidden) 7 |bad 12
+                assert= disconnected $ updater disconnected (schema/Op :note/add |late) 7 |bad 13
+                assert= disconnected $ updater disconnected
+                  schema/Op :user/sign-up $ [] |Bob |secret
+                  , 7 |bad 14
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |authentication-and-missing-records)
+              :code $ quote $ let
+                  connected $ updater schema/empty-database (schema/Op :session/connect) 7 |connect 1
+                  signed $ updater connected
+                    schema/Op :user/sign-up $ [] |Alice |secret
+                    , 7 |u1 2
+                  logged-out $ updater signed (schema/Op :user/log-out) 7 |logout 3
+                  wrong $ updater logged-out
+                    schema/Op :user/log-in $ [] |Alice |wrong
+                    , 7 |wrong 4
+                  duplicate $ updater wrong
+                    schema/Op :user/sign-up $ [] |Alice |secret
+                    , 7 |duplicate 5
+                  legacy $ schema/database-to-map duplicate
+                assert= nil $ schema/read-path legacy $ [] :sessions 7 :user-id
+                assert= 1 $ count $ :users duplicate
+                assert= "|Wrong password for Alice" $ schema/read-path legacy $ [] :sessions 7 :messages |wrong :text
+                assert= "|Name is taken: Alice" $ schema/read-path legacy $ [] :sessions 7 :messages |duplicate :text
+                assert= signed $ updater signed (schema/Op :task/touch-working |absent) 7 |op 6
+                assert= signed $ updater signed (schema/Op :task/pend |absent) 7 |op 6
+                assert= signed $ updater signed (schema/Op :task/finish-working |absent) 7 |op 6
+                assert= signed $ updater signed
+                  schema/Op :note/edit $ schema/NoteEdit :id |absent :text |x
+                  , 7 |op 6
+              :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater
           :require ([] app.updater.session :as session) ([] app.updater.user :as user) ([] app.updater.router :as router) ([] app.updater.misc :as misc) ([] app.updater.task :as task) ([] app.updater.note :as note) ([] app.schema :as schema)
@@ -3346,67 +3785,71 @@
     'app.updater.misc $ %{} 'FileEntry
       :defs $ {} $ 'set-today
         %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn set-today (db op-data sid op-id op-time) (assoc db :today op-data)
+          :code $ quote $ defn set-today (db op-data sid op-id op-time)
+            struct-with db $ :today op-data
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
           :tests $ []
             %{} 'TestEntry (:name |preserves-other-fields)
-              :code $ quote $ assert=
-                {} (:today |2026-09-25) (:other |kept)
-                set-today
-                  {} (:today |2026-09-24) (:other |kept)
-                  , |2026-09-25 1 |op-1 2
+              :code $ quote $ let
+                  db $ schema/test-database
+                  updated $ set-today db |2026-09-27 7 |op 1
+                assert= |2026-09-27 $ :today updated
+                assert= (:users db) (:users updated)
+                assert= (:sessions db) (:sessions updated)
               :tags $ #{} :server
             %{} 'TestEntry (:name |adds-missing-today)
-              :code $ quote $ assert=
-                {} (:other |kept) (:today |2026-09-25)
-                set-today
-                  {} $ :other |kept
-                  , |2026-09-25 1 |op-1 2
+              :code $ quote $ let
+                  loaded $ assert-type
+                    match
+                      schema/load-database $ {}
+                      (:ok value) value
+                      (:err message) (raise message)
+                    , 'app.schema/DatabaseRecord
+                  updated $ set-today loaded |2026-09-27 7 |op 1
+                assert= |2026-09-27 $ :today updated
               :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.misc
+          :require $ app.schema :as schema
     'app.updater.note $ %{} 'FileEntry
       :defs $ {}
         'add-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn add-note (db op-data sid op-id op-time)
-            let
-                session $ schema/read-path db $ [] :sessions sid
-                user-id $ &map:get session :user-id
-                new-note $ merge schema/note $ {} (:id op-id) (:time op-time) (:text op-data)
-              assoc-in db ([] :users user-id :notes op-id) new-note
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              struct-with user-record $ :notes $ assoc (:notes user-record) op-id (schema/NoteRecord :id op-id :text op-data :time op-time)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
         'edit-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn edit-note (db op-data sid op-id op-time)
-            let
-                session $ schema/read-path db $ [] :sessions sid
-                user-id $ &map:get session :user-id
-                note-id $ :id op-data
-                text $ :text op-data
-              update-in db ([] :users user-id :notes note-id)
-                fn (note-option)
-                  match note-option
-                    (:some note) (assoc note :text text)
-                    (:none) nil
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              match
+                get (:notes user-record) (:id op-data)
+                (:none) user-record
+                (:some note)
+                  struct-with user-record $ :notes $ assoc (:notes user-record) (:id op-data)
+                    struct-with note $ :text $ :text op-data
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'app.schema/NoteEdit 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'app.schema/NoteEdit 'Number 'String 'Number
         'remove-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-note (db op-data sid op-id op-time)
-            let
-                session $ schema/read-path db $ [] :sessions sid
-                user-id $ &map:get session :user-id
-              update-in db ([] :users user-id :notes)
-                fn (notes-option)
-                  let
-                      notes $ option:unwrap-or notes-option $ {}
-                    dissoc notes op-data
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              struct-with user-record $ :notes $ dissoc (:notes user-record) op-data
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.note
           :require $ [] app.schema :as schema
@@ -3414,81 +3857,87 @@
       :defs $ {} $ 'change
         %{} 'CodeEntry (:doc |)
           :code $ quote $ defn change (db op-data sid op-id op-time)
-            assoc-in db ([] :sessions sid :router) op-data
+            schema/update-session db sid $ fn (session-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/SessionRecord
+                :return 'app.schema/SessionRecord
+              struct-with session-record $ :router op-data
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Dynamic 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'app.schema/Route 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.router
+          :require $ app.schema :as schema
     'app.updater.session $ %{} 'FileEntry
       :defs $ {}
         'connect $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn connect (db sid op-id op-time)
-            assoc-in db ([] :sessions sid)
-              merge schema/session $ {} $ :id sid
+            struct-with db $ :sessions $ assoc (:sessions db) sid (schema/new-session sid)
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |initializes-session-and-preserves-other-fields)
             :code $ quote $ let
-                db $ {} (:other |kept)
-                  :sessions $ {}
-                updated $ connect db 7 |op-1 2
-              assert= |kept $ schema/read-path updated $ [] :other
-              assert= 7 $ schema/read-path updated $ [] :sessions 7 :id
+                db $ schema/test-database
+                updated $ connect db 9 |op 1
+              assert= (:users db) (:users updated)
+              assert= (:today db) (:today updated)
+              assert=
+                get (:sessions db) 7
+                get (:sessions updated) 7
+              assert=
+                %some $ schema/new-session 9
+                get (:sessions updated) 9
             :tags $ #{} :server
         'disconnect $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn disconnect (db sid op-id op-time)
-            update db :sessions $ fn (session) (dissoc session sid)
+            struct-with db $ :sessions $ dissoc (:sessions db) sid
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |removes-only-target-session)
             :code $ quote $ let
-                db $ {}
-                  :sessions $ {} (1 |one) (2 |two)
-                  :other |kept
-                updated $ disconnect db 1 |op-1 2
-              assert= |kept $ schema/read-path updated $ [] :other
-              assert= nil $ schema/read-path updated $ [] :sessions 1
-              assert= |two $ schema/read-path updated $ [] :sessions 2
+                db $ schema/test-database
+                updated $ disconnect db 7 |op 1
+              assert= (%none)
+                get (:sessions updated) 7
+              assert=
+                get (:sessions db) 8
+                get (:sessions updated) 8
+              assert= (:users db) (:users updated)
             :tags $ #{} :server
         'remove-message $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn remove-message (db message-id sid op-id op-time)
-            if
-              contains? (&map:get db :sessions) sid
-              update-in db ([] :sessions sid :messages)
-                fn (messages-option)
-                  let
-                      messages $ option:unwrap-or messages-option $ {}
-                    dissoc messages message-id
-              , db
+          :code $ quote $ defn remove-message (db op-data sid op-id op-time)
+            schema/update-session db sid $ fn (session-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/SessionRecord
+                :return 'app.schema/SessionRecord
+              struct-with session-record $ :messages $ dissoc (:messages session-record) op-data
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
           :tests $ []
             %{} 'TestEntry (:name |removes-only-target-session-message)
               :code $ quote $ let
-                  db $ {} (:today |2026-09-26)
-                    :sessions $ {}
-                      7 $ {} $ :messages
-                        {} (|m1 |remove) (|m2 |keep)
-                      8 $ {} $ :messages
-                        {} $ |m1 |other-session
-                  expected $ {} (:today |2026-09-26)
-                    :sessions $ {}
-                      7 $ {} $ :messages
-                        {} $ |m2 |keep
-                      8 $ {} $ :messages
-                        {} $ |m1 |other-session
-                assert= expected $ remove-message db |m1 7 |op 1
-                assert= expected $ remove-message expected |m1 7 |op 2
+                  db $ schema/test-database
+                  updated $ remove-message db |m1 7 |op 1
+                  session-record $
+                    get (:sessions updated) 7
+                    , .unwrap
+                assert= (%none)
+                  get (:messages session-record) |m1
+                assert=
+                  %some $ schema/NotificationRecord :id |m2 :text |keep
+                  get (:messages session-record) |m2
+                assert=
+                  get (:sessions db) 8
+                  get (:sessions updated) 8
+                assert= updated $ remove-message updated |m1 7 |op 2
               :tags $ #{} :server
             %{} 'TestEntry (:name |missing-session-is-no-op)
               :code $ quote $ let
-                  db $ {} (:today |2026-09-26)
-                    :sessions $ {}
-                assert= db $ remove-message db |m1 7 |op 1
+                  db $ schema/test-database
+                assert= db $ remove-message db |m1 99 |op 1
               :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.session
@@ -3497,138 +3946,146 @@
       :defs $ {}
         'create-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn create-working (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              assoc-in db ([] :users user-id :tasks :working op-id)
-                merge schema/task $ {} (:id op-id) (:text op-data) (:created-time op-time)
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                  task $ schema/TaskRecord :id op-id :text op-data :detail | :pending? false :created-time $ %some op-time
+                struct-with user-record $ :tasks $ struct-with tasks
+                  :working $ assoc (:working tasks) op-id task
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
         'finish-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn finish-working (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db ([] :users user-id :tasks)
-                fn (tasks-option)
-                  let
-                      tasks $ option:unwrap-or tasks-option $ {}
-                      task $ schema/read-path tasks $ [] :working op-data
-                    if
-                      not $ nil? task
-                      -> tasks
-                        update :working $ fn (items) (dissoc items op-data)
-                        assoc-in ([] :finished op-data) (assoc task :finished-time op-time)
-                      , tasks
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                match
+                  get (:working tasks) op-data
+                  (:none) user-record
+                  (:some task)
+                    struct-with user-record $ :tasks $ struct-with tasks
+                      :working $ dissoc (:working tasks) op-data
+                      :finished $ assoc (:finished tasks) op-data $ struct-with task
+                        :finished-time $ %some op-time
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
         'pend $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn pend (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db ([] :users user-id :tasks :working op-data :pending?)
-                fn (pending-option)
-                  not $ option:unwrap-or pending-option false
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                  id op-data
+                match
+                  get (:working tasks) id
+                  (:none) user-record
+                  (:some task)
+                    struct-with user-record $ :tasks $ struct-with tasks
+                      :working $ assoc (:working tasks) id $ struct-with task
+                        :pending? $ not $ :pending? task
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |toggles-pending-and-preserves-other-tasks)
             :code $ quote $ let
-                sid 7
-                user-id |test-user
-                task-id |task-one
-                other-id |task-two
-                db $ {}
-                  :sessions $ {} $ sid
-                    {} $ :user-id user-id
-                  :users $ {} $ user-id
-                    {} $ :tasks $ {}
-                      :working $ {}
-                        task-id $ {} $ :pending? false
-                        other-id $ {} $ :pending? true
-                once $ pend db task-id sid |op-1 1
-                twice $ pend once task-id sid |op-2 2
-              assert= true $ schema/read-path once $ [] :users user-id :tasks :working task-id :pending?
-              assert= false $ schema/read-path twice $ [] :users user-id :tasks :working task-id :pending?
-              assert= true $ schema/read-path twice $ [] :users user-id :tasks :working other-id :pending?
+                db $ schema/test-database
+                once $ pend db |t1 7 |op1 1
+                twice $ pend once |t1 7 |op2 2
+                legacy $ schema/database-to-map once
+              assert= true $ schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :pending?
+              assert= db twice
+              assert= true $ schema/read-path (schema/database-to-map twice) ([] :users |u1 :tasks :working |t2 :pending?)
             :tags $ #{} :server
         'put-back $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn put-back (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db ([] :users user-id :tasks)
-                fn (tasks-option)
-                  let
-                      tasks $ option:unwrap-or tasks-option $ {}
-                      task $ schema/read-path tasks $ [] :finished op-data
-                    if
-                      not $ nil? task
-                      -> tasks
-                        update :finished $ fn (items) (dissoc items op-data)
-                        assoc-in ([] :working op-data) (assoc task :touched-time op-time)
-                      , tasks
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                match
+                  get (:finished tasks) op-data
+                  (:none) user-record
+                  (:some task)
+                    struct-with user-record $ :tasks $ struct-with tasks
+                      :finished $ dissoc (:finished tasks) op-data
+                      :working $ assoc (:working tasks) op-data $ struct-with task
+                        :touched-time $ %some op-time
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
         'remove-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-working (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-                working-path $ [] :users user-id :tasks :working
-                raw-tasks $ schema/read-path db working-path
-              if (map? raw-tasks)
-                let
-                    tasks $ assert-type raw-tasks $ :: 'Map 'String 'Dynamic
-                  assoc-in db working-path $ dissoc tasks op-data
-                , db
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                struct-with user-record $ :tasks $ struct-with tasks
+                  :working $ dissoc (:working tasks) op-data
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |removes-only-new-fixture-task)
             :code $ quote $ let
-                sid 990001
-                user-id |timegrass-test-user
-                target-id |timegrass-test-delete-target
-                keep-id |timegrass-test-keep
-                target-task $ {} (:id target-id) (:text |delete-me)
-                keep-task $ {} (:id keep-id) (:text |keep-me)
-                db $ {}
-                  :sessions $ {} $ sid
-                    {} $ :user-id user-id
-                  :users $ {} $ user-id
-                    {} $ :tasks $ {}
-                      :working $ {} (target-id target-task) (keep-id keep-task)
-                updated $ remove-working db target-id sid |timegrass-test-op 1
-              do
-                assert |fresh-target-must-be-removed $ nil? $ schema/read-path updated ([] :users user-id :tasks :working target-id)
-                assert |unrelated-fixture-must-remain $ &= keep-task $ schema/read-path updated ([] :users user-id :tasks :working keep-id)
+                db $ schema/test-database
+                updated $ schema/database-to-map $ remove-working db |t1 7 |op 1
+                original $ schema/database-to-map db
+              assert= nil $ schema/read-path updated $ [] :users |u1 :tasks :working |t1
+              assert=
+                schema/read-path original $ [] :users |u1 :tasks :working |t2
+                schema/read-path updated $ [] :users |u1 :tasks :working |t2
             :tags $ #{} :server
         'touch-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn touch-working (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db ([] :users user-id :tasks :working op-data)
-                fn (task-option)
-                  match task-option
-                    (:some task) (assoc task :touched-time op-time)
-                    (:none) nil
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                  id op-data
+                match
+                  get (:working tasks) id
+                  (:none) user-record
+                  (:some task)
+                    struct-with user-record $ :tasks $ struct-with tasks
+                      :working $ assoc (:working tasks) id $ struct-with task
+                        :touched-time $ %some op-time
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'String 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
         'update-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn update-working (db op-data sid op-id op-time)
-            let
-                user-id $ schema/read-path db $ [] :sessions sid :user-id
-              update-in db
-                [] :users user-id :tasks :working $ :id op-data
-                fn (task-option)
-                  match task-option
-                    (:some task)
-                      assoc task :text $ :text op-data
-                    (:none) nil
+            schema/update-user db sid $ fn (user-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/UserRecord
+                :return 'app.schema/UserRecord
+              let
+                  tasks $ :tasks user-record
+                  id $ :id op-data
+                match
+                  get (:working tasks) id
+                  (:none) user-record
+                  (:some task)
+                    struct-with user-record $ :tasks $ struct-with tasks
+                      :working $ assoc (:working tasks) id $ struct-with task
+                        :text $ :text op-data
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'app.schema/TaskEdit 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'app.schema/TaskEdit 'Number 'String 'Number
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.task
           :require $ [] app.schema :as schema
@@ -3636,78 +4093,109 @@
       :defs $ {}
         'log-in $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn log-in (db op-data sid op-id op-time)
-            let-sugar
-                  [] username password
-                  , op-data
-                maybe-user $ ->
-                  decode-map-as (&map:get db :users)
-                    :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                  vals
-                  .to-list
-                  find $ fn (user)
-                    and $ = username $ &map:get user :name
-              update-in db ([] :sessions sid)
-                fn (session-option)
-                  let
-                      session $ option:unwrap-or session-option schema/session
-                    match maybe-user
-                      (:some user)
-                        if
-                          = (md5 password) (&map:get user :password)
-                          assoc session :user-id $ &map:get user :id
-                          assoc session :messages $ assoc (&map:get session :messages) op-id $ {} (:id op-id)
-                            :text $ str "|Wrong password for " username
-                      (:none)
-                        assoc session :messages $ assoc (&map:get session :messages) op-id $ {} (:id op-id)
-                          :text $ str "|No user named: " username
+            if
+              and
+                = 2 $ count op-data
+                contains? (:sessions db) sid
+              let
+                  username $
+                    nth op-data 0
+                    , .unwrap
+                  password $
+                    nth op-data 1
+                    , .unwrap
+                  existing $ find
+                    -> (:users db) (vals) (.to-list)
+                    fn (user-record)
+                      hint-fn $ {}
+                        :args $ [] 'app.schema/UserRecord
+                        :return 'Bool
+                      = username $ :name user-record
+                match existing
+                  (:none)
+                    schema/add-session-message db sid op-id $ str "|No user named: " username
+                  (:some user-record)
+                    if
+                      = (:password user-record)
+                        %some $ md5 password
+                      schema/update-session db sid $ fn (session-record)
+                        hint-fn $ {}
+                          :args $ [] 'app.schema/SessionRecord
+                          :return 'app.schema/SessionRecord
+                        struct-with session-record $ :user-id $ %some (:id user-record)
+                      schema/add-session-message db sid op-id $ str "|Wrong password for " username
+              , db
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database (:: 'List 'String) 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord (:: 'List 'String) 'Number 'String 'Number
         'log-out $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn log-out (db sid op-id op-time)
-            assoc-in db ([] :sessions sid :user-id) nil
+            schema/update-session db sid $ fn (session-record)
+              hint-fn $ {}
+                :args $ [] 'app.schema/SessionRecord
+                :return 'app.schema/SessionRecord
+              struct-with session-record $ :user-id $ %none
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Number 'String 'Number
         'sign-up $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn sign-up (db op-data sid op-id op-time)
-            let-sugar
-                  [] username password
-                  , op-data
-                maybe-user $ find
-                    vals $ decode-map-as (&map:get db :users)
-                      :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                    , .to-list
-                  fn (user)
-                    = username $ &map:get user :name
-              match maybe-user
-                (:some _user)
-                  update-in db ([] :sessions sid :messages)
-                    fn (messages-option)
-                      let
-                          messages $ option:unwrap-or messages-option $ {}
-                        assoc messages op-id $ {} (:id op-id)
-                          :text $ str "|Name is taken: " username
-                (:none)
-                  -> db
-                    assoc-in ([] :sessions sid :user-id) op-id
-                    assoc-in ([] :users op-id)
-                      merge schema/user $ {} (:id op-id) (:name username) (:nickname username)
-                        :password $ md5 password
-                        :avatar nil
+            if
+              and
+                = 2 $ count op-data
+                contains? (:sessions db) sid
+              let
+                  username $
+                    nth op-data 0
+                    , .unwrap
+                  password $
+                    nth op-data 1
+                    , .unwrap
+                  existing $ find
+                    -> (:users db) (vals) (.to-list)
+                    fn (user-record)
+                      hint-fn $ {}
+                        :args $ [] 'app.schema/UserRecord
+                        :return 'Bool
+                      = username $ :name user-record
+                match existing
+                  (:some _)
+                    schema/add-session-message db sid op-id $ str "|Name is taken: " username
+                  (:none)
+                    let
+                        user-record $ schema/UserRecord :id op-id :name username :nickname (%some username) :avatar (%none) :password
+                          %some $ md5 password
+                          , :tasks
+                            schema/UserTasks :working ({}) :pending ({}) :finished $ {}
+                            , :notes $ {}
+                        with-user $ struct-with db $ :users
+                          assoc (:users db) op-id user-record
+                      schema/update-session with-user sid $ fn (session-record)
+                        hint-fn $ {}
+                          :args $ [] 'app.schema/SessionRecord
+                          :return 'app.schema/SessionRecord
+                        struct-with session-record $ :user-id $ %some op-id
+              , db
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'app.schema/database)
-            :args $ [] 'app.schema/database (:: 'List 'String) 'Number 'String 'Number
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord (:: 'List 'String) 'Number 'String 'Number
           :tests $ [] $ %{} 'TestEntry (:name |new-user-retains-default-collections)
             :code $ quote $ let
-                db $ {}
-                  :sessions $ {} $ 7 schema/session
-                  :users $ {}
+                db $ struct-with schema/empty-database $ :sessions
+                  {} $ 7 $ schema/new-session 7
                 updated $ sign-up db ([] |Alice |secret) 7 |u1 1
-                user $ schema/read-path updated $ [] :users |u1
-              assert= |u1 $ schema/read-path updated $ [] :sessions 7 :user-id
-              assert= ({}) (&map:get user :notes)
-              assert= true $ map? $ &map:get user :tasks
+                user-record $
+                  get (:users updated) |u1
+                  , .unwrap
+                session-record $
+                  get (:sessions updated) 7
+                  , .unwrap
+              assert= (%some |u1) (:user-id session-record)
+              assert= ({}) (:notes user-record)
+              assert= ({})
+                :working $ :tasks user-record
+              assert= ({})
+                :finished $ :tasks user-record
             :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.updater.user
