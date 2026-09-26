@@ -1,7 +1,7 @@
 {
   "name": "timegrass",
   "version": "0.1.1",
-  "packageManager": "yarn@4.12.0",
+  "packageManager": "yarn@4.18.0",
   "description": "Cumulo Workflow",
   "engines": {
     "node": ">=24"
@@ -24,7 +24,7 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "@calcit/procs": "0.20.0",
+    "@calcit/procs": "0.22.1",
     "dayjs": "^1.11.23",
     "nanoid": "^6.0.1"
   },
