@@ -17,7 +17,7 @@
     "check-typed-database": "calcit calcit.cirru --entry server --emit-path .calcit/js-server js && node check-typed-database.mjs",
     "compile-page": "calcit calcit.cirru js",
     "dev-page": "vite --force",
-    "release-page": "vite build --base=./",
+    "release-page": "vite build --base=${VITE_BASE_URL:-./}",
     "watch-page": "calcit calcit.cirru -w js"
   },
   "repository": {
@@ -27,7 +27,7 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "@calcit/procs": "0.22.1",
+    "@calcit/procs": "0.27.0",
     "dayjs": "^1.11.23",
     "nanoid": "^6.0.1"
   },

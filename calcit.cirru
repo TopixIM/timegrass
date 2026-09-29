@@ -3,11 +3,11 @@
   :about "|Machine-generated snapshot. Do not edit directly — changes will be overwritten. Use `calcit query` to inspect and `calcit edit`/`calcit tree` to modify. Run `calcit docs agents --contract` before mutations; use `--full` for first orientation or changed contract digest. Manual edits must follow format and schema conventions, then run `calcit edit format`."
   :package |app
   :entries $ {}
-    :default $ {} (:description "||Browser client bundle") (:init-fn 'app.client/main!) (:mode :js) (:reload-fn 'app.client/reload!)
+    :default $ {} (:description "||Browser client bundle") (:init-fn 'app.client/main!) (:mode :js) (:reload-fn 'app.client/reload!) (:target :browser)
       :feature-policy $ {}
       :modules $ [] |recollect/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |respo-feather.calcit/ |alerts.calcit/ |respo-markdown.calcit/ |respo.calcit/ |js-ffi/
       :type-slots $ {} $ :dispatch-op |app.schema/Op
-    :server $ {} (:description "||Realtime server") (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!)
+    :server $ {} (:description "||Realtime server") (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!) (:target :native)
       :feature-policy $ {}
       :modules $ [] |recollect/ |cumulo-util.calcit/ |cumulo-reel.calcit/ |calcit.std/ |calcit-wss/
       :type-slots $ {}
@@ -34,7 +34,7 @@
           :schema $ :: 'Ref 'Number
         '*ws-client $ %{} 'CodeEntry
           :doc "|Current nominal ws-edn client retained across browser recovery events."
-          :code $ quote $ defatom *ws-client (%none)
+          :code $ quote $ defatom *ws-client (Option :none)
           :examples $ []
           :schema $ :: 'Ref $ :: 'calcit.core/Option 'ws-edn.client/WsClient
         'ClientPatchError $ %{} 'CodeEntry (:doc |)
@@ -124,7 +124,7 @@
                 ws-url $ if config/dev? (str |ws:// host |: port) |wss://timegrass.topix.im/ws
               js/console.info |[connection] |opening ws-url
               reset! *store $ :: :loading
-              reset! *ws-client $ %some $ ws-connect! ws-url
+              reset! *ws-client $ Option :some $ ws-connect! ws-url
                 {}
                   :on-open $ fn (event) (js/console.info |[connection] |open ws-url) (reset! *connected? true) (request-snapshot!) (send-activity!) (simulate-login!)
                   :on-close $ fn (event) (reset! *connected? false)
@@ -284,10 +284,10 @@
                 patch-batch:apply-to
                   assert-traits (patch-batch changes) PatchBatchOps
                   , store
-                (:ok next-store) (%ok next-store)
+                (:ok next-store) (Result :ok next-store)
                 (:err error)
-                  %err $ ClientPatchError :invalid-patch error
-              %err $ ClientPatchError :revision-mismatch base-revision local-revision
+                  Result :err $ ClientPatchError :invalid-patch error
+              Result :err $ ClientPatchError :revision-mismatch base-revision local-revision
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'T 'Number 'Number $ :: 'List 'recollect.schema/change-op
@@ -621,7 +621,7 @@
             {}
               |$0 $ {} $ :transition-duration |200ms
               |$0:hover $ {} $ :background-color
-                hsl 0 0 80 $ %some 0.2
+                hsl 0 0 80 $ Option :some 0.2
           :examples $ []
           :schema $ :: 'String
       :ns $ %{} 'NsEntry (:doc |)
@@ -793,7 +793,7 @@
           :code $ quote $ defstyle css-navbar
             {} $ |$0 $ merge ui/row-center
               {} (:height 48) (:padding "|0 16px") (:font-size 16)
-                :border-bottom $ str "|1px solid " $ hsl 0 0 0 (%some 0.1)
+                :border-bottom $ str "|1px solid " $ hsl 0 0 0 (Option :some 0.1)
                 :font-family ui/font-fancy
                 :background-color $ &map:get config/site :theme
                 :color :white
@@ -1084,7 +1084,7 @@
             {}
               |$0 $ {} $ :transition-duration |200ms
               |$0:hover $ {} $ :background-color
-                hsl 0 0 80 $ %some 0.2
+                hsl 0 0 80 $ Option :some 0.2
           :examples $ []
           :schema $ :: 'String
       :ns $ %{} 'NsEntry (:doc |)
@@ -1154,14 +1154,14 @@
                   div
                     {} $ :class-name css/row-parted
                     comp-title |Doing
-                      %some $ comp-icon :plus
+                      Option :some $ comp-icon :plus
                         &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
                           .show create-plugin d! $ fn (result)
                             d! $ :: :task/create-working $ decode-map-as result 'String
                             , &unit
                           , &unit
-                      assert-type (%none)
+                      assert-type (Option :none)
                         :: 'Option $ :: 'Fn $ {} (:return 'Unit)
                           :args $ [] (:: 'Map 'Tag 'Dynamic)
                             :: 'Fn $ {} (:return 'Unit)
@@ -1200,8 +1200,8 @@
                     not $ empty? pending-tasks
                     div ({})
                       comp-title |Later
-                        assert-type (%none) (:: 'Option 'respo.schema/Component)
-                        %some $ fn (e d!)
+                        assert-type (Option :none) (:: 'Option 'respo.schema/Component)
+                        Option :some $ fn (e d!)
                           d! $ :: :states cursor $ update state :show-later? not
                           , &unit
                       if (&map:get state :show-later?)
@@ -1432,7 +1432,7 @@
                 :user-select :none
                 :transition-duration |200ms
               |$0:hover $ {} $ :background-color
-                hsl 0 0 80 $ %some 0.1
+                hsl 0 0 80 $ Option :some 0.1
           :examples $ []
           :schema $ :: 'String
         'css-title $ %{} 'CodeEntry (:doc |)
@@ -1704,33 +1704,33 @@
               match message
                 (:sync/active revision)
                   if (number? revision)
-                    %ok $ ClientMessage :sync/active revision
+                    Result :ok $ ClientMessage :sync/active revision
                     invalid-message $ str "|Expected numeric active revision, got: " revision
                 (:sync/heartbeat revision)
                   if (number? revision)
-                    %ok $ ClientMessage :sync/heartbeat revision
+                    Result :ok $ ClientMessage :sync/heartbeat revision
                     invalid-message $ str "|Expected numeric heartbeat revision, got: " revision
                 (:sync/idle revision)
                   if (number? revision)
-                    %ok $ ClientMessage :sync/idle revision
+                    Result :ok $ ClientMessage :sync/idle revision
                     invalid-message $ str "|Expected numeric idle revision, got: " revision
                 (:sync/resume revision)
                   if (number? revision)
-                    %ok $ ClientMessage :sync/resume revision
+                    Result :ok $ ClientMessage :sync/resume revision
                     invalid-message $ str "|Expected numeric resume revision, got: " revision
                 (:sync/ack revision)
                   if (number? revision)
-                    %ok $ ClientMessage :sync/ack revision
+                    Result :ok $ ClientMessage :sync/ack revision
                     invalid-message $ str "|Expected numeric acknowledgement revision, got: " revision
                 (:dispatch op)
                   match (decode-operation op)
                     (:ok typed-op)
-                      %ok $ ClientMessage :dispatch typed-op
-                    (:err error) (%err error)
+                      Result :ok $ ClientMessage :dispatch typed-op
+                    (:err error) (Result :err error)
                 _ $ match (decode-operation message)
                   (:ok typed-op)
-                    %ok $ ClientMessage :dispatch typed-op
-                  (:err error) (%err error)
+                    Result :ok $ ClientMessage :dispatch typed-op
+                  (:err error) (Result :err error)
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
@@ -1770,11 +1770,11 @@
                 cond
                     and (contains? raw :today)
                       not $ string? today
-                    %err "|storage.cirru/:today expected String"
+                    Result :err "|storage.cirru/:today expected String"
                   (and (contains? raw :sessions) (not (map? sessions)))
-                    %err "|storage.cirru/:sessions expected Map"
+                    Result :err "|storage.cirru/:sessions expected Map"
                   (and (contains? raw :users) (not (map? users)))
-                    %err "|storage.cirru/:users expected Map"
+                    Result :err "|storage.cirru/:users expected Map"
                   true $ match
                     try-decode-map-as
                       if (nil? users) ({}) users
@@ -1782,13 +1782,13 @@
                     (:ok users-map)
                       match (validate-stored-users users-map)
                         (:ok _)
-                          %ok $ assoc
+                          Result :ok $ assoc
                             merge database $ decode-map-as raw $ :: 'Map 'Tag 'Dynamic
                             , :sessions $ {}
-                        (:err message) (%err message)
+                        (:err message) (Result :err message)
                     (:err detail)
-                      %err $ str "|storage.cirru/:users " detail
-              %err "|storage.cirru expected Map"
+                      Result :err $ str "|storage.cirru/:users " detail
+              Result :err "|storage.cirru expected Map"
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
@@ -1913,19 +1913,19 @@
                 (:today value)
                   match (try-decode-map-as value 'String)
                     (:ok today)
-                      %ok $ Op :today today
+                      Result :ok $ Op :today today
                     (:err message)
                       invalid-message $ str "|Invalid today operation: " message
                 (:session/connect)
-                  %ok $ Op :session/connect
+                  Result :ok $ Op :session/connect
                 (:session/disconnect)
-                  %ok $ Op :session/disconnect
+                  Result :ok $ Op :session/disconnect
                 (:session/remove-message value)
                   let
                       raw-id $ if (map? value) (&map:get value :id) value
                     match (try-decode-map-as raw-id 'String)
                       (:ok message-id)
-                        %ok $ Op :session/remove-message message-id
+                        Result :ok $ Op :session/remove-message message-id
                       (:err message)
                         invalid-message $ str "|Invalid session/remove-message operation: " message
                 (:user/log-in value)
@@ -1934,7 +1934,7 @@
                     (:ok credentials)
                       if
                         = 2 $ count credentials
-                        %ok $ Op :user/log-in credentials
+                        Result :ok $ Op :user/log-in credentials
                         invalid-message "|Invalid user/log-in operation: expected two credentials"
                     (:err message)
                       invalid-message $ str "|Invalid user/log-in operation: " message
@@ -1944,34 +1944,34 @@
                     (:ok credentials)
                       if
                         = 2 $ count credentials
-                        %ok $ Op :user/sign-up credentials
+                        Result :ok $ Op :user/sign-up credentials
                         invalid-message "|Invalid user/sign-up operation: expected two credentials"
                     (:err message)
                       invalid-message $ str "|Invalid user/sign-up operation: " message
                 (:user/log-out)
-                  %ok $ Op :user/log-out
+                  Result :ok $ Op :user/log-out
                 (:router/change value)
                   match (decode-route value)
                     (:ok route)
-                      %ok $ Op :router/change route
+                      Result :ok $ Op :router/change route
                     (:err message)
                       invalid-message $ str "|Invalid router/change operation: " message
                 (:task/create-working value)
                   match (try-decode-map-as value 'String)
                     (:ok text)
-                      %ok $ Op :task/create-working text
+                      Result :ok $ Op :task/create-working text
                     (:err message)
                       invalid-message $ str "|Invalid task/create-working operation: " message
                 (:task/remove-working value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
-                      %ok $ Op :task/remove-working task-id
+                      Result :ok $ Op :task/remove-working task-id
                     (:err message)
                       invalid-message $ str "|Invalid task/remove-working operation: " message
                 (:task/finish-working value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
-                      %ok $ Op :task/finish-working task-id
+                      Result :ok $ Op :task/finish-working task-id
                     (:err message)
                       invalid-message $ str "|Invalid task/finish-working operation: " message
                 (:task/update-working value)
@@ -1979,31 +1979,31 @@
                       payload $ if (struct? value) (&struct:to-map value) value
                     match (try-decode-map-as payload TaskEdit)
                       (:ok edit)
-                        %ok $ Op :task/update-working edit
+                        Result :ok $ Op :task/update-working edit
                       (:err message)
                         invalid-message $ str "|Invalid task/update-working operation: " message
                 (:task/touch-working value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
-                      %ok $ Op :task/touch-working task-id
+                      Result :ok $ Op :task/touch-working task-id
                     (:err message)
                       invalid-message $ str "|Invalid task/touch-working operation: " message
                 (:task/put-back value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
-                      %ok $ Op :task/put-back task-id
+                      Result :ok $ Op :task/put-back task-id
                     (:err message)
                       invalid-message $ str "|Invalid task/put-back operation: " message
                 (:task/pend value)
                   match (try-decode-map-as value 'String)
                     (:ok task-id)
-                      %ok $ Op :task/pend task-id
+                      Result :ok $ Op :task/pend task-id
                     (:err message)
                       invalid-message $ str "|Invalid task/pend operation: " message
                 (:note/add value)
                   match (try-decode-map-as value 'String)
                     (:ok text)
-                      %ok $ Op :note/add text
+                      Result :ok $ Op :note/add text
                     (:err message)
                       invalid-message $ str "|Invalid note/add operation: " message
                 (:note/edit value)
@@ -2011,25 +2011,25 @@
                       payload $ if (struct? value) (&struct:to-map value) value
                     match (try-decode-map-as payload NoteEdit)
                       (:ok edit)
-                        %ok $ Op :note/edit edit
+                        Result :ok $ Op :note/edit edit
                       (:err message)
                         invalid-message $ str "|Invalid note/edit operation: " message
                 (:note/remove value)
                   match (try-decode-map-as value 'String)
                     (:ok note-id)
-                      %ok $ Op :note/remove note-id
+                      Result :ok $ Op :note/remove note-id
                     (:err message)
                       invalid-message $ str "|Invalid note/remove operation: " message
                 (:effect/persist)
-                  %ok $ Op :effect/persist
+                  Result :ok $ Op :effect/persist
                 (:effect/ping)
-                  %ok $ Op :effect/ping
+                  Result :ok $ Op :effect/ping
                 (:effect/pong)
-                  %ok $ Op :effect/pong
+                  Result :ok $ Op :effect/pong
                 (:effect/connect)
-                  %ok $ Op :effect/connect
+                  Result :ok $ Op :effect/connect
                 (:states cursor state)
-                  %ok $ Op :states cursor state
+                  Result :ok $ Op :states cursor state
                 _ $ invalid-message $ str "|Unknown application operation: " op
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -2197,16 +2197,16 @@
                       , .unwrap
                 match route
                   (:home)
-                    %ok $ Route :home
+                    Result :ok $ Route :home
                   (:profile)
-                    %ok $ Route :profile
+                    Result :ok $ Route :profile
                   (:history data)
                     decode-route-map $ {} (:name :history)
                       :data $ if (struct? data) (&struct:to-map data) data
                   (:notes data)
                     decode-route-map $ {} (:name :notes)
                       :data $ if (struct? data) (&struct:to-map data) data
-                  _ $ %err |Unknown-route
+                  _ $ Result :err |Unknown-route
               decode-route-map raw
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -2235,9 +2235,9 @@
             let
                 data $ if (struct? raw) (&struct:to-map raw) raw
               if (map? data)
-                case-default (&map:get data :name) (%err |Unknown-route)
-                  :home $ %ok $ Route :home
-                  :profile $ %ok $ Route :profile
+                case-default (&map:get data :name) (Result :err |Unknown-route)
+                  :home $ Result :ok $ Route :home
+                  :profile $ Result :ok $ Route :profile
                   :history $ match
                     try-decode-map-as (&map:get data :data) HistoryRoute
                     (:ok route)
@@ -2251,9 +2251,9 @@
                           =
                             round $ :week route
                             :week route
-                        %ok $ Route :history route
-                        %err |Invalid-history-range
-                    (:err message) (%err message)
+                        Result :ok $ Route :history route
+                        Result :err |Invalid-history-range
+                    (:err message) (Result :err message)
                   :notes $ match
                     try-decode-map-as (&map:get data :data) NotesRoute
                     (:ok route)
@@ -2267,10 +2267,10 @@
                           =
                             round $ :month route
                             :month route
-                        %ok $ Route :notes route
-                        %err |Invalid-notes-range
-                    (:err message) (%err message)
-                %err |Expected-route-map
+                        Result :ok $ Route :notes route
+                        Result :err |Invalid-notes-range
+                    (:err message) (Result :err message)
+                Result :err |Expected-route-map
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
@@ -2287,7 +2287,7 @@
                     and (number? revision) (map? store)
                     match (try-decode-map-as store 'Map)
                       (:ok decoded-store)
-                        %ok $ ServerMessage :snapshot revision decoded-store
+                        Result :ok $ ServerMessage :snapshot revision decoded-store
                       (:err reason)
                         invalid-message $ str "|Invalid snapshot envelope: " reason
                     invalid-message $ str "|Invalid snapshot envelope: " message
@@ -2298,14 +2298,16 @@
                       (:ok decoded-list)
                         if
                           every? decoded-list $ fn (change)
-                            = (enum-definition change) (%some recollect.schema/change-op)
-                          %ok $ ServerMessage :patch base-revision revision $ assert-type decoded-list (:: 'List 'recollect.schema/change-op)
+                            match (enum-definition change)
+                              (:some definition) (identical? definition recollect.schema/change-op)
+                              (:none) false
+                          Result :ok $ ServerMessage :patch base-revision revision $ assert-type decoded-list (:: 'List 'recollect.schema/change-op)
                           invalid-message $ str "|Invalid patch envelope: " message
                       (:err reason)
                         invalid-message $ str "|Invalid patch envelope: " reason
                     invalid-message $ str "|Invalid patch envelope: " message
                 (:effect/pong)
-                  %ok $ ServerMessage :effect/pong
+                  Result :ok $ ServerMessage :effect/pong
                 _ $ invalid-message $ str "|Unknown server message: " message
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -2498,28 +2500,28 @@
         'load-database $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn load-database (raw)
             match (decode-database raw)
-              (:err message) (%err message)
+              (:err message) (Result :err message)
               (:ok legacy)
                 let
                     users $ decode-map-as (&map:get legacy :users) (:: 'Map 'String 'Dynamic)
                     decoded $ foldl (users .to-list)
-                      %ok $ {}
+                      Result :ok $ {}
                       fn (acc entry)
                         match acc
-                          (:err message) (%err message)
+                          (:err message) (Result :err message)
                           (:ok result)
                             let-sugar
                                   [] id raw-user
                                   , entry
                               match (decode-user-record raw-user)
                                 (:ok user)
-                                  %ok $ assoc result id user
+                                  Result :ok $ assoc result id user
                                 (:err message)
-                                  %err $ str |storage.cirru/:users/ id |: message
+                                  Result :err $ str |storage.cirru/:users/ id |: message
                   match decoded
-                    (:err message) (%err message)
+                    (:err message) (Result :err message)
                     (:ok records)
-                      %ok $ DatabaseRecord :today
+                      Result :ok $ DatabaseRecord :today
                         decode-map-as (&map:get legacy :today) 'String
                         , :users records :sessions $ {}
           :examples $ []
@@ -2541,7 +2543,7 @@
               :tags $ #{} :server
         'new-session $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn new-session (sid)
-            SessionRecord :id sid :user-id (%none) :nickname (%none) :router (Route :home) :messages $ {}
+            SessionRecord :id sid :user-id (Option :none) :nickname (Option :none) :router (Route :home) :messages $ {}
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/SessionRecord)
             :args $ [] 'Number
@@ -2742,9 +2744,9 @@
                     |t1 $ TaskRecord :id |t1 :text |one :detail | :pending? false
                     |t2 $ TaskRecord :id |t2 :text |two :detail | :pending? true
                   , :pending ({}) :finished $ {}
-                user-record $ UserRecord :id |u1 :name |Alice :nickname (%none) :avatar (%none) :password (%none) :tasks tasks :notes $ {}
+                user-record $ UserRecord :id |u1 :name |Alice :nickname (Option :none) :avatar (Option :none) :password (Option :none) :tasks tasks :notes $ {}
                 session-record $ struct-with (new-session 7)
-                  :user-id $ %some |u1
+                  :user-id $ Option :some |u1
                   :messages $ {}
                     |m1 $ NotificationRecord :id |m1 :text |remove
                     |m2 $ NotificationRecord :id |m2 :text |keep
@@ -2831,10 +2833,10 @@
             :return $ :: 'Map 'Tag 'Dynamic
         'validate-stored-users $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn validate-stored-users (users)
-            foldl (-> users keys .to-list) (%ok users)
+            foldl (-> users keys .to-list) (Result :ok users)
               fn (result user-id)
                 match result
-                  (:err message) (%err message)
+                  (:err message) (Result :err message)
                   (:ok _)
                     let
                         candidate $ &map:get users user-id
@@ -2843,11 +2845,11 @@
                           (:ok user)
                             if
                               = user-id $ :id user
-                              %ok users
-                              %err $ str |storage.cirru/:users/ user-id "|:id differs from map key"
+                              Result :ok users
+                              Result :err $ str |storage.cirru/:users/ user-id "|:id differs from map key"
                           (:err detail)
-                            %err $ str |storage.cirru/:users/ user-id |: detail
-                        %err $ str |storage.cirru/:users/ user-id "|:legacy user record expected Map"
+                            Result :err $ str |storage.cirru/:users/ user-id |: detail
+                        Result :err $ str |storage.cirru/:users/ user-id "|:legacy user record expected Map"
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] $ :: 'Map 'String 'T
@@ -3472,7 +3474,7 @@
         'set-today! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-today! ()
             let
-                today $ wo-log $ format-time (current-date!) (%some |%Y-%m-%d)
+                today $ wo-log $ format-time (current-date!) (Option :some |%Y-%m-%d)
                 reel @*reel
                 old-today $ :today $ assert-type (:db reel) 'app.schema/DatabaseRecord
               when (not= today old-today)
@@ -4043,7 +4045,7 @@
                 :return 'app.schema/UserRecord
               let
                   tasks $ :tasks user-record
-                  task $ schema/TaskRecord :id op-id :text op-data :detail | :pending? false :created-time $ %some op-time
+                  task $ schema/TaskRecord :id op-id :text op-data :detail | :pending? false :created-time $ Option :some op-time
                 struct-with user-record $ :tasks $ struct-with tasks
                   :working $ assoc (:working tasks) op-id task
           :examples $ []
@@ -4064,7 +4066,7 @@
                     struct-with user-record $ :tasks $ struct-with tasks
                       :working $ dissoc (:working tasks) op-data
                       :finished $ assoc (:finished tasks) op-data $ struct-with task
-                        :finished-time $ %some op-time
+                        :finished-time $ Option :some op-time
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
             :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
@@ -4112,7 +4114,7 @@
                     struct-with user-record $ :tasks $ struct-with tasks
                       :finished $ dissoc (:finished tasks) op-data
                       :working $ assoc (:working tasks) op-data $ struct-with task
-                        :touched-time $ %some op-time
+                        :touched-time $ Option :some op-time
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
             :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
@@ -4154,7 +4156,7 @@
                   (:some task)
                     struct-with user-record $ :tasks $ struct-with tasks
                       :working $ assoc (:working tasks) id $ struct-with task
-                        :touched-time $ %some op-time
+                        :touched-time $ Option :some op-time
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
             :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
@@ -4207,13 +4209,15 @@
                     schema/add-session-message db sid op-id $ str "|No user named: " username
                   (:some user-record)
                     if
-                      = (:password user-record)
-                        %some $ md5 password
+                      match (:password user-record)
+                        (:some digest)
+                          = digest $ md5 password
+                        (:none) false
                       schema/update-session db sid $ fn (session-record)
                         hint-fn $ {}
                           :args $ [] 'app.schema/SessionRecord
                           :return 'app.schema/SessionRecord
-                        struct-with session-record $ :user-id $ %some (:id user-record)
+                        struct-with session-record $ :user-id $ Option :some (:id user-record)
                       schema/add-session-message db sid op-id $ str "|Wrong password for " username
               , db
           :examples $ []
@@ -4225,7 +4229,7 @@
               hint-fn $ {}
                 :args $ [] 'app.schema/SessionRecord
                 :return 'app.schema/SessionRecord
-              struct-with session-record $ :user-id $ %none
+              struct-with session-record $ :user-id $ Option :none
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
             :args $ [] 'app.schema/DatabaseRecord 'Number 'String 'Number
@@ -4254,8 +4258,8 @@
                     schema/add-session-message db sid op-id $ str "|Name is taken: " username
                   (:none)
                     let
-                        user-record $ schema/UserRecord :id op-id :name username :nickname (%some username) :avatar (%none) :password
-                          %some $ md5 password
+                        user-record $ schema/UserRecord :id op-id :name username :nickname (Option :some username) :avatar (Option :none) :password
+                          Option :some $ md5 password
                           , :tasks
                             schema/UserTasks :working ({}) :pending ({}) :finished $ {}
                             , :notes $ {}
@@ -4265,7 +4269,7 @@
                         hint-fn $ {}
                           :args $ [] 'app.schema/SessionRecord
                           :return 'app.schema/SessionRecord
-                        struct-with session-record $ :user-id $ %some op-id
+                        struct-with session-record $ :user-id $ Option :some op-id
               , db
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
