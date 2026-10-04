@@ -4,6 +4,12 @@ Timegrass
 
 Time flies and tasks grow like grass.
 
+### 前端 COS 与 CDN 部署
+
+COS Action 1.2.0 使用已有 `public-base-url` 启用内置引用与公开访问 verify，不复制额外上传校验脚本。PR 资源按仓库/PR 编号/run/attempt 隔离，Vite base 与 COS prefix 使用同一结果；fork PR 保留构建，但不上传。生产 COS 前缀与现有 web/server rsync 路径保持不变。
+
+同一 PR 或生产分支的运行排队，不取消正在执行的上传；job/upload 分别限时 15/10 分钟。此变更保留现有 Calcit 0.27.0、客户端/服务端类型和业务门禁，不表示尚未通过完整验收的 0.28 迁移已完成。
+
 ### Workflow
 
 https://github.com/Cumulo/calcium-workflow
