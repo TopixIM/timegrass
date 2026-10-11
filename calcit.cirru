@@ -3474,7 +3474,7 @@
         'set-today! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-today! ()
             let
-                today $ wo-log $ format-time (current-date!) (Option :some |%Y-%m-%d)
+                today $ format-time (current-date!) (Option :some |%Y-%m-%d)
                 reel @*reel
                 old-today $ :today $ assert-type (:db reel) 'app.schema/DatabaseRecord
               when (not= today old-today)
