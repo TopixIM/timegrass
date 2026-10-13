@@ -104,7 +104,7 @@ defn twig-user (user)
     dissoc :password
     update :tasks $ fn (tasks)
       ; Only send recent 20 tasks
-      -> tasks vals
+      -> tasks (distinct-values) (.to-list)
         sort-by :created-at
         reverse
         take 20
@@ -117,7 +117,7 @@ Run `calcit docs search respo` for UI guidance matching the installed toolchain.
 ```cirru
 defn comp-task-list (tasks)
   div ({} (:class-name css/task-list))
-    -> tasks vals
+    -> tasks (distinct-values) (.to-list)
       map $ fn (task)
         [] (:id task)
           comp-task-item task

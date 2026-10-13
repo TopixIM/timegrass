@@ -34,6 +34,28 @@ Server-to-browser traffic uses nominal `ServerMessage` variants:
 
 这些规则保证网络发送、应用确认、业务状态三个阶段不会混为一谈。慢客户端只会延迟自己的投影，不会阻塞串行 updater，也不会让服务端把未确认数据误当作 diff 基线。
 
+## 同步状态的类型合同
+
+服务端进程内的 `*client-states` 使用 `Map<Number, ClientSyncState>`。状态中的修订号、
+时间戳和布尔字段是具体类型；尚未发送或已确认时，`sent-rev` / `sent-store` 使用
+`Option :none`，不再通过缺失 Map 字段或 `-1` 哨兵表示。投影内容仍在明确的
+`Map<Tag, Dynamic>` 边界内，状态机本身不再使用无约束的 `C` / `V` 泛型。
+
+只有待确认版本匹配且待确认投影存在时，ACK 才推进缓存。过期、重复以及没有待确认
+数据的 ACK 不推进缓存；客户端数量按 Map 条目统计，不能用会去重的 `distinct-values`。
+定义附带测试覆盖同值客户端计数、负数 ACK、匹配 ACK、其他客户端隔离，以及既有
+accepted/backpressured/too-large/closed 行为。
+
+调度与发送等副作用函数遵守现有 Unit 返回合同：`request-sync!`、
+`request-sync-retry!` 不向调用者泄漏定时器句柄，`handle-sync-send!`、`dispatch!`、
+`touch-client!` 及 WebSocket 事件回调不返回日志结果或中间集合。函数尾部返回
+`&unit`，不吞掉异常，也不改变回调、重试延迟、dirty 标记或 ACK 推进条件。
+定时器使用正式 `set-timeout!` 名称；附带测试验证返回值及状态隔离，真实定时器
+回放只能使用隔离存储，不能启动针对线上数据的测试服务。
+
+这些状态不写入 `storage.cirru`，传输协议和持久化格式不变。升级此内部表示时需完整
+重启原生服务进程，不对仍持有旧 Map 状态的进程直接热重载。
+
 ## Persisted state safety / 持久化状态安全
 
 `storage-file` is a concrete `String`; configuration access is explicit so a

@@ -54,14 +54,14 @@ jobs:
         calcit calcit.cirru test --tag :client --require-match
         calcit calcit.cirru --entry server --check-only
         calcit calcit.cirru --entry server test --exclude-tag :js --require-match
-        calcit calcit.cirru analyze check-types --summary-only --format json
-        calcit calcit.cirru --entry server analyze check-types --summary-only --format json
+        calcit calcit.cirru analyze weak-types --only coverage --summary-only --format json
+        calcit calcit.cirru --entry server analyze weak-types --only coverage --summary-only --format json
         calcit calcit.cirru analyze weak-types --only schema-dynamic,code-dynamic --intent unresolved --summary-only --format json
         calcit calcit.cirru --entry server analyze weak-types --only schema-dynamic,code-dynamic --intent unresolved --summary-only --format json
-        calcit calcit.cirru analyze deprecated --summary-only
-        calcit calcit.cirru --entry server analyze deprecated --summary-only
-        calcit calcit.cirru analyze dynamic-methods --summary-only --format json | jq -e '.data.summary.findings == 0'
-        calcit calcit.cirru --entry server analyze dynamic-methods --summary-only --format json | jq -e '.data.summary.findings == 0'
+        calcit calcit.cirru analyze weak-types --only deprecated-call --summary-only
+        calcit calcit.cirru --entry server analyze weak-types --only deprecated-call --summary-only
+        calcit calcit.cirru analyze weak-types --only dynamic-method --summary-only --format json | jq -e '.data.summary.findings == 0'
+        calcit calcit.cirru --entry server analyze weak-types --only dynamic-method --summary-only --format json | jq -e '.data.summary.findings == 0'
 
     - name: Build client with CDN asset URLs
       id: asset-path

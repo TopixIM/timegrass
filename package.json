@@ -10,7 +10,7 @@
   "scripts": {
     "check-client": "calcit calcit.cirru --check-only && calcit calcit.cirru test --tag :client --require-match",
     "check-server": "calcit calcit.cirru --entry server --check-only && calcit calcit.cirru --entry server test --exclude-tag :js --require-match",
-    "check-sync": "yarn check-client && yarn check-server && calcit calcit.cirru analyze deprecated",
+    "check-sync": "yarn check-client && yarn check-server && calcit calcit.cirru analyze weak-types --only deprecated-call",
     "check-dayjs-adapter": "node check-dayjs-adapter.mjs",
     "check-title-contract": "node check-title-contract.mjs",
     "check-session-messages": "node check-session-messages.mjs",
@@ -27,7 +27,7 @@
   "author": "jiyinyiyong",
   "license": "MIT",
   "dependencies": {
-    "@calcit/procs": "0.27.0",
+    "@calcit/procs": "0.29.3",
     "dayjs": "^1.11.23",
     "nanoid": "^6.0.1"
   },

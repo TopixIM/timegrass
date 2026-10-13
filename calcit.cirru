@@ -15,26 +15,26 @@
     'app.client $ %{} 'FileEntry
       :defs $ {}
         '*connected? $ %{} 'CodeEntry (:doc "|Whether the active ws-edn generation is open.")
-          :code $ quote $ defatom *connected? false
+          :code $ quote $ defref *connected? false
           :examples $ []
           :schema $ :: 'Ref 'Bool
         '*states $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *states
+          :code $ quote $ defref *states
             {} $ :states $ {}
               :cursor $ []
           :examples $ []
-          :schema $ :: 'Ref 'Dynamic
+          :schema $ :: 'Ref $ :: 'Map 'Tag 'Dynamic
         '*store $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *store (:: :initial)
+          :code $ quote $ defref *store (:: :initial)
           :examples $ []
           :schema $ :: 'Ref
         '*sync-revision $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *sync-revision 0
+          :code $ quote $ defref *sync-revision 0
           :examples $ []
           :schema $ :: 'Ref 'Number
         '*ws-client $ %{} 'CodeEntry
           :doc "|Current nominal ws-edn client retained across browser recovery events."
-          :code $ quote $ defatom *ws-client (Option :none)
+          :code $ quote $ defref *ws-client (Option :none)
           :examples $ []
           :schema $ :: 'Ref $ :: 'calcit.core/Option 'ws-edn.client/WsClient
         'ClientPatchError $ %{} 'CodeEntry (:doc |)
@@ -120,7 +120,7 @@
                 port-value $ .-port query
                 host $ if (js-present? host-value) (unsafe-coerce host-value 'String) (unsafe-coerce js/location.hostname 'String)
                 port $ if (js-present? port-value) (unsafe-coerce port-value 'String)
-                  str $ &map:get config/site :port
+                  str $ :port config/site
                 ws-url $ if config/dev? (str |ws:// host |: port) |wss://timegrass.topix.im/ws
               js/console.info |[connection] |opening ws-url
               reset! *store $ :: :loading
@@ -133,6 +133,7 @@
                   :on-data on-server-data
                   :heartbeat-timeout-ms 75000
                   :class-mapper $ {} (:ServerMessage schema/ServerMessage) (:change-op patch-schema/change-op)
+              , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -145,12 +146,106 @@
                 str $ &enum:nth op 0
             match op
               (:states cursor s)
-                reset! *states $ update-states @*states cursor s
+                reset! *states $ decode-map-as (update-states @*states cursor s) (:: 'Map 'Tag 'Dynamic)
               (:effect/connect) (connect!)
               _ $ ws-send! $ schema/ClientMessage :dispatch op
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'app.schema/Op
+          :tests $ [] $ %{} 'TestEntry
+            :name |state-update-preserves-mixed-cursor-and-returns-unit
+            :code $ quote $ let
+                saved @*states
+                cursor $ [] :panel |task-1 7
+                state $ {} $ :text |Draft
+                initial $ {} (:other |unchanged)
+                  :states $ {} $ :peer
+                    {} $ :data |untouched
+              reset! *states initial
+              let
+                  returned $ dispatch! $ schema/Op :states cursor state
+                  updated @*states
+                reset! *states saved
+                assert= &unit returned
+                assert= (Option :some |unchanged)
+                  get-in updated $ [] :other
+                assert= (Option :some |untouched)
+                  get-in updated $ [] :states :peer :data
+                assert= (Option :some state)
+                  get-in updated $ [] :states :panel |task-1 7 :data
+            :tags $ #{} :client :js
+        'dispatch-render-operation! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn dispatch-render-operation! (raw)
+            if (enum? raw)
+              match (schema/decode-operation raw)
+                (:ok operation) (dispatch! operation)
+                (:err error)
+                  match error $
+                    :invalid message
+                    raise message
+              raise "|Expected application operation enum"
+            , &unit
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] 'Dynamic
+            :features $ #{} :js-ffi
+          :tests $ []
+            %{} 'TestEntry
+              :name |rejects-invalid-render-operation-without-state-change
+              :code $ quote $ let
+                  saved @*states
+                  rejected $ try
+                    do (dispatch-render-operation! nil) false
+                    fn (message) (starts-with? message "|Expected application operation enum")
+                assert= true rejected
+                assert= saved @*states
+              :tags $ #{} :client :js
+            %{} 'TestEntry
+              :name |checked-render-operation-preserves-mixed-cursor-and-returns-unit
+              :code $ quote $ let
+                  saved @*states
+                  cursor $ [] :panel |task-1 7
+                  state $ {} $ :text |Draft
+                  initial $ {} (:other |unchanged)
+                    :states $ {} $ :peer
+                      {} $ :data |untouched
+                reset! *states initial
+                let
+                    returned $ dispatch-render-operation! $ schema/Op :states cursor state
+                    updated @*states
+                  reset! *states saved
+                  assert= &unit returned
+                  assert= (Option :some |unchanged)
+                    get-in updated $ [] :other
+                  assert= (Option :some |untouched)
+                    get-in updated $ [] :states :peer :data
+                  assert= (Option :some state)
+                    get-in updated $ [] :states :panel |task-1 7 :data
+              :tags $ #{} :client :js
+            %{} 'TestEntry (:name |accepts-framework-list-cursor-dispatch)
+              :code $ quote $ let
+                  saved @*states
+                  cursor $ [] :panel |task-1 7
+                  state $ {} $ :text |Draft
+                  initial $ {} (:other |unchanged)
+                    :states $ {} $ :peer
+                      {} $ :data |untouched
+                reset! *states initial
+                let
+                    returned $ let
+                        forward $ respo.controller.client/wrap-dispatch $ ref dispatch-render-operation!
+                      forward cursor state
+                    updated @*states
+                  reset! *states saved
+                  assert= &unit returned
+                  assert= (Option :some |unchanged)
+                    get-in updated $ [] :other
+                  assert= (Option :some |untouched)
+                    get-in updated $ [] :states :peer :data
+                  assert= (Option :some state)
+                    get-in updated $ [] :states :panel |task-1 7 :data
+              :tags $ #{} :client :js
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! ()
             let
@@ -161,8 +256,8 @@
             if config/dev? $ load-console-formatter!
             render-app!
             connect!
-            add-watch *store :changes $ fn (store prev) (render-app!)
-            add-watch *states :changes $ fn (states prev) (render-app!)
+            add-watch! *store :changes render-on-state-change!
+            add-watch! *states :changes render-on-state-change!
             on-page-touch $ fn ()
               if
                 = @*store $ :: :offline
@@ -177,6 +272,7 @@
                 , &unit
               , 3000
             println "|App started!"
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -185,7 +281,7 @@
           :code $ quote $ def mount-target
             option:unwrap $ query-selector |.app
           :examples $ []
-          :schema $ :: 'js-ffi.browser/DomElementHost
+          :schema $ :: 'respo.dom/DomElement
         'on-server-data $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-server-data (data)
             match (schema/decode-server-message data)
@@ -228,13 +324,10 @@
             :features $ #{} :js-ffi
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! ()
-            if (some? client-errors)
+            if (non-nil? client-errors)
               hud! |error $ str client-errors
-              do (hud! |inactive nil) (remove-watch *store :changes) (remove-watch *states :changes) (clear-cache!) (render-app!)
-                add-watch *store :changes $ fn (store prev) (render-app!)
-                add-watch *states :changes $ fn (states prev) (render-app!)
-                ws-set-on-data! on-server-data
-                println "|Code updated."
+              do (hud! |inactive nil) (remove-watch! *store :changes) (remove-watch! *states :changes) (clear-cache!) (render-app!) (add-watch! *store :changes render-on-state-change!) (add-watch! *states :changes render-on-state-change!) (ws-set-on-data! on-server-data) (println "|Code updated.")
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -243,10 +336,17 @@
           :code $ quote $ defn render-app! ()
             render! mount-target
               comp-container (&map:get @*states :states) @*store
-              , dispatch!
+              , dispatch-render-operation!
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
+        'render-on-state-change! $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn render-on-state-change! (value previous) (render-app!)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'Unit)
+            :args $ [] 'T 'T
+            :features $ #{} :js-ffi
+            :generics $ [] 'T
         'request-snapshot! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn request-snapshot! ()
             ws-send! $ schema/ClientMessage :sync/resume @*sync-revision
@@ -263,19 +363,23 @@
             :args $ []
         'simulate-login! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn simulate-login! ()
-            let
-                raw $ js/localStorage.getItem $ &map:get config/site :storage-key
-              if (js-present? raw)
+            match
+              storage-get $ :storage-key config/site
+              (:some raw)
                 do (println "|Found storage.")
                   match
-                    schema/decode-operation $ :: :user/log-in $ parse-cirru-edn (unsafe-coerce raw 'String)
+                    schema/decode-operation $ :: :user/log-in $ parse-cirru-edn raw
                     (:ok op) (dispatch! op)
                     (:err _) (println "|Invalid saved login credentials")
-                println "|Found no storage."
+              (:none) (println "|Found no storage.")
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
             :features $ #{} :js-ffi
+          :tests $ [] $ %{} 'TestEntry (:name |returns-unit-with-isolated-storage)
+            :code $ quote $ assert= &unit (simulate-login!)
+            :tags $ #{} :auto-login-contract :js
         'validate-server-patch $ %{} 'CodeEntry
           :doc "|Apply one validated patch batch only when its base revision matches the local state."
           :code $ quote $ defn validate-server-patch (store local-revision base-revision changes)
@@ -307,7 +411,7 @@
                   store $ {} $ :value 1
                   changes $ [] $ %:: patch-schema/change-op :assoc :value 2
                 assert=
-                  %err $ %:: ClientPatchError :revision-mismatch 8 7
+                  %err $ ClientPatchError :revision-mismatch 8 7
                   validate-server-patch store 7 8 changes
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-invalid-patch-atomically)
@@ -315,7 +419,7 @@
                   store $ {} $ :stable 1
                   changes $ [] (%:: patch-schema/change-op :assoc :temporary 2)
                     %:: patch-schema/change-op :update :missing $ %:: patch-schema/change-op :replace 3
-                  expected $ %err $ %:: ClientPatchError :invalid-patch
+                  expected $ %err $ ClientPatchError :invalid-patch
                     %:: PatchError :missing-node $ [] $ %:: PatchPathSegment :field :missing
                 assert= expected $ validate-server-patch store 9 9 changes
                 assert=
@@ -334,64 +438,197 @@
             cumulo-util.core :refer $ on-page-touch visibility-heartbeat
             |url-parse :default url-parse
             |bottom-tip :default hud!
-            |./calcit.build-errors :default client-errors
             |dayjs :default dayjs
-            |dayjs/plugin/weekOfYear :default week-of-year
             recollect.schema :as patch-schema
             cumulo-util.activity :as activity
             recollect.patch :refer $ patch-batch patch-batch:apply-to PatchBatchOps PatchError PatchPathSegment patch-error-message
-            js-ffi.browser :refer $ query-selector
             js-ffi.shared :refer $ console-warn! console-error!
+            respo.ffi.browser :refer $ query-selector
+            js-ffi.browser :refer $ storage-get
+            |./calcit.build-errors.mjs :default client-errors
+            |dayjs/plugin/weekOfYear.js :default week-of-year
     'app.comp.container $ %{} 'FileEntry
       :defs $ {}
         'comp-container $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-container (states store)
-            case-default store
-              let
-                  state $ &map:get states :data
-                  session $ &map:get store :session
-                  router $ if
-                    map? $ &map:get store :router
-                    &map:get store :router
-                    &map:get session :router
-                  router-data $ &map:get router :data
-                div
-                  {} $ :class-name css-container
-                  comp-navigation (&map:get store :logged-in?) (&map:get store :count) (&map:get router :name)
-                  if (&map:get store :logged-in?)
-                    case-default (&map:get router :name)
-                      <> $ str "|404 page:" router
-                      :home $ comp-overview (>> states :overview) (&map:get store :today)
-                        option:unwrap-or
-                          get-in router $ [] :data :tasks
-                          {}
-                      :history $ comp-history (>> states :history)
-                        option:unwrap-or
-                          get-in router $ [] :data :week
-                          {}
-                        option:unwrap-or
-                          get-in router $ [] :data :tasks
-                          {}
-                      :notes $ comp-notes-page (>> states :notes) (&map:get router :data)
-                        option:unwrap-or
-                          get-in session $ [] :router :data
-                          {}
-                      :profile $ comp-profile (&map:get store :user) (&map:get router :data)
-                    comp-login $ >> states :login
-                  comp-status-color $ &map:get store :color
-                  when dev? $ comp-inspect |Store store $ {} (:bottom 0) (:left 0) (:z-index 9999)
-                  comp-messages (&map:get session :messages) ({})
-                    fn (info d!)
-                      match
-                        schema/decode-operation $ :: :session/remove-message info
-                        (:ok op) (d! op)
-                        (:err _) &unit
-                  when dev? $ comp-reel (&map:get store :reel-length) ({})
-              (:: :initial) (comp-offline :initial)
-              (:: :offline) (comp-offline :offline)
+            let
+                render-loaded $ fn ()
+                  hint-fn $ {}
+                    :args $ []
+                    :return 'respo.schema/Element
+                  let
+                      states $ decode-map-as states 'Map
+                      store $ decode-map-as store 'Map
+                      session $ decode-map-as (&map:get store :session) 'Map
+                      router $ decode-map-as
+                        if
+                          map? $ &map:get store :router
+                          &map:get store :router
+                          &map:get session :router
+                        , 'Map
+                    div
+                      {} $ :class-name css-container
+                      comp-navigation
+                        decode-map-as (&map:get store :logged-in?) 'Bool
+                        decode-map-as (get store :count) (:: 'Option 'Number)
+                        decode-map-as (&map:get router :name) 'Tag
+                      if
+                        decode-map-as (&map:get store :logged-in?) 'Bool
+                        match (&map:get router :name)
+                          :home $ comp-overview (>> states :overview)
+                            decode-map-as (&map:get store :today) 'String
+                            decode-map-as
+                              option:unwrap-or
+                                get-in router $ [] :data :tasks
+                                {}
+                              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                          :history $ comp-history (>> states :history)
+                            decode-map-as
+                              option:unwrap-or
+                                get-in router $ [] :data :week
+                                {}
+                              :: 'Map 'Tag 'Dynamic
+                            decode-map-as
+                              option:unwrap-or
+                                get-in router $ [] :data :tasks
+                                {}
+                              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                          :notes $ comp-notes-page (>> states :notes)
+                            decode-map-as (&map:get router :data)
+                              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                            decode-map-as
+                              option:unwrap-or
+                                get-in session $ [] :router :data
+                                {}
+                              :: 'Map 'Tag 'Number
+                          :profile $ comp-profile
+                            decode-map-as (&map:get store :user) (:: 'Map 'Tag 'Dynamic)
+                            decode-map-as (&map:get router :data) (:: 'Map 'Number 'String)
+                          _ $ <> $ str "|404 page:" router
+                        comp-login $ >> states :login
+                      comp-status-color $ decode-map-as (get store :color) (:: 'Option 'String)
+                      when dev? $ comp-inspect |Store store $ {} (:bottom 0) (:left 0) (:z-index 9999)
+                      comp-messages
+                        decode-map-as (&map:get session :messages) (:: 'Map 'String 'Dynamic)
+                        {}
+                        fn (info d!)
+                          match
+                            schema/decode-operation $ :: :session/remove-message info
+                            (:ok op) (d! op)
+                            (:err _) &unit
+                      when dev? $ comp-reel
+                        decode-map-as (&map:get store :reel-length) 'Number
+                        {}
+              if (enum? store)
+                match store
+                  (:initial) (comp-offline :initial)
+                  (:offline) (comp-offline :offline)
+                  _ $ render-loaded
+                render-loaded
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
             :args $ [] 'Dynamic 'Dynamic
+          :tests $ []
+            %{} 'TestEntry (:name |offline-skips-store-boundary)
+              :code $ quote $ let
+                  check-offline $ fn (states status expected)
+                    let
+                        child $ match
+                          .unwrap $ :tree $ comp-container states status
+                          (:component value) value
+                          (:element _) (raise |Expected-offline-component)
+                        root $ match
+                          .unwrap $ :tree child
+                          (:element value) value
+                          (:component _) (raise |Expected-offline-element)
+                        link $ match
+                          .unwrap $ :node $ .unwrap
+                            nth (:children root) 2
+                          (:element value) value
+                          (:component _) (raise |Expected-reconnect-element)
+                        label $ match
+                          .unwrap $ :node $ .unwrap
+                            nth (:children link) 0
+                          (:element value) value
+                          (:component _) (raise |Expected-offline-label)
+                      assert= :comp-offline $ :name child
+                      assert=
+                        [] $ [] :inner-text expected
+                        :attrs label
+                check-offline nil (:: :initial) |Loading...
+                check-offline 7 (:: :offline) "|Socket broken! Click to retry."
+              :tags $ #{} :container-contract :js
+            %{} 'TestEntry (:name |preserves-unknown-route-and-extra-fields)
+              :code $ quote $ let
+                  route $ {} (:name :unknown) (:data 7) (|extra |preserved)
+                  store $ {} (:logged-in? true) (:count 1) (:router route)
+                    :session $ {}
+                      :messages $ {}
+                      :router $ {} (:name :ignored)
+                        :data $ {}
+                  states $ {}
+                    :cursor $ []
+                    |extra |preserved
+                  component $ comp-container states store
+                  root $ match
+                    .unwrap $ :tree component
+                    (:element value) value
+                    (:component _) (raise |Expected-container-element)
+                  content $ match
+                    .unwrap $ :node $ .unwrap
+                      nth (:children root) 1
+                    (:element value) value
+                    (:component _) (raise |Expected-fallback-element)
+                assert=
+                  <> $ str "|404 page:" route
+                  , content
+                assert= (Option :some |preserved) (get states |extra)
+                assert= (Option :some 7) (get route :data)
+              :tags $ #{} :container-contract :js
+            %{} 'TestEntry (:name |preserves-session-router-fallback)
+              :code $ quote $ let
+                  route $ {} (:name :unknown-session)
+                    :data $ []
+                  store $ {} (:logged-in? true) (:count 1) (:router :not-a-map)
+                    :session $ {}
+                      :messages $ {}
+                      :router route
+                  component $ comp-container
+                    {} $ :cursor $ []
+                    , store
+                  root $ match
+                    .unwrap $ :tree component
+                    (:element value) value
+                    (:component _) (raise |Expected-container-element)
+                  content $ match
+                    .unwrap $ :node $ .unwrap
+                      nth (:children root) 1
+                    (:element value) value
+                    (:component _) (raise |Expected-fallback-element)
+                assert=
+                  <> $ str "|404 page:" route
+                  , content
+              :tags $ #{} :container-contract :js
+            %{} 'TestEntry (:name |rejects-non-map-loaded-boundaries)
+              :code $ quote $ let
+                  store $ {} (:logged-in? true) (:count 1)
+                    :router $ {} (:name :unknown)
+                      :data $ {}
+                    :session $ {} $ :messages ({})
+                assert= true $ try
+                  do
+                    comp-container ({}) 7
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+                assert= true $ try
+                  do (comp-container 7 store) false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+                assert= true $ try
+                  do
+                    comp-container ({}) (assoc store :session 7)
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+              :tags $ #{} :container-contract :js
         'comp-offline $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-offline (state)
             div
@@ -400,7 +637,7 @@
                 {} $ :height 0
               div $ {} $ :style
                 {}
-                  :background-image $ str "|url(" (&map:get config/site :icon) "|)"
+                  :background-image $ str "|url(" (:icon config/site) "|)"
                   :width 128
                   :height 128
                   :background-size :contain
@@ -418,10 +655,13 @@
         'comp-status-color $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-status-color (color)
             div $ {} (:class-name css-status-color)
-              :style $ {} $ :background-color color
+              :style $ {} $ :background-color
+                match color
+                  (:some value) value
+                  (:none) nil
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] 'String
+            :args $ [] $ :: 'Option 'String
         'css-container $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-container
             {} $ |$0 $ merge ui/global ui/fullscreen ui/column
@@ -442,7 +682,7 @@
         'offline-style $ %{} 'CodeEntry
           :doc "|Composes the heterogeneous offline page style before defstyle expansion."
           :code $ quote $ def offline-style
-            merge-styles ui/global ui/fullscreen ui/column-dispersive $ {} $ :background-color (&map:get config/site :theme)
+            merge-styles ui/global ui/fullscreen ui/column-dispersive $ {} $ :background-color (:theme config/site)
           :examples $ []
           :schema $ :: 'Map 'Tag 'Dynamic
         'style-body $ %{} 'CodeEntry (:doc |)
@@ -477,14 +717,13 @@
         'comp-done-task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-done-task (states task)
             let
-                cursor $ &map:get states :cursor
-                state $ or (&map:get states :data)
-                  {} $ :show-menu? false
-                finished-time $ match
-                  decode-timestamp $ &map:get task :finished-time
-                  (:ok value) value
-                  (:err message) (raise message)
-                task-id $ decode-map-as (&map:get task :id) 'String
+                cursor $ decode-map-as (&map:get states :cursor) 'List
+                state $ decode-map-as
+                  or (&map:get states :data)
+                    {} $ :show-menu? false
+                  , 'Map
+                finished-time $ :finished-time task
+                task-id $ :id task
               div
                 {} (:class-name css-done-task)
                   :style $ merge-styles
@@ -503,27 +742,199 @@
                 span
                   {} $ :style $ merge-styles ui/flex
                     {} $ :line-height |24px
-                  <> $ &map:get task :text
+                  <> $ :text task
                 comp-modal-menu
                   {} (:title |Operations)
                     :style $ {} $ :width 320
                     :items $ [] $ :: :item :put-back "|Put back"
-                  &map:get state :show-menu?
+                  decode-map-as
+                    option:unwrap-or (get state :show-menu?) false
+                    , 'Bool
                   fn (d!)
                     d! $ :: :states cursor $ assoc state :show-menu? false
                   fn (item d!)
                     d! $ :: :states cursor $ assoc state :show-menu? false
-                    when
-                      = :put-back $ option:unwrap-or (nth item 1) :unknown
-                      d! $ :: :task/put-back task-id
+                    if (nil? item) &unit $ if (enum? item)
+                      let
+                          action $ decode-map-as (&enum:nth item 1) 'Tag
+                        when (= :put-back action)
+                          d! $ :: :task/put-back task-id
+                      raise "|Menu selection must be an item enum"
+                    , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
+            :args $ [] (:: 'Map 'StateKey 'Dynamic) 'app.schema/FinishedTaskView
+            :generics $ [] 'StateKey
+          :tests $ []
+            %{} 'TestEntry (:name |accepts-tag-string-number-state-branches)
+              :code $ quote $ let
+                  task $ schema/FinishedTaskView :id |task-1 :text |Done :finished-time 1735689600000
+                  root $ {}
+                    :cursor $ [] :root
+                    :panel $ {} $ :data ({})
+                    |task-1 $ {} $ :data ({})
+                    7 $ {} $ :data ({})
+                  tag-branch $ >> root :panel
+                  string-branch $ >> root |task-1
+                  number-branch $ >> root 7
+                assert= :comp-done-task $ :name $ comp-done-task tag-branch task
+                assert= :comp-done-task $ :name $ comp-done-task string-branch task
+                assert= :comp-done-task $ :name $ comp-done-task number-branch task
+                assert= ([] :root :panel) (&map:get tag-branch :cursor)
+                assert= ([] :root |task-1) (&map:get string-branch :cursor)
+                assert= ([] :root 7) (&map:get number-branch :cursor)
+                assert= ([] :root) (&map:get root :cursor)
+              :tags $ #{} :js
+            %{} 'TestEntry (:name |click-preserves-state-and-mixed-cursor)
+              :code $ quote $ let
+                  cursor $ [] :panel |task-1 7
+                  state $ {} (:show-menu? false) (|extra |preserved)
+                  task $ schema/FinishedTaskView :id |task-1 :text |Done :finished-time 1735689600000
+                  component $ comp-done-task
+                    {} (:cursor cursor) (:data state)
+                    , task
+                  tree $ match
+                    .unwrap $ :tree component
+                    (:element value) value
+                    (:component _) (raise |Expected-task-element)
+                  click $ .unwrap $ js-nullish->option
+                    .unwrap $ .get (:event tree) :click
+                  calls $ ref 0
+                  dispatch! $ fn (op)
+                    hint-fn $ {} (:return 'Unit)
+                      :args $ [] 'app.schema/Op
+                    match op
+                      (:states path payload)
+                        do (assert= cursor path)
+                          assert= (assoc state :show-menu? true) payload
+                      _ $ raise |Expected-state-operation
+                    swap! calls inc
+                    , &unit
+                click ({}) dispatch!
+                assert= 1 @calls
+                assert= false $ &map:get state :show-menu?
+              :tags $ #{} :js :task-state-contract
+            %{} 'TestEntry (:name |rejects-invalid-state-containers)
+              :code $ quote $ let
+                  task $ schema/FinishedTaskView :id |task-1 :text |Done :finished-time 1735689600000
+                assert= true $ try
+                  do
+                    comp-done-task
+                      {}
+                        :cursor $ []
+                        :data 7
+                      , task
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+                assert= true $ try
+                  do
+                    comp-done-task
+                      {} (:cursor |invalid)
+                        :data $ {} $ :show-menu? false
+                      , task
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+              :tags $ #{} :js :task-state-contract
+            %{} 'TestEntry (:name |clear-closes-without-changing-task)
+              :code $ quote $ let
+                  cursor $ [] :panel |task-1 7
+                  state $ {} (:show-menu? true) (|extra |preserved)
+                  states $ {} (:cursor cursor) (:data state)
+                  element $ fn (node)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/RenderNode
+                      :return 'respo.schema/Element
+                    match node
+                      (:element value) value
+                      (:component _) (raise |Expected-element)
+                  child $ fn (parent index)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/Element 'Number
+                      :return 'respo.schema/RenderNode
+                    .unwrap $ :node $ .unwrap
+                      nth (:children parent) index
+                  root $ element $ .unwrap
+                    :tree $ comp-done-task states $ schema/FinishedTaskView :id |task-1 :text |Done :finished-time 1735689600000
+                  menu $ match (child root 3)
+                    (:component value) value
+                    (:element _) (raise |Expected-menu-component)
+                  menu-root $ element $ .unwrap (:tree menu)
+                  backdrop $ element $ child menu-root 0
+                  card $ element $ child backdrop 0
+                  header $ element $ child card 0
+                  button $ element $ child header 2
+                  click $ .unwrap $ js-nullish->option
+                    .unwrap $ .get (:event button) :click
+                  calls $ ref 0
+                  dispatch! $ fn (operation)
+                    hint-fn $ {}
+                      :args $ [] 'app.schema/Op
+                      :return 'Unit
+                    match operation
+                      (:states path payload)
+                        do (assert= cursor path)
+                          assert= (assoc state :show-menu? false) payload
+                      _ $ raise |Unexpected-menu-operation
+                    swap! calls inc
+                    , &unit
+                click ({}) dispatch!
+                assert= 1 @calls
+                assert= true $ &map:get state :show-menu?
+              :tags $ #{} :js :menu-contract
+            %{} 'TestEntry (:name |selection-dispatches-action-and-closes)
+              :code $ quote $ let
+                  cursor $ [] :panel |task-1 7
+                  state $ {} (:show-menu? true) (|extra |preserved)
+                  states $ {} (:cursor cursor) (:data state)
+                  element $ fn (node)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/RenderNode
+                      :return 'respo.schema/Element
+                    match node
+                      (:element value) value
+                      (:component _) (raise |Expected-element)
+                  child $ fn (parent index)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/Element 'Number
+                      :return 'respo.schema/RenderNode
+                    .unwrap $ :node $ .unwrap
+                      nth (:children parent) index
+                  root $ element $ .unwrap
+                    :tree $ comp-done-task states $ schema/FinishedTaskView :id |task-1 :text |Done :finished-time 1735689600000
+                  menu $ match (child root 3)
+                    (:component value) value
+                    (:element _) (raise |Expected-menu-component)
+                  menu-root $ element $ .unwrap (:tree menu)
+                  backdrop $ element $ child menu-root 0
+                  card $ element $ child backdrop 0
+                  header $ element $ child card 0
+                  button $ element $ child
+                    element $ child card 1
+                    , 0
+                  click $ .unwrap $ js-nullish->option
+                    .unwrap $ .get (:event button) :click
+                  calls $ ref 0
+                  dispatch! $ fn (operation)
+                    hint-fn $ {}
+                      :args $ [] 'app.schema/Op
+                      :return 'Unit
+                    match operation
+                      (:states path payload)
+                        do (assert= cursor path)
+                          assert= (assoc state :show-menu? false) payload
+                      (:task/put-back id) (assert= |task-1 id)
+                      _ $ raise |Unexpected-menu-operation
+                    swap! calls inc
+                    , &unit
+                click ({}) dispatch!
+                assert= 2 @calls
+                assert= true $ &map:get state :show-menu?
+              :tags $ #{} :js :menu-contract
         'comp-history $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-history (states data finished-tasks)
             let
-                year $ &map:get data :year
-                week $ &map:get data :week
+                year $ decode-map-as (&map:get data :year) 'Number
+                week $ decode-map-as (&map:get data :week) 'Number
               div
                 {} (:class-name css/flex)
                   :style $ {} (:padding "|16px 16px") (:overflow :auto)
@@ -573,14 +984,7 @@
                       <> "|No tasks." $ {} (:font-family ui/font-fancy)
                         :color $ hsl 0 0 80
                     let
-                        grouped-tasks $ -> finished-tasks (&map:vals)
-                          group-by $ fn (task)
-                            let
-                                timestamp $ match
-                                  decode-timestamp $ &map:get task :finished-time
-                                  (:ok value) value
-                                  (:err message) (raise message)
-                              format-timestamp timestamp |YYYY-MM-DD
+                        grouped-tasks $ history-task-groups finished-tasks
                       list-> ({})
                         -> grouped-tasks (&map:keys) (&set:to-list)
                           sort $ fn (x y)
@@ -589,7 +993,7 @@
                               option:unwrap-or (first x) |
                           map $ fn (date-string)
                             let
-                                task-list $ &map:get grouped-tasks date-string
+                                task-list $ .unwrap $ get grouped-tasks date-string
                               [] date-string $ div
                                 {} (:class-name css/column)
                                   :style $ {} $ :margin-top 16
@@ -604,18 +1008,17 @@
                                       <> $ :month-day labels
                                 =< nil 4
                                 list-> ({})
-                                  -> task-list
-                                    &list:sort-by $ fn (task)
-                                      negate $ &map:get task :finished-time
+                                  -> task-list (sort-finished-tasks)
                                     map $ fn (task)
-                                      [] (&map:get task :id)
+                                      [] (:id task)
                                         comp-done-task
-                                          >> states $ &map:get task :id
+                                          >> states $ :id task
                                           , task
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
+            :args $ [] (:: 'Map 'StateKey 'Dynamic) (:: 'Map 'Tag 'Dynamic)
               :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+            :generics $ [] 'StateKey
         'css-done-task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-done-task
             {}
@@ -624,6 +1027,72 @@
                 hsl 0 0 80 $ Option :some 0.2
           :examples $ []
           :schema $ :: 'String
+        'history-task-groups $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn history-task-groups (finished-tasks)
+            -> finished-tasks (&map:vals)
+              map $ fn (raw)
+                match (schema/decode-finished-task-view raw)
+                  (:ok task) task
+                  (:err message) (raise message)
+              group-by $ fn (task)
+                hint-fn $ {}
+                  :args $ [] 'app.schema/FinishedTaskView
+                  :return 'String
+                format-timestamp (:finished-time task) |YYYY-MM-DD
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] $ :: 'Map 'String (:: 'Map 'Tag 'Dynamic)
+            :return $ :: 'Map 'String $ :: 'List 'app.schema/FinishedTaskView
+          :tests $ []
+            %{} 'TestEntry (:name |groups-validated-tasks-by-day)
+              :code $ quote $ let
+                  first-time 1735732800000
+                  second-time $ + first-time 3600000
+                  other-time $ + first-time 86400000
+                  first-view $ schema/FinishedTaskView :id |first :text |First :finished-time first-time
+                  second-view $ schema/FinishedTaskView :id |second :text |Second :finished-time second-time
+                  other-view $ schema/FinishedTaskView :id |other :text |Other :finished-time other-time
+                  groups $ history-task-groups $ {}
+                    |first $ {} (:id |first) (:text |First) (:finished-time first-time) (:extra |ignored)
+                    |second $ {} (:id |second) (:text |Second) (:finished-time second-time)
+                    |other $ {} (:id |other) (:text |Other) (:finished-time other-time)
+                  same-day $ .unwrap $ get groups (format-timestamp first-time |YYYY-MM-DD)
+                  other-day $ .unwrap $ get groups (format-timestamp other-time |YYYY-MM-DD)
+                assert= 2 $ count groups
+                assert= ([] second-view first-view) (sort-finished-tasks same-day)
+                assert= ([] other-view) other-day
+                assert= ({})
+                  history-task-groups $ {}
+              :tags $ #{} :history-view-contract :js
+            %{} 'TestEntry (:name |rejects-invalid-history-at-entry)
+              :code $ quote $ assert= true
+                try
+                  do
+                    history-task-groups $ {} $ |bad
+                      {} (:id |bad) (:text |Bad) (:finished-time nil)
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed at $.finished-time:")
+              :tags $ #{} :history-view-contract :js
+        'sort-finished-tasks $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn sort-finished-tasks (tasks)
+            &list:sort-by tasks $ fn (task)
+              hint-fn $ {}
+                :args $ [] 'app.schema/FinishedTaskView
+                :return 'Number
+              negate $ :finished-time task
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] $ :: 'List 'app.schema/FinishedTaskView
+            :return $ :: 'List 'app.schema/FinishedTaskView
+          :tests $ [] $ %{} 'TestEntry (:name |orders-newest-first)
+            :code $ quote $ let
+                earlier $ schema/FinishedTaskView :id |earlier :text |Earlier :finished-time 100
+                later $ schema/FinishedTaskView :id |later :text |Later :finished-time 200
+                empty-tasks $ slice ([] earlier later) 0 0
+              assert= ([] later earlier)
+                sort-finished-tasks $ [] earlier later
+              assert= empty-tasks $ sort-finished-tasks empty-tasks
+            :tags $ #{} :client :history-view-contract
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.history
           :require
@@ -646,7 +1115,9 @@
           :code $ quote $ defcomp comp-login (states)
             let
                 cursor $ &map:get states :cursor
-                state $ or (&map:get states :data) initial-state
+                state $ decode-map-as
+                  or (&map:get states :data) initial-state
+                  :: 'Map 'Tag 'String
               div
                 {} $ :style $ style/merge-styles ui/flex ui/center
                 div ({})
@@ -657,6 +1128,11 @@
                         :value $ &map:get state :username
                         :style ui/input
                         :on-input $ fn (e d!)
+                          hint-fn $ {}
+                            :args $ [] (:: 'Map 'Tag 'Dynamic)
+                              :: 'Fn $ {} (:return 'Unit)
+                                :args $ [] 'app.schema/Op
+                            :return 'Unit
                           d! $ :: :states cursor $ assoc state :username
                             str $ &map:get e :value
                     =< nil 8
@@ -665,6 +1141,11 @@
                         :value $ &map:get state :password
                         :style ui/input
                         :on-input $ fn (e d!)
+                          hint-fn $ {}
+                            :args $ [] (:: 'Map 'Tag 'Dynamic)
+                              :: 'Fn $ {} (:return 'Unit)
+                                :args $ [] 'app.schema/Op
+                            :return 'Unit
                           d! $ :: :states cursor $ assoc state :password
                             str $ &map:get e :value
                   =< nil 8
@@ -679,7 +1160,20 @@
                       :on-click $ on-submit (&map:get state :username) (&map:get state :password) false
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] $ :: 'Map 'Tag 'Dynamic
+            :args $ [] $ :: 'Map 'StateKey 'Dynamic
+            :generics $ [] 'StateKey
+          :tests $ [] $ %{} 'TestEntry (:name |mixed-cursor-input-tree)
+            :code $ quote $ let
+                component $ comp-login $ {}
+                  :cursor $ [] :login |panel 7
+                  :data $ {} (:username |existing-user) (:password |existing-password)
+                tree $ match
+                  .unwrap $ :tree component
+                  (:element element) element
+                  (:component _) (raise |Expected-login-element)
+              assert= :div $ :name tree
+              assert= 1 $ .len $ :children tree
+            :tags $ #{} :js :login-input-contract
         'initial-state $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def initial-state
             {} (:username |) (:password |)
@@ -688,10 +1182,15 @@
         'on-submit $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-submit (username password signup?)
             fn (e dispatch!)
+              hint-fn $ {}
+                :args $ [] (:: 'Map 'Tag 'Dynamic)
+                  :: 'Fn $ {} (:return 'Unit)
+                    :args $ [] 'app.schema/Op
+                :return 'Unit
               dispatch! $ if signup?
-                :: :user/sign-up $ [] username password
-                :: :user/log-in $ [] username password
-              storage-set! (&map:get config/site :storage-key)
+                schema/Op :user/sign-up $ [] username password
+                schema/Op :user/log-in $ [] username password
+              storage-set! (:storage-key config/site)
                 format-cirru-edn $ [] username password
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -700,6 +1199,39 @@
               :args $ [] (:: 'Map 'Tag 'Dynamic)
                 :: 'Fn $ {} (:return 'Unit)
                   :args $ [] 'app.schema/Op
+          :tests $ []
+            %{} 'TestEntry (:name |login-dispatch-once)
+              :code $ quote $ let
+                  calls $ ref 0
+                  handler $ on-submit |type-test-user |type-test-password false
+                  dispatch! $ fn (op)
+                    hint-fn $ {} (:return 'Unit)
+                      :args $ [] 'app.schema/Op
+                    assert=
+                      schema/Op :user/log-in $ [] |type-test-user |type-test-password
+                      , op
+                    reset! calls $ inc @calls
+                    , &unit
+                assert= 0 @calls
+                assert= &unit $ handler ({}) dispatch!
+                assert= 1 @calls
+              :tags $ #{} :js :login-contract
+            %{} 'TestEntry (:name |signup-dispatch-once)
+              :code $ quote $ let
+                  calls $ ref 0
+                  handler $ on-submit |type-test-user |type-test-password true
+                  dispatch! $ fn (op)
+                    hint-fn $ {} (:return 'Unit)
+                      :args $ [] 'app.schema/Op
+                    assert=
+                      schema/Op :user/sign-up $ [] |type-test-user |type-test-password
+                      , op
+                    reset! calls $ inc @calls
+                    , &unit
+                assert= 0 @calls
+                assert= &unit $ handler ({}) dispatch!
+                assert= 1 @calls
+              :tags $ #{} :js :login-contract
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.login
           :require
@@ -778,10 +1310,10 @@
                       d! $ schema/route-operation $ {} (:name :profile)
                   <> $ if logged-in? |Me |Guest
                   =< 8 nil
-                  <> $ str count-members
+                  <> $ member-count-text count-members
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] 'Bool 'Number 'Tag
+            :args $ [] 'Bool (:: 'Option 'Number) 'Tag
         'css-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-entry
             {}
@@ -795,7 +1327,7 @@
               {} (:height 48) (:padding "|0 16px") (:font-size 16)
                 :border-bottom $ str "|1px solid " $ hsl 0 0 0 (Option :some 0.1)
                 :font-family ui/font-fancy
-                :background-color $ &map:get config/site :theme
+                :background-color $ :theme config/site
                 :color :white
           :examples $ []
           :schema $ :: 'String
@@ -873,6 +1405,27 @@
           :schema $ :: 'Fn $ {} (:return 'String)
             :args $ [] 'Number 'String
             :features $ #{} :js-ffi
+        'member-count-text $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn member-count-text (count-members)
+            match count-members
+              (:some count) (str count)
+              (:none) |
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'String)
+            :args $ [] $ :: 'Option 'Number
+          :tests $ []
+            %{} 'TestEntry (:name |guest-count)
+              :code $ quote $ assert= |
+                member-count-text $ Option :none
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |member-count)
+              :code $ quote $ assert= |2
+                member-count-text $ Option :some 2
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |zero-count)
+              :code $ quote $ assert= |0
+                member-count-text $ Option :some 0
+              :tags $ #{} :client
         'render-entry $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-entry (title get-route highlighted?)
             div
@@ -964,12 +1517,32 @@
                       fn (e d!)
                         .show remove-plugin d! $ fn () $ d!
                           :: :note/remove $ decode-map-as (&map:get note :id) 'String
-                <> $ &map:get note :text
+                <> $ decode-map-as (&map:get note :text) 'String
                 .render edit-plugin
                 .render remove-plugin
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic)
+            :args $ [] (:: 'Map 'StateKey 'Dynamic) (:: 'Map 'Tag 'Dynamic)
+            :generics $ [] 'StateKey
+          :tests $ [] $ %{} 'TestEntry (:name |accepts-tag-string-number-state-branches)
+            :code $ quote $ let
+                note $ {} (:id |note-1) (:text |Note) (:time 1735689600000)
+                root $ {}
+                  :cursor $ [] :root
+                  :panel $ {} $ :data ({})
+                  |note-1 $ {} $ :data ({})
+                  7 $ {} $ :data ({})
+                tag-branch $ >> root :panel
+                string-branch $ >> root |note-1
+                number-branch $ >> root 7
+              assert= :comp-note $ :name $ comp-note tag-branch note
+              assert= :comp-note $ :name $ comp-note string-branch note
+              assert= :comp-note $ :name $ comp-note number-branch note
+              assert= ([] :root :panel) (&map:get tag-branch :cursor)
+              assert= ([] :root |note-1) (&map:get string-branch :cursor)
+              assert= ([] :root 7) (&map:get number-branch :cursor)
+              assert= ([] :root) (&map:get root :cursor)
+            :tags $ #{} :js
         'comp-notes-page $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-notes-page (states notes info)
             let
@@ -1076,9 +1649,10 @@
                 .render add-plugin
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] (:: 'Map 'Tag 'Dynamic)
+            :args $ [] (:: 'Map 'StateKey 'Dynamic)
               :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
               :: 'Map 'Tag 'Number
+            :generics $ [] 'StateKey
         'css-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-note
             {}
@@ -1106,8 +1680,7 @@
       :defs $ {}
         'comp-global-keydown $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-global-keydown (on-event)
-            span $ {} $ :on-keydown
-              fn (e d!) (on-event e d!) &unit
+            span $ {} $ :on-keydown on-event
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
             :args $ [] $ :: 'Fn
@@ -1115,6 +1688,39 @@
                 :args $ [] (:: 'Map 'Tag 'Dynamic)
                   :: 'Fn $ {} (:return 'Unit)
                     :args $ [] 'app.schema/Op
+          :tests $ [] $ %{} 'TestEntry (:name |forwards-event-and-dispatch-once)
+            :code $ quote $ let
+                calls $ ref 0
+                dispatches $ ref 0
+                event $ {} (:key-code 13) (:shift? true)
+                op $ schema/Op :user/log-in $ [] |type-test-user |type-test-password
+                handler $ fn (e d!)
+                  hint-fn $ {} (:return 'Unit)
+                    :args $ [] (:: 'Map 'Tag 'Dynamic)
+                      :: 'Fn $ {} (:return 'Unit)
+                        :args $ [] 'app.schema/Op
+                  assert= event e
+                  reset! calls $ inc @calls
+                  d! op
+                dispatch! $ fn (received)
+                  hint-fn $ {} (:return 'Unit)
+                    :args $ [] 'app.schema/Op
+                  assert= op received
+                  reset! dispatches $ inc @dispatches
+                  , &unit
+                component $ comp-global-keydown handler
+                tree $ match
+                  .unwrap $ :tree component
+                  (:element element) element
+                  (:component _) (raise |Expected-keydown-element)
+                keydown $ .unwrap $ js-nullish->option
+                  .unwrap $ .get (:event tree) :keydown
+              assert= 0 @calls
+              assert= 0 @dispatches
+              assert= &unit $ keydown event dispatch!
+              assert= 1 @calls
+              assert= 1 @dispatches
+            :tags $ #{} :js :keydown-contract
         'comp-no-tasks $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-no-tasks ()
             div
@@ -1128,23 +1734,23 @@
         'comp-overview $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-overview (states today tasks)
             let
-                working-tasks $ -> tasks (identity)
-                  filter $ fn (pair)
-                    not $ &map:get
-                        last pair
-                        , .unwrap
-                      , :pending?
-                pending-tasks $ -> tasks (identity)
-                  filter $ fn (pair)
-                    &map:get
-                        last pair
-                        , .unwrap
-                      , :pending?
+                working-tasks $ .filter-kv tasks $ fn (key task)
+                  hint-fn $ {}
+                    :args $ [] 'String $ :: 'Map 'Tag 'Dynamic
+                    :return 'Bool
+                  not $ decode-map-as (&map:get task :pending?) 'Bool
+                pending-tasks $ .filter-kv tasks $ fn (key task)
+                  hint-fn $ {}
+                    :args $ [] 'String $ :: 'Map 'Tag 'Dynamic
+                    :return 'Bool
+                  decode-map-as (&map:get task :pending?) 'Bool
                 create-plugin $ use-prompt (>> states :create)
                   {} $ :text "|Create new task:"
-                cursor $ &map:get states :cursor
-                state $ or (&map:get states :data)
-                  {} $ :show-later? false
+                cursor $ decode-map-as (&map:get states :cursor) 'List
+                state $ decode-map-as
+                  or (&map:get states :data)
+                    {} $ :show-later? false
+                  , 'Map
                 today-labels $ app.comp.navigation/date-labels today
               div
                 {} (:class-name css/expand)
@@ -1187,36 +1793,40 @@
                     list-> ({})
                       -> working-tasks (&map:to-list)
                         &list:sort-by $ fn (pair)
-                          let
-                              task $
-                                last pair
-                                , .unwrap
-                            negate $ or (&map:get task :touched-time) (&map:get task :created-time)
+                          task-sort-key $ decode-map-as
+                            .unwrap $ last pair
+                            :: 'Map 'Tag 'Dynamic
                         &list:map-pair $ fn (k task)
-                          [] k $ comp-task
-                            >> states $ &map:get task :id
-                            , task :working
+                          let
+                              task-data $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
+                            [] k $ comp-task
+                              >> states $ decode-map-as (&map:get task-data :id) 'String
+                              , task-data :working
                   when
                     not $ empty? pending-tasks
                     div ({})
                       comp-title |Later
                         assert-type (Option :none) (:: 'Option 'respo.schema/Component)
                         Option :some $ fn (e d!)
+                          hint-fn $ {} (:return 'Unit)
+                            :args $ [] (:: 'Map 'Tag 'Dynamic)
+                              :: 'Fn $ {} (:return 'Unit)
+                                :args $ [] 'app.schema/Op
                           d! $ :: :states cursor $ update state :show-later? not
                           , &unit
                       if (&map:get state :show-later?)
                         list-> ({})
                           -> pending-tasks (&map:to-list)
                             &list:sort-by $ fn (pair)
-                              let
-                                  task $
-                                    last pair
-                                    , .unwrap
-                                negate $ or (&map:get task :touched-time) (&map:get task :created-time)
+                              task-sort-key $ decode-map-as
+                                .unwrap $ last pair
+                                :: 'Map 'Tag 'Dynamic
                             &list:map-pair $ fn (k task)
-                              [] k $ comp-task
-                                >> states $ &map:get task :id
-                                , task :pending
+                              let
+                                  task-data $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
+                                [] k $ comp-task
+                                  >> states $ decode-map-as (&map:get task-data :id) 'String
+                                  , task-data :pending
                         div
                           {}
                             :style $ {} $ :font-size 16
@@ -1229,16 +1839,97 @@
                   .render create-plugin
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] (:: 'Map 'Tag 'Dynamic) 'String $ :: 'Map 'String (:: 'Map 'Tag 'Dynamic)
+            :args $ [] (:: 'Map 'StateKey 'Dynamic) 'String $ :: 'Map 'String (:: 'Map 'Tag 'Dynamic)
+            :generics $ [] 'StateKey
+          :tests $ []
+            %{} 'TestEntry (:name |keeps-working-and-pending-and-toggle-state)
+              :code $ quote $ let
+                  cursor $ [] :root |board 7
+                  state $ {} (:show-later? true) (|extra |preserved)
+                  states $ {} (:cursor cursor) (:data state)
+                  tasks $ {}
+                    |working $ {} (:id |working) (:text |Working) (:detail |) (:pending? false) (:created-time 100)
+                    |pending $ {} (:id |pending) (:text |Pending) (:detail |) (:pending? true) (:created-time 200)
+                  element $ fn (node)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/RenderNode
+                      :return 'respo.schema/Element
+                    match node
+                      (:element value) value
+                      (:component _) (raise |Expected-element)
+                  child $ fn (parent index)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/Element 'Number
+                      :return 'respo.schema/RenderNode
+                    .unwrap $ :node $ .unwrap
+                      nth (:children parent) index
+                  root $ element $ .unwrap
+                    :tree $ comp-overview states |2026-09-14 tasks
+                  content $ element $ child root 0
+                  working $ element $ child content 1
+                  later $ element $ child content 2
+                  pending $ element $ child later 1
+                  title $ match (child later 0)
+                    (:component value) value
+                    (:element _) (raise |Expected-title-component)
+                  title-tree $ element $ .unwrap (:tree title)
+                  click $ .unwrap $ js-nullish->option
+                    .unwrap $ .get (:event title-tree) :click
+                  calls $ ref 0
+                  dispatch! $ fn (op)
+                    hint-fn $ {}
+                      :args $ [] 'app.schema/Op
+                      :return 'Unit
+                    match op
+                      (:states path payload)
+                        do (assert= cursor path)
+                          assert= (assoc state :show-later? false) payload
+                      _ $ raise |Expected-state-operation
+                    swap! calls inc
+                    , &unit
+                assert= 1 $ count $ :children working
+                assert= 1 $ count $ :children pending
+                click ({}) dispatch!
+                assert= 1 @calls
+                assert= true $ &map:get state :show-later?
+              :tags $ #{} :js :overview-state-contract
+            %{} 'TestEntry (:name |rejects-invalid-overview-state)
+              :code $ quote $ assert= true
+                try
+                  do
+                    comp-overview
+                      {}
+                        :cursor $ []
+                        :data 7
+                      , |2026-09-14 $ {}
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+              :tags $ #{} :js :overview-state-contract
+            %{} 'TestEntry (:name |rejects-non-bool-pending)
+              :code $ quote $ assert= true
+                try
+                  do
+                    comp-overview
+                      {} $ :cursor $ []
+                      , |2026-09-14 $ {} $ |bad
+                        {} (:id |bad) (:text |Bad) (:detail |) (:pending? |true) (:created-time 100)
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+              :tags $ #{} :js :overview-state-contract
         'comp-task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-task (states task mode)
             let
-                cursor $ &map:get states :cursor
-                state $ or (&map:get states :data)
-                  {} $ :menu? false
+                decoded-task $ match (schema/decode-task-record task)
+                  (:ok record) record
+                  (:err message) (raise message)
+                cursor $ decode-map-as (&map:get states :cursor) 'List
+                state $ decode-map-as
+                  or (&map:get states :data)
+                    {} $ :menu? false
+                  , 'Map
                 update-plugin $ use-prompt (>> states :drafter)
                   {} (:text "|Task content:")
-                    :initial $ &map:get task :text
+                    :initial $ :text decoded-task
                     :placeholder |task...
                     :button-text |Edit
                 delete-plugin $ use-confirm (>> states :delete)
@@ -1259,7 +1950,7 @@
                   :draggable true
                 div
                   {} $ :style ui/flex
-                  <> (&map:get task :text) ({})
+                  <> (:text decoded-task) ({})
                 comp-modal-menu
                   {} (:title |Operations)
                     :style $ {} $ :width 320
@@ -1269,45 +1960,223 @@
                       :: :item :copy |Copy
                       :: :item :edit |Edit
                       :: :item :remove |Remove
-                  &map:get state :menu?
+                  decode-map-as (&map:get state :menu?) 'Bool
                   fn (d!)
                     d! $ :: :states cursor $ assoc state :menu? false
                     , &unit
                   fn (item d!)
-                    let
-                        new-state $ assoc state :menu? false
-                        result $ task-menu-action item
-                      case-default result
-                        d! $ :: :states cursor new-state
-                        :done $ do
-                          d! $ :: :task/finish-working task-id
-                          d! $ :: :states cursor new-state
-                        :edit $ do
-                          d! $ :: :states cursor new-state
-                          .show update-plugin d! $ fn (text)
-                            d! $ :: :task/update-working $ schema/TaskEdit :id task-id :text (decode-map-as text 'String)
-                            , &unit
-                        :copy $ do
-                          copy! $ &map:get task :text
-                          d! $ :: :states cursor new-state
-                        :remove $ do
-                          d! $ :: :states cursor new-state
-                          .show delete-plugin d! $ fn ()
-                            d! $ :: :task/remove-working task-id
-                            , &unit
+                    if (nil? item)
+                      d! $ :: :states cursor $ assoc state :menu? false
+                      if (enum? item)
+                        let
+                            new-state $ assoc state :menu? false
+                            result $ task-menu-action item
+                          match result
+                            :done $ do
+                              d! $ :: :task/finish-working task-id
+                              d! $ :: :states cursor new-state
+                            :edit $ do
+                              d! $ :: :states cursor new-state
+                              .show update-plugin d! $ fn (text)
+                                d! $ :: :task/update-working $ schema/TaskEdit :id task-id :text (decode-map-as text 'String)
+                                , &unit
+                            :copy $ do
+                              copy! $ :text decoded-task
+                              d! $ :: :states cursor new-state
+                            :remove $ do
+                              d! $ :: :states cursor new-state
+                              .show delete-plugin d! $ fn ()
+                                d! $ :: :task/remove-working task-id
+                                , &unit
+                              , &unit
+                            :pend $ do
+                              d! $ :: :task/pend task-id
+                              d! $ :: :states cursor new-state
+                            :touch $ do
+                              d! $ :: :task/touch-working task-id
+                              d! $ :: :states cursor new-state
+                            _ $ d! $ :: :states cursor new-state
                           , &unit
-                        :pend $ do
-                          d! $ :: :task/pend task-id
-                          d! $ :: :states cursor new-state
-                        :touch $ do
-                          d! $ :: :task/touch-working task-id
-                          d! $ :: :states cursor new-state
-                      , &unit
+                        raise "|Menu selection must be an item enum"
+                    , &unit
                 .render update-plugin
                 .render delete-plugin
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'Tag 'Dynamic) 'Tag
+            :args $ [] (:: 'Map 'StateKey 'Dynamic) (:: 'Map 'Tag 'Dynamic) 'Tag
+            :generics $ [] 'StateKey
+          :tests $ []
+            %{} 'TestEntry (:name |accepts-tag-string-number-state-branches)
+              :code $ quote $ let
+                  task $ {} (:id |task-1) (:text |example) (:detail |) (:pending? false)
+                  root $ {}
+                    :cursor $ [] :root
+                    :panel $ {} $ :data
+                      {} $ :menu? false
+                    |task-1 $ {} $ :data
+                      {} $ :menu? false
+                    7 $ {} $ :data
+                      {} $ :menu? false
+                  tag-branch $ >> root :panel
+                  string-branch $ >> root |task-1
+                  number-branch $ >> root 7
+                assert= :comp-task $ :name $ comp-task tag-branch task :working
+                assert= :comp-task $ :name $ comp-task string-branch task :working
+                assert= :comp-task $ :name $ comp-task number-branch task :working
+                assert= ([] :root :panel) (&map:get tag-branch :cursor)
+                assert= ([] :root |task-1) (&map:get string-branch :cursor)
+                assert= ([] :root 7) (&map:get number-branch :cursor)
+                assert= ([] :root) (&map:get root :cursor)
+              :tags $ #{} :js
+            %{} 'TestEntry (:name |click-preserves-state-and-mixed-cursor)
+              :code $ quote $ let
+                  cursor $ [] :panel |task-1 7
+                  state $ {} (:menu? false) (|extra |preserved)
+                  task $ {} (:id |task-1) (:text |Task) (:detail |) (:pending? false)
+                  component $ comp-task
+                    {} (:cursor cursor) (:data state)
+                    , task :working
+                  tree $ match
+                    .unwrap $ :tree component
+                    (:element value) value
+                    (:component _) (raise |Expected-task-element)
+                  click $ .unwrap $ js-nullish->option
+                    .unwrap $ .get (:event tree) :click
+                  calls $ ref 0
+                  dispatch! $ fn (op)
+                    hint-fn $ {} (:return 'Unit)
+                      :args $ [] 'app.schema/Op
+                    match op
+                      (:states path payload)
+                        do (assert= cursor path)
+                          assert= (assoc state :menu? true) payload
+                      _ $ raise |Expected-state-operation
+                    swap! calls inc
+                    , &unit
+                click ({}) dispatch!
+                assert= 1 @calls
+                assert= false $ &map:get state :menu?
+              :tags $ #{} :js :task-state-contract
+            %{} 'TestEntry (:name |rejects-invalid-state-containers)
+              :code $ quote $ let
+                  task $ {} (:id |task-1) (:text |Task) (:detail |) (:pending? false)
+                assert= true $ try
+                  do
+                    comp-task
+                      {}
+                        :cursor $ []
+                        :data 7
+                      , task :working
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+                assert= true $ try
+                  do
+                    comp-task
+                      {} (:cursor |invalid)
+                        :data $ {} $ :menu? false
+                      , task :working
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+              :tags $ #{} :js :task-state-contract
+            %{} 'TestEntry (:name |clear-closes-without-changing-task)
+              :code $ quote $ let
+                  cursor $ [] :panel |task-1 7
+                  state $ {} (:menu? true) (|extra |preserved)
+                  states $ {} (:cursor cursor) (:data state)
+                  element $ fn (node)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/RenderNode
+                      :return 'respo.schema/Element
+                    match node
+                      (:element value) value
+                      (:component _) (raise |Expected-element)
+                  child $ fn (parent index)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/Element 'Number
+                      :return 'respo.schema/RenderNode
+                    .unwrap $ :node $ .unwrap
+                      nth (:children parent) index
+                  root $ element $ .unwrap
+                    :tree $ comp-task states
+                      {} (:id |task-1) (:text |Task) (:detail |) (:pending? false)
+                      , :working
+                  menu $ match (child root 1)
+                    (:component value) value
+                    (:element _) (raise |Expected-menu-component)
+                  menu-root $ element $ .unwrap (:tree menu)
+                  backdrop $ element $ child menu-root 0
+                  card $ element $ child backdrop 0
+                  header $ element $ child card 0
+                  button $ element $ child header 2
+                  click $ .unwrap $ js-nullish->option
+                    .unwrap $ .get (:event button) :click
+                  calls $ ref 0
+                  dispatch! $ fn (operation)
+                    hint-fn $ {}
+                      :args $ [] 'app.schema/Op
+                      :return 'Unit
+                    match operation
+                      (:states path payload)
+                        do (assert= cursor path)
+                          assert= (assoc state :menu? false) payload
+                      _ $ raise |Unexpected-menu-operation
+                    swap! calls inc
+                    , &unit
+                click ({}) dispatch!
+                assert= 1 @calls
+                assert= true $ &map:get state :menu?
+              :tags $ #{} :js :menu-contract
+            %{} 'TestEntry (:name |selection-dispatches-action-and-closes)
+              :code $ quote $ let
+                  cursor $ [] :panel |task-1 7
+                  state $ {} (:menu? true) (|extra |preserved)
+                  states $ {} (:cursor cursor) (:data state)
+                  element $ fn (node)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/RenderNode
+                      :return 'respo.schema/Element
+                    match node
+                      (:element value) value
+                      (:component _) (raise |Expected-element)
+                  child $ fn (parent index)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/Element 'Number
+                      :return 'respo.schema/RenderNode
+                    .unwrap $ :node $ .unwrap
+                      nth (:children parent) index
+                  root $ element $ .unwrap
+                    :tree $ comp-task states
+                      {} (:id |task-1) (:text |Task) (:detail |) (:pending? false)
+                      , :working
+                  menu $ match (child root 1)
+                    (:component value) value
+                    (:element _) (raise |Expected-menu-component)
+                  menu-root $ element $ .unwrap (:tree menu)
+                  backdrop $ element $ child menu-root 0
+                  card $ element $ child backdrop 0
+                  header $ element $ child card 0
+                  button $ element $ child
+                    element $ child card 1
+                    , 0
+                  click $ .unwrap $ js-nullish->option
+                    .unwrap $ .get (:event button) :click
+                  calls $ ref 0
+                  dispatch! $ fn (operation)
+                    hint-fn $ {}
+                      :args $ [] 'app.schema/Op
+                      :return 'Unit
+                    match operation
+                      (:states path payload)
+                        do (assert= cursor path)
+                          assert= (assoc state :menu? false) payload
+                      (:task/finish-working id) (assert= |task-1 id)
+                      _ $ raise |Unexpected-menu-operation
+                    swap! calls inc
+                    , &unit
+                click ({}) dispatch!
+                assert= 2 @calls
+                assert= true $ &map:get state :menu?
+              :tags $ #{} :js :menu-contract
         'comp-title $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-title (title child on-click)
             div
@@ -1315,6 +2184,11 @@
                 :style $ if (option:some? on-click)
                   {} $ :cursor :pointer
                 :on-click $ fn (e d!)
+                  hint-fn $ {}
+                    :args $ [] (:: 'Map 'Tag 'Dynamic)
+                      :: 'Fn $ {} (:return 'Unit)
+                        :args $ [] 'app.schema/Op
+                    :return 'Unit
                   when (option:some? on-click)
                     (option:unwrap on-click) e d!
                   , &unit
@@ -1334,23 +2208,29 @@
             %{} 'TestEntry (:name |absent-handler)
               :code $ quote $ let
                   component $ comp-title |Title
-                  tree $ .unwrap $ :tree component
+                  tree $ match
+                    .unwrap $ :tree component
+                    (:element element) element
+                    (:component _) (raise |Expected-title-element)
                 assert-type tree respo.schema/Element
-                assert= 0 $ .count $ :style tree
-                assert= 2 $ .count $ :children tree
+                assert= 0 $ .len $ :style tree
+                assert= 2 $ .len $ :children tree
               :tags $ #{} :js :title-contract
             %{} 'TestEntry (:name |explicit-none)
               :code $ quote $ let
                   component $ comp-title |Title (%none) (%none)
-                  tree $ .unwrap $ :tree component
+                  tree $ match
+                    .unwrap $ :tree component
+                    (:element element) element
+                    (:component _) (raise |Expected-title-element)
                 assert-type tree respo.schema/Element
-                assert= 0 $ .count $ :style tree
-                assert= 2 $ .count $ :children tree
+                assert= 0 $ .len $ :style tree
+                assert= 2 $ .len $ :children tree
               :tags $ #{} :js :title-contract
             %{} 'TestEntry (:name |callback-once)
               :code $ quote $ let
-                  evaluations $ atom 0
-                  calls $ atom 0
+                  evaluations $ ref 0
+                  calls $ ref 0
                   handler $ fn (e d!)
                     reset! calls $ inc @calls
                   dispatch! $ fn (op) &unit
@@ -1370,12 +2250,16 @@
                       do
                         reset! evaluations $ inc @evaluations
                         %some handler
-                    tree $ .unwrap $ :tree component
+                    tree $ match
+                      .unwrap $ :tree component
+                      (:element element) element
+                      (:component _) (raise |Expected-title-element)
                   assert-type tree respo.schema/Element
                   assert= 1 @evaluations
                   assert= 0 @calls
                   let
-                      click $ .unwrap $ .get (:event tree) :click
+                      click $ .unwrap $ js-nullish->option
+                        .unwrap $ .get (:event tree) :click
                     click ({}) dispatch!
                     assert= 1 @calls
                     click ({}) dispatch!
@@ -1384,19 +2268,22 @@
               :tags $ #{} :js :title-contract
             %{} 'TestEntry (:name |child-once)
               :code $ quote $ let
-                  evaluations $ atom 0
+                  evaluations $ ref 0
                   component $ comp-title |Parent $ %some
                     do
                       reset! evaluations $ inc @evaluations
                       comp-title |Child
-                  tree $ .unwrap $ :tree component
+                  tree $ match
+                    .unwrap $ :tree component
+                    (:element element) element
+                    (:component _) (raise |Expected-title-element)
                 assert-type tree respo.schema/Element
                 assert= 1 @evaluations
-                assert= 3 $ .count $ :children tree
+                assert= 3 $ .len $ :children tree
               :tags $ #{} :js :title-contract
             %{} 'TestEntry (:name |legacy-empty-handler-values)
               :code $ quote $ let
-                  evaluations $ atom 0
+                  evaluations $ ref 0
                   old-nil $ do
                     reset! evaluations $ inc @evaluations
                     , nil
@@ -1413,12 +2300,16 @@
                 assert= false $ fn? old-false
                 let
                     component $ comp-title |Title (%none) (%none)
-                    tree $ .unwrap $ :tree component
+                    tree $ match
+                      .unwrap $ :tree component
+                      (:element element) element
+                      (:component _) (raise |Expected-title-element)
                   assert-type tree respo.schema/Element
                   let
-                      click $ .unwrap $ .get (:event tree) :click
+                      click $ .unwrap $ js-nullish->option
+                        .unwrap $ .get (:event tree) :click
                     click ({}) dispatch!
-                  assert= 0 $ .count $ :style tree
+                  assert= 0 $ .len $ :style tree
                   assert= 2 @evaluations
               :tags $ #{} :js :title-contract
         'css-task-base $ %{} 'CodeEntry (:doc |)
@@ -1445,15 +2336,70 @@
           :examples $ []
           :schema $ :: 'String
         'task-menu-action $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn task-menu-action (item) (&enum:nth item 1)
+          :code $ quote $ defn task-menu-action (item)
+            decode-map-as (&enum:nth item 1) 'Tag
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Tag)
             :args $ [] 'Enum
-          :tests $ [] $ %{} 'TestEntry (:name |decodes-task-menu-actions)
-            :code $ quote $ do
-              assert |remove-action-should-be-decoded $ &= :remove $ task-menu-action (:: :item :remove |Remove)
-              assert |done-action-should-be-decoded $ &= :done $ task-menu-action (:: :item :done |Done)
-            :tags $ #{} :client
+          :tests $ []
+            %{} 'TestEntry (:name |decodes-task-menu-actions)
+              :code $ quote $ do
+                assert |remove-action-should-be-decoded $ &= :remove $ task-menu-action (:: :item :remove |Remove)
+                assert |done-action-should-be-decoded $ &= :done $ task-menu-action (:: :item :done |Done)
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-non-tag-action)
+              :code $ quote $ assert= true
+                try
+                  do
+                    task-menu-action $ :: :item 1 |Invalid
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+              :tags $ #{} :client
+        'task-sort-key $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn task-sort-key (task)
+            negate $ decode-map-as
+              or (&map:get task :touched-time) (&map:get task :created-time)
+              , 'Number
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'Number)
+            :args $ [] $ :: 'Map 'Tag 'Dynamic
+          :tests $ []
+            %{} 'TestEntry (:name |preserves-effective-timestamp)
+              :code $ quote $ do
+                assert= -200 $ task-sort-key $ {} (:touched-time 200) (:created-time 100)
+                assert= 0 $ task-sort-key $ {} (:touched-time 0) (:created-time 100)
+                assert= 5 $ task-sort-key $ {} (:touched-time -5) (:created-time 100)
+                assert= -100 $ task-sort-key $ {} (:touched-time nil) (:created-time 100)
+                assert= -100 $ task-sort-key $ {} (:touched-time false) (:created-time 100)
+                assert= -100 $ task-sort-key $ {} (:created-time 100)
+                assert= -200 $ task-sort-key $ {} (:touched-time 200) (:created-time |unused)
+              :tags $ #{} :client :task-sort-contract
+            %{} 'TestEntry (:name |rejects-invalid-effective-timestamp)
+              :code $ quote $ do
+                assert= true $ try
+                  do
+                    task-sort-key $ {} (:touched-time |invalid) (:created-time 100)
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+                assert= true $ try
+                  do
+                    task-sort-key $ {} $ :created-time |invalid
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+                assert= true $ try
+                  do
+                    task-sort-key $ {}
+                    , false
+                  fn (message) (starts-with? message "|decode-map-as failed")
+              :tags $ #{} :client :task-sort-contract
+            %{} 'TestEntry (:name |preserves-descending-task-order)
+              :code $ quote $ let
+                  older $ {} (:id |older) (:created-time 100)
+                  newer $ {} (:id |newer) (:created-time 200)
+                  touched $ {} (:id |touched) (:created-time 10) (:touched-time 300)
+                assert= ([] touched newer older)
+                  &list:sort-by ([] older touched newer) task-sort-key
+              :tags $ #{} :client :task-sort-contract
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.overview
           :require
@@ -1490,11 +2436,7 @@
                   =< 8 nil
                   list->
                     {} $ :class-name css/row
-                    -> members (&map:to-list)
-                      &list:map-pair $ fn (k username)
-                        [] k $ div
-                          {} $ :class-name css-member-label
-                          <> username
+                    .to-list $ member-labels members css-member-label
                 =< nil 48
                 div ({})
                   button
@@ -1511,12 +2453,13 @@
                       :style $ {} (:color :red) (:border-color :red)
                       :on-click $ fn (e d!)
                         d! $ :: :user/log-out
-                        js-ffi.browser/storage-remove! $ &map:get config/site :storage-key
+                        js-ffi.browser/storage-remove! $ :storage-key config/site
                         , &unit
                     <> "|Log out"
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
-            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'String 'String)
+            :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'MemberKey 'String)
+            :generics $ [] 'MemberKey
         'css-member-label $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-member-label
             {} $ |$0 $ {} (:padding "|0 8px")
@@ -1525,6 +2468,49 @@
               :margin "|0 4px"
           :examples $ []
           :schema $ :: 'String
+        'member-labels $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn member-labels (members class-name)
+            .filter-map-kv members $ fn (key username)
+              MapEntryDecision :keep key $ div
+                {} $ :class-name class-name
+                <> username
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] (:: 'Map 'MemberKey 'String) 'String
+            :generics $ [] 'MemberKey
+            :return $ :: 'Map 'MemberKey 'respo.schema/Element
+          :tests $ []
+            %{} 'TestEntry (:name |preserves-number-key-and-guest)
+              :code $ quote $ assert=
+                {} $ 7 $ div
+                  {} $ :class-name |member-label
+                  <> "|访客"
+                member-labels
+                  {} $ 7 "|访客"
+                  , |member-label
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |preserves-string-key-and-empty-name)
+              :code $ quote $ assert=
+                {} $ |session $ div
+                  {} $ :class-name |member-label
+                  <> |
+                member-labels
+                  {} $ |session |
+                  , |member-label
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |preserves-tag-key-and-member-name)
+              :code $ quote $ assert=
+                {} $ :session $ div
+                  {} $ :class-name |member-label
+                  <> |Ada
+                member-labels
+                  {} $ :session |Ada
+                  , |member-label
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |empty-members)
+              :code $ quote $ assert= ({})
+                member-labels ({}) |member-label
+              :tags $ #{} :client
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.profile
           :require
@@ -1538,6 +2524,10 @@
             app.config :as config
     'app.config $ %{} 'FileEntry
       :defs $ {}
+        'SiteConfig $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct SiteConfig (:port 'Number) (:title 'String) (:icon 'String) (:dev-ui 'String) (:release-ui 'String) (:cdn-url 'String) (:theme 'String) (:storage-key 'String) (:storage-file 'String)
+          :examples $ []
+          :schema $ :: 'StructDef
         'dev? $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def dev?
             = |dev $ option:unwrap-or (get-env |mode) |release
@@ -1545,9 +2535,15 @@
           :schema $ :: 'Bool
         'site $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def site
-            {} (:port 11009) (:title |Timegrass) (:icon |http://cdn.tiye.me/logo/timegrass.png) (:dev-ui |http://localhost:8100/main.css) (:release-ui |http://cdn.tiye.me/favored-fonts/main.css) (:cdn-url |http://cdn.tiye.me/timegrass/) (:theme |#51C766) (:storage-key |timegrass) (:storage-file |storage.cirru)
+            SiteConfig :port 11009 :title |Timegrass :icon |http://cdn.tiye.me/logo/timegrass.png :dev-ui |http://localhost:8100/main.css :release-ui |http://cdn.tiye.me/favored-fonts/main.css :cdn-url |http://cdn.tiye.me/timegrass/ :theme |#51C766 :storage-key |timegrass :storage-file |storage.cirru
           :examples $ []
-          :schema $ :: 'Dynamic
+          :schema $ :: 'app.config/SiteConfig
+          :tests $ [] $ %{} 'TestEntry (:name |keeps-storage-and-port-contract)
+            :code $ quote $ do
+              assert= 11009 $ :port site
+              assert= |timegrass $ :storage-key site
+              assert= |storage.cirru $ :storage-file site
+            :tags $ #{} :client :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.config
     'app.schema $ %{} 'FileEntry
@@ -1561,6 +2557,10 @@
           :code $ quote $ defstruct DatabaseRecord (:today 'String)
             :users $ :: 'Map 'String 'app.schema/UserRecord
             :sessions $ :: 'Map 'Number 'app.schema/SessionRecord
+          :examples $ []
+          :schema $ :: 'StructDef
+        'FinishedTaskView $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct FinishedTaskView (:id 'String) (:text 'String) (:finished-time 'Number)
           :examples $ []
           :schema $ :: 'StructDef
         'HistoryRoute $ %{} 'CodeEntry (:doc |)
@@ -1608,7 +2608,7 @@
             :effect/ping
             :effect/pong
             :effect/connect
-            :states 'Dynamic 'Dynamic
+            :states (:: 'List 'Dynamic) 'Dynamic
           :examples $ []
           :schema $ :: 'Enum
         'Route $ %{} 'CodeEntry (:doc |)
@@ -1738,13 +2738,13 @@
           :tests $ []
             %{} 'TestEntry (:name |decodes-sync-control)
               :code $ quote $ assert=
-                %:: Result :ok $ %:: ClientMessage :sync/ack 7
+                Result :ok $ ClientMessage :sync/ack 7
                 decode-client-message $ :: :sync/ack 7
               :tags $ #{} :server
             %{} 'TestEntry (:name |accepts-legacy-direct-op)
               :code $ quote $ assert=
-                %:: Result :ok $ %:: ClientMessage :dispatch $ %:: Op :effect/ping
-                decode-client-message $ %:: Op :effect/ping
+                Result :ok $ ClientMessage :dispatch $ Op :effect/ping
+                decode-client-message $ Op :effect/ping
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-invalid-revision)
               :code $ quote $ match
@@ -1757,7 +2757,7 @@
               :tags $ #{} :server
             %{} 'TestEntry (:name |decodes-named-wire-operation)
               :code $ quote $ assert=
-                %:: Result :ok $ %:: ClientMessage :dispatch $ %:: Op :effect/ping
+                Result :ok $ ClientMessage :dispatch $ Op :effect/ping
                 decode-client-message $ parse-cirru-edn "|%:: 'ClientMessage 'dispatch $ %:: 'Op 'effect/ping"
               :tags $ #{} :server
         'decode-database $ %{} 'CodeEntry (:doc |)
@@ -1877,6 +2877,62 @@
                 (:err message) (starts-with? message "|storage.cirru/:users ")
                 (:ok _) false
               :tags $ #{} :server
+        'decode-finished-task-view $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn decode-finished-task-view (raw)
+            try-decode-map-as
+              select-keys raw $ [] :id :text :finished-time
+              , FinishedTaskView
+          :examples $ []
+          :schema $ :: 'Fn $ {}
+            :args $ [] $ :: 'Map 'Tag 'Dynamic
+            :return $ :: 'Result 'app.schema/FinishedTaskView 'String
+          :tests $ []
+            %{} 'TestEntry (:name |keeps-only-history-fields)
+              :code $ quote $ assert= true
+                match
+                  decode-finished-task-view $ {} (:id |task-1) (:text |Done) (:finished-time 1735689600000) (:detail |unrelated) (:pending? false) (:created-time nil)
+                  (:ok task)
+                    and
+                      = |task-1 $ :id task
+                      = |Done $ :text task
+                      = 1735689600000 $ :finished-time task
+                  (:err _) false
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-missing-finished-time)
+              :code $ quote $ assert= true
+                match
+                  decode-finished-task-view $ {} (:id |task-1) (:text |Done)
+                  (:err message) (starts-with? message "|decode-map-as failed at $.finished-time:")
+                  (:ok _) false
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-nil-finished-time)
+              :code $ quote $ assert= true
+                match
+                  decode-finished-task-view $ {} (:id |task-1) (:text |Done) (:finished-time nil)
+                  (:err message) (starts-with? message "|decode-map-as failed at $.finished-time:")
+                  (:ok _) false
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-string-finished-time)
+              :code $ quote $ assert= true
+                match
+                  decode-finished-task-view $ {} (:id |task-1) (:text |Done) (:finished-time |1735689600000)
+                  (:err message) (starts-with? message "|decode-map-as failed at $.finished-time:")
+                  (:ok _) false
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-numeric-id)
+              :code $ quote $ assert= true
+                match
+                  decode-finished-task-view $ {} (:id 7) (:text |Done) (:finished-time 1735689600000)
+                  (:err message) (starts-with? message "|decode-map-as failed at $.id:")
+                  (:ok _) false
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-numeric-text)
+              :code $ quote $ assert= true
+                match
+                  decode-finished-task-view $ {} (:id |task-1) (:text 7) (:finished-time 1735689600000)
+                  (:err message) (starts-with? message "|decode-map-as failed at $.text:")
+                  (:ok _) false
+              :tags $ #{} :client
         'decode-note-record $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-note-record (raw)
             let
@@ -1894,7 +2950,10 @@
                 (:ok note)
                   and
                     = |n1 $ :id note
-                    = (%none) (:updated-time note)
+                    let
+                        expected-none $ Option :none
+                      assert-type expected-none $ :: 'Option 'Number
+                      = expected-none $ :updated-time note
                 (:err _) false
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-invalid-time-with-path)
@@ -2029,7 +3088,12 @@
                 (:effect/connect)
                   Result :ok $ Op :effect/connect
                 (:states cursor state)
-                  Result :ok $ Op :states cursor state
+                  match
+                    try-decode-map-as cursor $ :: 'List 'Dynamic
+                    (:ok checked-cursor)
+                      Result :ok $ Op :states checked-cursor state
+                    (:err message)
+                      invalid-message $ str "|Invalid states cursor: " message
                 _ $ invalid-message $ str "|Unknown application operation: " op
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -2038,7 +3102,7 @@
           :tests $ []
             %{} 'TestEntry (:name |accepts-today-string)
               :code $ quote $ assert=
-                %ok $ %:: Op :today |2026-09-25
+                %ok $ Op :today |2026-09-25
                 decode-operation $ :: :today |2026-09-25
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-today-number)
@@ -2051,7 +3115,7 @@
               :tags $ #{} :server
             %{} 'TestEntry (:name |accepts-note-add-string)
               :code $ quote $ assert=
-                %ok $ %:: Op :note/add |hello
+                %ok $ Op :note/add |hello
                 decode-operation $ :: :note/add |hello
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-note-add-number)
@@ -2064,7 +3128,7 @@
               :tags $ #{} :server
             %{} 'TestEntry (:name |accepts-note-remove-string)
               :code $ quote $ assert=
-                %ok $ %:: Op :note/remove |note-1
+                %ok $ Op :note/remove |note-1
                 decode-operation $ :: :note/remove |note-1
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-note-remove-number)
@@ -2078,22 +3142,22 @@
             %{} 'TestEntry (:name |accepts-typed-task-text-and-ids)
               :code $ quote $ do
                 assert=
-                  %ok $ %:: Op :task/create-working |write-docs
+                  %ok $ Op :task/create-working |write-docs
                   decode-operation $ :: :task/create-working |write-docs
                 assert=
-                  %ok $ %:: Op :task/remove-working |task-1
+                  %ok $ Op :task/remove-working |task-1
                   decode-operation $ :: :task/remove-working |task-1
                 assert=
-                  %ok $ %:: Op :task/finish-working |task-1
+                  %ok $ Op :task/finish-working |task-1
                   decode-operation $ :: :task/finish-working |task-1
                 assert=
-                  %ok $ %:: Op :task/touch-working |task-1
+                  %ok $ Op :task/touch-working |task-1
                   decode-operation $ :: :task/touch-working |task-1
                 assert=
-                  %ok $ %:: Op :task/put-back |task-1
+                  %ok $ Op :task/put-back |task-1
                   decode-operation $ :: :task/put-back |task-1
                 assert=
-                  %ok $ %:: Op :task/pend |task-1
+                  %ok $ Op :task/pend |task-1
                   decode-operation $ :: :task/pend |task-1
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-non-string-task-payloads)
@@ -2108,10 +3172,10 @@
             %{} 'TestEntry (:name |accepts-typed-credentials)
               :code $ quote $ do
                 assert=
-                  %ok $ %:: Op :user/log-in $ [] |Alice |secret
+                  %ok $ Op :user/log-in $ [] |Alice |secret
                   decode-operation $ :: :user/log-in $ [] |Alice |secret
                 assert=
-                  %ok $ %:: Op :user/sign-up $ [] |Alice |secret
+                  %ok $ Op :user/sign-up $ [] |Alice |secret
                   decode-operation $ :: :user/sign-up $ [] |Alice |secret
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-malformed-credentials)
@@ -2127,10 +3191,10 @@
             %{} 'TestEntry (:name |accepts-typed-edit-payloads)
               :code $ quote $ do
                 assert=
-                  %ok $ %:: Op :task/update-working $ %{} TaskEdit (:id |t1) (:text |Updated)
+                  %ok $ Op :task/update-working $ TaskEdit :id |t1 :text |Updated
                   decode-operation $ :: :task/update-working $ {} (:id |t1) (:text |Updated)
                 assert=
-                  %ok $ %:: Op :note/edit $ %{} NoteEdit (:id |n1) (:text |Updated)
+                  %ok $ Op :note/edit $ NoteEdit :id |n1 :text |Updated
                   decode-operation $ :: :note/edit $ {} (:id |n1) (:text |Updated)
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-malformed-edit-payloads)
@@ -2146,13 +3210,13 @@
             %{} 'TestEntry (:name |accepts-serialized-edit-structs)
               :code $ quote $ do
                 assert=
-                  %ok $ %:: Op :task/update-working $ %{} TaskEdit (:id |t1) (:text |Updated)
+                  %ok $ Op :task/update-working $ TaskEdit :id |t1 :text |Updated
                   decode-operation $ parse-cirru-edn $ format-cirru-edn
-                    %:: Op :task/update-working $ %{} TaskEdit (:id |t1) (:text |Updated)
+                    Op :task/update-working $ TaskEdit :id |t1 :text |Updated
                 assert=
-                  %ok $ %:: Op :note/edit $ %{} NoteEdit (:id |n1) (:text |Updated)
+                  %ok $ Op :note/edit $ NoteEdit :id |n1 :text |Updated
                   decode-operation $ parse-cirru-edn $ format-cirru-edn
-                    %:: Op :note/edit $ %{} NoteEdit (:id |n1) (:text |Updated)
+                    Op :note/edit $ NoteEdit :id |n1 :text |Updated
               :tags $ #{} :server
             %{} 'TestEntry (:name |accepts-message-removal-ids)
               :code $ quote $ let
@@ -2187,6 +3251,27 @@
                 assert= true $ result:err? $ decode-operation
                   :: :router/change $ {} (:name :notes)
                     :data $ {} (:year 2026) (:month -1)
+              :tags $ #{} :client :server
+            %{} 'TestEntry (:name |preserves-mixed-state-cursor)
+              :code $ quote $ let
+                  cursor $ [] :panel |task-1 7
+                  state $ {} (:editing? true) (:text |Draft)
+                  operation $ Op :states cursor state
+                assert= (%ok operation)
+                  decode-operation $ :: :states cursor state
+                assert= (%ok operation)
+                  decode-operation $ parse-cirru-edn $ format-cirru-edn operation
+                assert=
+                  %ok $ Op :states ([]) nil
+                  decode-operation $ :: :states ([]) nil
+              :tags $ #{} :client :server
+            %{} 'TestEntry (:name |rejects-non-list-state-cursor)
+              :code $ quote $ do
+                assert= true $ result:err? $ decode-operation (:: :states nil nil)
+                assert= true $ result:err? $ decode-operation (:: :states 7 nil)
+                assert= true $ result:err? $ decode-operation (:: :states |panel nil)
+                assert= true $ result:err? $ decode-operation
+                  :: :states ({}) nil
               :tags $ #{} :client :server
         'decode-route $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-route (raw)
@@ -2235,7 +3320,7 @@
             let
                 data $ if (struct? raw) (&struct:to-map raw) raw
               if (map? data)
-                case-default (&map:get data :name) (Result :err |Unknown-route)
+                match (&map:get data :name)
                   :home $ Result :ok $ Route :home
                   :profile $ Result :ok $ Route :profile
                   :history $ match
@@ -2270,6 +3355,7 @@
                         Result :ok $ Route :notes route
                         Result :err |Invalid-notes-range
                     (:err message) (Result :err message)
+                  _ $ Result :err |Unknown-route
                 Result :err |Expected-route-map
           :examples $ []
           :schema $ :: 'Fn $ {}
@@ -2294,15 +3380,10 @@
                 (:patch base-revision revision changes)
                   if
                     and (number? base-revision) (number? revision)
-                    match (try-decode-map-as changes 'List)
+                    match
+                      try-decode-map-as changes $ :: 'List 'recollect.schema/change-op
                       (:ok decoded-list)
-                        if
-                          every? decoded-list $ fn (change)
-                            match (enum-definition change)
-                              (:some definition) (identical? definition recollect.schema/change-op)
-                              (:none) false
-                          Result :ok $ ServerMessage :patch base-revision revision $ assert-type decoded-list (:: 'List 'recollect.schema/change-op)
-                          invalid-message $ str "|Invalid patch envelope: " message
+                        Result :ok $ ServerMessage :patch base-revision revision decoded-list
                       (:err reason)
                         invalid-message $ str "|Invalid patch envelope: " reason
                     invalid-message $ str "|Invalid patch envelope: " message
@@ -2316,7 +3397,7 @@
           :tests $ []
             %{} 'TestEntry (:name |decodes-pong)
               :code $ quote $ assert=
-                %:: Result :ok $ %:: ServerMessage :effect/pong
+                Result :ok $ ServerMessage :effect/pong
                 decode-server-message $ :: :effect/pong
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-invalid-patch-payload)
@@ -2330,23 +3411,44 @@
               :tags $ #{} :client
             %{} 'TestEntry (:name |decodes-named-wire-pong)
               :code $ quote $ assert=
-                %:: Result :ok $ %:: ServerMessage :effect/pong
+                Result :ok $ ServerMessage :effect/pong
                 decode-server-message $ parse-cirru-edn "|%:: 'ServerMessage 'effect/pong"
               :tags $ #{} :client
             %{} 'TestEntry (:name |validates-nominal-patch-list)
               :code $ quote $ assert=
-                %:: Result :ok $ %:: ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
-                decode-server-message $ %:: ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
+                Result :ok $ ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
+                decode-server-message $ ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
               :tags $ #{} :client
             %{} 'TestEntry (:name |decodes-snapshot-map)
               :code $ quote $ assert=
-                %:: Result :ok $ %:: ServerMessage :snapshot 2 $ {} (:a 1)
-                decode-server-message $ %:: ServerMessage :snapshot 2 $ {} (:a 1)
+                Result :ok $ ServerMessage :snapshot 2 $ {} (:a 1)
+                decode-server-message $ ServerMessage :snapshot 2 $ {} (:a 1)
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-non-nominal-change)
               :code $ quote $ assert= true
-                result:err? $ decode-server-message $ %:: ServerMessage :patch 3 4
+                result:err? $ decode-server-message $ ServerMessage :patch 3 4
                   [] $ :: :replace 1
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-non-enum-patch-elements)
+              :code $ quote $ do
+                assert= true $ result:err? $ decode-server-message
+                  :: :patch 1 2 $ [] 1
+                assert= true $ result:err? $ decode-server-message
+                  :: :patch 1 2 $ [] nil
+                assert= true $ result:err? $ decode-server-message
+                  :: :patch 1 2 $ [] $ {} (:kind :replace)
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |accepts-recursive-nominal-patch)
+              :code $ quote $ let
+                  change $ recollect.schema/change-op :update :profile $ recollect.schema/change-op :replace
+                    {} $ :name |Ada
+                  message $ ServerMessage :patch 1 2 $ [] change
+                assert= (Result :ok message) (decode-server-message message)
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-wrong-nominal-patch-element)
+              :code $ quote $ assert= true
+                result:err? $ decode-server-message $ :: :patch 1 2
+                  [] $ MessageDecodeError :invalid |not-a-change
               :tags $ #{} :client
         'decode-task-record $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-task-record (raw)
@@ -2365,8 +3467,14 @@
                 (:ok task)
                   and
                     = |x $ :id task
-                    = (%none) (:created-time task)
-                    = (%none) (:archived-time task)
+                    let
+                        expected-none $ Option :none
+                      assert-type expected-none $ :: 'Option 'Number
+                      = expected-none $ :created-time task
+                    let
+                        expected-none $ Option :none
+                      assert-type expected-none $ :: 'Option 'Number
+                      = expected-none $ :archived-time task
                 (:err _) false
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-invalid-text-with-path)
@@ -2380,10 +3488,22 @@
                 decode-task-record $ {} (:id |x) (:text |ok) (:detail |) (:pending? false)
                 (:ok task)
                   and
-                    = (%none) (:created-time task)
-                    = (%none) (:touched-time task)
-                    = (%none) (:finished-time task)
-                    = (%none) (:archived-time task)
+                    let
+                        expected-none $ Option :none
+                      assert-type expected-none $ :: 'Option 'Number
+                      = expected-none $ :created-time task
+                    let
+                        expected-none $ Option :none
+                      assert-type expected-none $ :: 'Option 'Number
+                      = expected-none $ :touched-time task
+                    let
+                        expected-none $ Option :none
+                      assert-type expected-none $ :: 'Option 'Number
+                      = expected-none $ :finished-time task
+                    let
+                        expected-none $ Option :none
+                      assert-type expected-none $ :: 'Option 'Number
+                      = expected-none $ :archived-time task
                 (:err _) false
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-missing-id-with-path)
@@ -2430,8 +3550,14 @@
                 (:ok user)
                   and
                     = |u1 $ :id user
-                    = (%none) (:password user)
-                    = (%none) (:nickname user)
+                    let
+                        expected-none $ Option :none
+                      assert-type expected-none $ :: 'Option 'String
+                      = expected-none $ :password user
+                    let
+                        expected-none $ Option :none
+                      assert-type expected-none $ :: 'Option 'String
+                      = expected-none $ :nickname user
                     empty? $ :notes user
                     empty? $ :working $ :tasks user
                 (:err _) false
@@ -2445,8 +3571,10 @@
                     :pending $ {}
                     :finished $ {}
                 (:ok user)
-                  = (%none)
-                    :created-time $ &map:get
+                  let
+                      expected-none $ Option :none
+                    assert-type expected-none $ :: 'Option 'Number
+                    = expected-none $ :created-time $ &map:get
                       :working $ :tasks user
                       , |t1
                 (:err _) false
@@ -2457,8 +3585,10 @@
                   :notes $ {} $ |n1
                     {} (:id |n1) (:text |hello) (:time 42) (:updated-time nil)
                 (:ok user)
-                  = (%none)
-                    :updated-time $ &map:get (:notes user) |n1
+                  let
+                      expected-none $ Option :none
+                    assert-type expected-none $ :: 'Option 'Number
+                    = expected-none $ :updated-time $ &map:get (:notes user) |n1
                 (:err _) false
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-bad-nested-task-with-path)
@@ -2491,12 +3621,21 @@
           :schema $ :: 'app.schema/DatabaseRecord
         'invalid-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn invalid-message (detail)
-            %:: Result :err $ MessageDecodeError :invalid detail
+            Result :err $ MessageDecodeError :invalid detail
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'String
             :generics $ [] 'T
-            :return $ :: 'calcit.core/Result 'app.schema/MessageDecodeError 'T
+            :return $ :: 'calcit.core/Result 'T 'app.schema/MessageDecodeError
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-error-payload)
+            :code $ quote $ let
+                result $ invalid-message |invalid-envelope
+              assert-type result $ :: 'Result 'Number 'MessageDecodeError
+              match result
+                (:ok _) (raise |Expected-decode-error)
+                (:err error)
+                  assert= (MessageDecodeError :invalid |invalid-envelope) error
+            :tags $ #{} :client :server
         'load-database $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn load-database (raw)
             match (decode-database raw)
@@ -2504,18 +3643,19 @@
               (:ok legacy)
                 let
                     users $ decode-map-as (&map:get legacy :users) (:: 'Map 'String 'Dynamic)
-                    decoded $ foldl (users .to-list)
-                      Result :ok $ {}
-                      fn (acc entry)
+                    decoded $ let
+                        seed $ Result :ok $ {}
+                      assert-type seed $ :: 'Result (:: 'Map 'String 'app.schema/UserRecord) 'String
+                      fold (map-entries users) seed $ fn (acc entry)
                         match acc
                           (:err message) (Result :err message)
                           (:ok result)
-                            let-sugar
-                                  [] id raw-user
-                                  , entry
+                            let
+                                id $ :key entry
+                                raw-user $ :value entry
                               match (decode-user-record raw-user)
                                 (:ok user)
-                                  Result :ok $ assoc result id user
+                                  Result :ok $ .assoc result id user
                                 (:err message)
                                   Result :err $ str |storage.cirru/:users/ id |: message
                   match decoded
@@ -2629,25 +3769,39 @@
           :schema $ :: 'Dynamic
         'read-path $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn read-path (base path)
-            list-match path
-              () base
-              (field tail)
+            match (destruct-list path)
+              (:none) base
+              (:some field tail)
                 if (map? base)
                   recur (&map:get base field) tail
                   , nil
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
-            :args $ [] 'Dynamic 'Dynamic
-          :tests $ [] $ %{} 'TestEntry (:name |handles-non-map-boundaries)
-            :code $ quote $ do
-              assert= 1 $ read-path
-                {} $ :a $ {} (:b 1)
-                [] :a :b
-              assert= nil $ read-path
-                {} $ :a |not-a-map
-                [] :a :b
-              assert= |leaf $ read-path |leaf $ []
-            :tags $ #{} :server
+            :args $ [] 'Dynamic $ :: 'List 'Dynamic
+          :tests $ []
+            %{} 'TestEntry (:name |handles-non-map-boundaries)
+              :code $ quote $ do
+                assert= 1 $ read-path
+                  {} $ :a $ {} (:b 1)
+                  [] :a :b
+                assert= nil $ read-path
+                  {} $ :a |not-a-map
+                  [] :a :b
+                assert= |leaf $ read-path |leaf $ []
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |mixed-keys-and-falsey-leaves)
+              :code $ quote $ do
+                assert= false $ read-path
+                  {} $ :sessions $ {}
+                    7 $ {} $ |visible false
+                  [] :sessions 7 |visible
+                assert= nil $ read-path
+                  {} $ :sessions $ {}
+                    7 $ {} $ |visible nil
+                  [] :sessions 7 |visible
+                assert= nil $ read-path ({}) ([] :missing)
+                assert= false $ read-path false $ []
+              :tags $ #{} :server
         'route-operation $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn route-operation (data)
             match (decode-route data)
@@ -2833,8 +3987,10 @@
             :return $ :: 'Map 'Tag 'Dynamic
         'validate-stored-users $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn validate-stored-users (users)
-            foldl (-> users keys .to-list) (Result :ok users)
-              fn (result user-id)
+            let
+                seed $ Result :ok users
+              assert-type seed $ :: 'Result (:: 'Map 'String 'T) 'String
+              foldl (-> users keys .to-list) seed $ fn (result user-id)
                 match result
                   (:err message) (Result :err message)
                   (:ok _)
@@ -2906,19 +4062,19 @@
     'app.server $ %{} 'FileEntry
       :defs $ {}
         '*client-caches $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *client-caches ({})
-          :examples $ []
-          :schema $ :: 'Ref $ :: 'Map 'Number 'Dynamic
-        '*client-states $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *client-states ({})
+          :code $ quote $ defref *client-caches ({})
           :examples $ []
           :schema $ :: 'Ref $ :: 'Map 'Number (:: 'Map 'Tag 'Dynamic)
+        '*client-states $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defref *client-states ({})
+          :examples $ []
+          :schema $ :: 'Ref $ :: 'Map 'Number 'app.server/ClientSyncState
         '*dirty-clients $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *dirty-clients (#{})
+          :code $ quote $ defref *dirty-clients (#{})
           :examples $ []
           :schema $ :: 'Ref $ :: 'Set 'Number
         '*initial-db $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *initial-db
+          :code $ quote $ defref *initial-db
             if (path-exists? storage-file)
               let
                   raw-data $ read-file storage-file
@@ -2935,31 +4091,38 @@
           :examples $ []
           :schema $ :: 'Ref 'app.schema/DatabaseRecord
         '*reader-reel $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *reader-reel @*reel
+          :code $ quote $ defref *reader-reel @*reel
           :examples $ []
-          :schema $ :: 'Ref 'cumulo-reel.core/ReelState
+          :schema $ :: 'Ref $ :: 'cumulo-reel.core/ReelState 'app.schema/DatabaseRecord
         '*reel $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *reel
-            struct-with reel-schema (:base @*initial-db) (:db @*initial-db)
+          :code $ quote $ defref *reel
+            ReelState :base @*initial-db :db @*initial-db :records ([]) :merged? false
           :examples $ []
-          :schema $ :: 'Ref 'cumulo-reel.core/ReelState
+          :schema $ :: 'Ref $ :: 'cumulo-reel.core/ReelState 'app.schema/DatabaseRecord
         '*sync-metrics $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *sync-metrics
+          :code $ quote $ defref *sync-metrics
             SyncMetrics :last-diff-latency-ms 0 :last-patch-bytes 0 :pending-clients 0 :slow-clients 0 :resync-count 0 :patch-attempts 0 :snapshot-attempts 0 :last-revision 0
           :examples $ []
           :schema $ :: 'Ref 'app.server/SyncMetrics
         '*sync-retry-scheduled? $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *sync-retry-scheduled? false
+          :code $ quote $ defref *sync-retry-scheduled? false
           :examples $ []
           :schema $ :: 'Ref 'Bool
         '*sync-revision $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *sync-revision 0
+          :code $ quote $ defref *sync-revision 0
           :examples $ []
           :schema $ :: 'Ref 'Number
         '*sync-scheduled? $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defatom *sync-scheduled? false
+          :code $ quote $ defref *sync-scheduled? false
           :examples $ []
           :schema $ :: 'Ref 'Bool
+        'ClientSyncState $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct ClientSyncState (:status 'Tag) (:last-heartbeat 'Number) (:acked-rev 'Number) (:dirty-rev 'Number) (:in-flight? 'Bool) (:needs-snapshot? 'Bool) (:slow-client? 'Bool)
+            :sent-rev $ :: 'Option 'Number
+            :sent-store $ :: 'Option $ :: 'Map 'Tag 'Dynamic
+            :last-send-outcome $ :: 'Option 'Tag
+          :examples $ []
+          :schema $ :: 'StructDef
         'SyncMetrics $ %{} 'CodeEntry
           :doc "|Process-lifetime synchronization counters with read-time client gauges."
           :code $ quote $ defstruct SyncMetrics (:last-diff-latency-ms 'Number) (:last-patch-bytes 'Number) (:pending-clients 'Number) (:slow-clients 'Number) (:resync-count 'Number) (:patch-attempts 'Number) (:snapshot-attempts 'Number) (:last-revision 'Number)
@@ -2969,22 +4132,82 @@
           :code $ quote $ defn acknowledge-client! (sid revision)
             let
                 state $ option:unwrap $ get @*client-states sid
-              when
-                = revision $ option:unwrap-or (get state :sent-rev) -1
-                let
-                    sent-store $ option:unwrap $ get state :sent-store
-                  swap! *client-caches assoc sid sent-store
-                swap! *client-states update sid $ fn (current) (next-sync-ack-state current revision)
-                when
-                  >
-                    option:unwrap-or (get state :dirty-rev) 0
-                    , revision
-                  swap! *dirty-clients include sid
-                  request-sync!
+              match (:sent-rev state)
+                (:some sent-revision)
+                  when (= revision sent-revision)
+                    match (:sent-store state)
+                      (:some sent-store)
+                        do (swap! *client-caches assoc sid sent-store)
+                          swap! *client-states update sid $ fn (current) (next-sync-ack-state current revision)
+                          when
+                            > (:dirty-rev state) revision
+                            swap! *dirty-clients include sid
+                            request-sync!
+                      (:none) &unit
+                (:none) &unit
             , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Number 'Number
+          :tests $ []
+            %{} 'TestEntry (:name |ignores-negative-ack-without-pending-send)
+              :code $ quote $ let
+                  previous-states @*client-states
+                  previous-caches @*client-caches
+                reset! *client-states $ {} $ 1 empty-sync-state
+                reset! *client-caches $ {}
+                let
+                    failed? $ try
+                      do (acknowledge-client! 1 -1) false
+                      fn (message) true
+                    observed-states @*client-states
+                    observed-caches @*client-caches
+                  reset! *client-states previous-states
+                  reset! *client-caches previous-caches
+                  assert= false failed?
+                  assert=
+                    {} $ 1 empty-sync-state
+                    , observed-states
+                  assert= ({}) observed-caches
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |promotes-cache-only-after-matching-ack)
+              :code $ quote $ let
+                  previous-states @*client-states
+                  previous-caches @*client-caches
+                  old-store $ {} $ :value |old
+                  new-store $ {} $ :value |new
+                  pending $ next-sync-send-state
+                    struct-with empty-sync-state (:status :active) (:dirty-rev 7)
+                    , 7 new-store $ wss.core/WssSendOutcome :accepted
+                reset! *client-states $ {} (1 pending) (2 empty-sync-state)
+                reset! *client-caches $ {} $ 1 old-store
+                acknowledge-client! 1 6
+                let
+                    stale-caches @*client-caches
+                    stale-states @*client-states
+                  acknowledge-client! 1 7
+                  let
+                      accepted-caches @*client-caches
+                      accepted-states @*client-states
+                    acknowledge-client! 1 7
+                    let
+                        duplicate-caches @*client-caches
+                        duplicate-states @*client-states
+                      reset! *client-states previous-states
+                      reset! *client-caches previous-caches
+                      assert=
+                        {} $ 1 old-store
+                        , stale-caches
+                      assert= pending $ option:unwrap $ get stale-states 1
+                      assert=
+                        {} $ 1 new-store
+                        , accepted-caches
+                      assert= (next-sync-ack-state pending 7)
+                        option:unwrap $ get accepted-states 1
+                      assert= empty-sync-state $ option:unwrap $ get accepted-states 2
+                      assert= accepted-caches duplicate-caches
+                      assert= accepted-states duplicate-states
+              :tags $ #{} :server
         'current-date! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn current-date! ()
             unsafe-coerce
@@ -2997,7 +4220,7 @@
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dispatch! (op sid)
             let
-                op-id $ turn-string $ generate-id!
+                op-id $ .to-string $ generate-id!
                 op-time $ get-timestamp $ current-date!
                 op-tag $ &enum:nth op 0
               println |[operation] |received op-tag |sid sid |id op-id
@@ -3012,9 +4235,19 @@
                   reset! *reel next-reel
                   println |[operation] |applied op-tag |sid sid |id op-id |changed changed?
                   request-sync!
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'app.schema/Op 'Number
+          :tests $ [] $ %{} 'TestEntry (:name |ping-to-absent-peer-returns-unit)
+            :code $ quote $ assert= &unit
+              dispatch! (schema/Op :effect/ping) 2147483000
+            :tags $ #{} :server
+        'empty-sync-state $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ def empty-sync-state
+            ClientSyncState :status :idle :last-heartbeat 0 :acked-rev 0 :dirty-rev 0 :in-flight? false :needs-snapshot? true :slow-client? false :sent-rev (Option :none) :sent-store (Option :none) :last-send-outcome $ Option :none
+          :examples $ []
+          :schema $ :: 'app.server/ClientSyncState
         'get-backup-path! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn get-backup-path! ()
             let
@@ -3049,22 +4282,48 @@
                 do (swap! *dirty-clients include sid) (request-sync-retry!)
               (:too-large) (println "|WebSocket sync payload is too large for client:" sid)
               (:closed) &unit
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ [] 'Number 'Number 'Dynamic 'wss.core/WssSendOutcome
+            :args $ [] 'Number 'Number (:: 'Map 'Tag 'Dynamic) 'wss.core/WssSendOutcome
+          :tests $ [] $ %{} 'TestEntry (:name |all-outcomes-return-unit)
+            :code $ quote $ let
+                previous-states @*client-states
+                previous-dirty @*dirty-clients
+                previous-retry @*sync-retry-scheduled?
+                store $ decode-map-as ({}) (:: 'Map 'Tag 'Dynamic)
+              reset! *client-states $ {}
+              reset! *dirty-clients $ #{}
+              reset! *sync-retry-scheduled? true
+              let
+                  accepted $ handle-sync-send! 7 1 store $ WssSendOutcome :accepted
+                  backpressured $ handle-sync-send! 7 1 store $ WssSendOutcome :backpressured
+                  too-large $ handle-sync-send! 7 1 store $ WssSendOutcome :too-large
+                  closed $ handle-sync-send! 7 1 store $ WssSendOutcome :closed
+                  dirty @*dirty-clients
+                reset! *client-states previous-states
+                reset! *dirty-clients previous-dirty
+                reset! *sync-retry-scheduled? previous-retry
+                assert= &unit accepted
+                assert= &unit backpressured
+                assert= &unit too-large
+                assert= &unit closed
+                assert= (#{} 7) dirty
+            :tags $ #{} :server
         'invalidate-sync-caches! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn invalidate-sync-caches! ()
             reset! *client-caches $ {}
             each (keys @*client-states)
               fn (sid)
                 swap! *client-states update sid $ fn (state)
-                  dissoc
-                    merge state $ {} (:needs-snapshot? true) (:in-flight? false)
-                    , :sent-rev :sent-store
+                  struct-with
+                    struct-with state (:needs-snapshot? true) (:in-flight? false)
+                    :sent-rev $ Option :none
+                    :sent-store $ Option :none
                 let
                     state $ option:unwrap $ get @*client-states sid
                   when
-                    = :active $ &map:get state :status
+                    = :active $ :status state
                     swap! *dirty-clients include sid
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -3083,30 +4342,27 @@
             ; "|init it before doing multi-threading"
             identity @*reader-reel
             on-control-c on-exit!
-            set-interval 600000 $ fn () $ persist-db!
-            set-interval 60000 $ fn () $ set-today!
+            set-interval! 600000 $ fn () $ persist-db!
+            set-interval! 60000 $ fn () $ set-today!
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'calcit.core/FfiTask)
             :args $ []
         'mark-client-active! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn mark-client-active! (sid client-revision force-snapshot?)
             let
-                state $ option:unwrap-or (get @*client-states sid) ({})
-                resumed? $ or force-snapshot? $ not= :active
-                  option:unwrap-or (get state :status) :idle
-                next-state-base $ merge
-                  {} (:status :active)
-                    :last-heartbeat $ now-ms
-                    :acked-rev client-revision
-                    :dirty-rev @*sync-revision
-                    :in-flight? false
-                    :needs-snapshot? true
-                  , state $ {} (:status :active)
-                    :last-heartbeat $ now-ms
-                    :acked-rev $ if resumed? client-revision $ option:unwrap-or (get state :acked-rev) client-revision
-                    :in-flight? $ if resumed? false $ option:unwrap-or (get state :in-flight?) false
-                    :needs-snapshot? $ or resumed? $ option:unwrap-or (get state :needs-snapshot?) false
-                next-state $ if resumed? (dissoc next-state-base :sent-rev :sent-store) next-state-base
+                state $ option:unwrap-or (get @*client-states sid)
+                  struct-with empty-sync-state $ :dirty-rev @*sync-revision
+                resumed? $ or force-snapshot? $ not= :active (:status state)
+                next-state-base $ struct-with state (:status :active)
+                  :last-heartbeat $ now-ms
+                  :acked-rev $ if resumed? client-revision $ :acked-rev state
+                  :in-flight? $ if resumed? false $ :in-flight? state
+                  :needs-snapshot? $ or resumed? $ :needs-snapshot? state
+                next-state $ if resumed?
+                  struct-with next-state-base
+                    :sent-rev $ Option :none
+                    :sent-store $ Option :none
+                  , next-state-base
               swap! *client-states assoc sid next-state
               when resumed? (swap! *client-caches dissoc sid) (swap! *dirty-clients include sid) (request-sync!)
             , &unit
@@ -3118,11 +4374,13 @@
             when
               option:some? $ get @*client-states sid
               swap! *client-states update sid $ fn (state)
-                dissoc
-                  merge state $ {} (:status :idle) (:acked-rev client-revision) (:in-flight? false) (:needs-snapshot? true)
-                  , :sent-rev :sent-store
+                struct-with
+                  struct-with state (:status :idle) (:acked-rev client-revision) (:in-flight? false) (:needs-snapshot? true)
+                  :sent-rev $ Option :none
+                  :sent-store $ Option :none
               swap! *client-caches dissoc sid
               swap! *dirty-clients exclude sid
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Number 'Number
@@ -3134,35 +4392,40 @@
                     state $ option:unwrap $ get @*client-states sid
                   swap! *client-states set-client-dirty-revision sid revision
                   when
-                    = :active $ option:unwrap $ get state :status
+                    = :active $ :status state
                     swap! *dirty-clients include sid
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Number
         'next-sync-ack-state $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn next-sync-ack-state (current revision)
-            dissoc
-              merge current $ {} (:acked-rev revision) (:in-flight? false)
-              , :sent-rev :sent-store
+            struct-with
+              struct-with current (:acked-rev revision) (:in-flight? false)
+              :sent-rev $ Option :none
+              :sent-store $ Option :none
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'C)
-            :args $ [] 'C 'Number
-            :generics $ [] 'C
+          :schema $ :: 'Fn $ {} (:return 'app.server/ClientSyncState)
+            :args $ [] 'app.server/ClientSyncState 'Number
           :tests $ [] $ %{} 'TestEntry
             :name |repeated-backpressure-converges-to-latest-revision
             :code $ quote $ let
-                initial $ {} (:status :active) (:acked-rev 3) (:dirty-rev 4) (:in-flight? false) (:needs-snapshot? false)
+                initial $ struct-with empty-sync-state (:status :active) (:acked-rev 3) (:dirty-rev 4) (:in-flight? false) (:needs-snapshot? false)
                 after-first-backpressure $ next-sync-send-state initial 4
                   {} $ :value 4
                   %:: wss.core/WssSendOutcome :backpressured
-                after-latest-backpressure $ next-sync-send-state (assoc after-first-backpressure :dirty-rev 7) 7
-                  {} $ :value 7
-                  %:: wss.core/WssSendOutcome :backpressured
-                accepted-latest $ next-sync-send-state (assoc after-latest-backpressure :dirty-rev 9) 9
-                  {} $ :value 9
-                  %:: wss.core/WssSendOutcome :accepted
+                after-latest-backpressure $ next-sync-send-state
+                  struct-with after-first-backpressure $ :dirty-rev 7
+                  , 7
+                    {} $ :value 7
+                    %:: wss.core/WssSendOutcome :backpressured
+                accepted-latest $ next-sync-send-state
+                  struct-with after-latest-backpressure $ :dirty-rev 9
+                  , 9
+                    {} $ :value 9
+                    %:: wss.core/WssSendOutcome :accepted
               assert=
-                {} (:status :active) (:acked-rev 9) (:dirty-rev 9) (:in-flight? false) (:needs-snapshot? false) (:slow-client? false) (:last-send-outcome :accepted)
+                struct-with empty-sync-state (:status :active) (:acked-rev 9) (:dirty-rev 9) (:in-flight? false) (:needs-snapshot? false) (:slow-client? false)
+                  :last-send-outcome $ Option :some :accepted
                 next-sync-ack-state accepted-latest 9
             :tags $ #{} :server
         'next-sync-metrics $ %{} 'CodeEntry (:doc |)
@@ -3181,10 +4444,10 @@
             :args $ [] 'app.server/SyncMetrics 'Tag 'Number 'Number 'String
           :tests $ [] $ %{} 'TestEntry (:name |advances-patch-and-snapshot-counters)
             :code $ quote $ let
-                initial $ %{} SyncMetrics (:last-diff-latency-ms 0) (:last-patch-bytes 0) (:pending-clients 0) (:slow-clients 0) (:resync-count 0) (:patch-attempts 0) (:snapshot-attempts 0) (:last-revision 0)
+                initial $ SyncMetrics :last-diff-latency-ms 0 :last-patch-bytes 0 :pending-clients 0 :slow-clients 0 :resync-count 0 :patch-attempts 0 :snapshot-attempts 0 :last-revision 0
                 after-patch $ next-sync-metrics initial :patch 7 3 "|A😀"
               assert=
-                %{} SyncMetrics (:last-diff-latency-ms 2) (:last-patch-bytes 5) (:pending-clients 0) (:slow-clients 0) (:resync-count 0) (:patch-attempts 1) (:snapshot-attempts 1) (:last-revision 8)
+                SyncMetrics :last-diff-latency-ms 2 :last-patch-bytes 5 :pending-clients 0 :slow-clients 0 :resync-count 0 :patch-attempts 1 :snapshot-attempts 1 :last-revision 8
                 next-sync-metrics after-patch :snapshot 8 2 |ignored
             :tags $ #{} :server
         'next-sync-send-state $ %{} 'CodeEntry
@@ -3192,64 +4455,76 @@
           :code $ quote $ defn next-sync-send-state (current revision new-store outcome)
             match outcome
               (:accepted)
-                merge current $ {} (:sent-rev revision) (:sent-store new-store) (:in-flight? true) (:needs-snapshot? false) (:slow-client? false) (:last-send-outcome :accepted)
-              (:backpressured)
-                merge current $ {}
-                  :dirty-rev $ let
-                      current-dirty $ option:unwrap-or (get current :dirty-rev) 0
-                    if (> revision current-dirty) revision current-dirty
-                  :slow-client? true
-                  :last-send-outcome :backpressured
-              (:too-large)
-                merge current $ {} (:needs-snapshot? true) (:slow-client? true) (:last-send-outcome :too-large)
-              (:closed)
-                dissoc
-                  merge current $ {} (:status :idle) (:in-flight? false) (:last-send-outcome :closed)
-                  , :sent-rev :sent-store
-          :examples $ []
-          :schema $ :: 'Fn $ {}
-            :args $ [] (:: 'Map 'Tag 'V) 'Number 'U 'wss.core/WssSendOutcome
-            :generics $ [] 'V 'U
-            :return $ :: 'Map 'Tag 'V
-          :tests $ []
-            %{} 'TestEntry (:name |accepted-records-pending-store)
-              :code $ quote $ assert=
-                {} (:status :active) (:sent-rev 7)
-                  :sent-store $ {} $ :value 1
+                struct-with current
+                  :sent-rev $ Option :some revision
+                  :sent-store $ Option :some new-store
                   :in-flight? true
                   :needs-snapshot? false
                   :slow-client? false
-                  :last-send-outcome :accepted
+                  :last-send-outcome $ Option :some :accepted
+              (:backpressured)
+                struct-with current
+                  :dirty-rev $ let
+                      current-dirty $ :dirty-rev current
+                    if (> revision current-dirty) revision current-dirty
+                  :slow-client? true
+                  :last-send-outcome $ Option :some :backpressured
+              (:too-large)
+                struct-with current (:needs-snapshot? true) (:slow-client? true)
+                  :last-send-outcome $ Option :some :too-large
+              (:closed)
+                struct-with
+                  struct-with current (:status :idle) (:in-flight? false)
+                    :last-send-outcome $ Option :some :closed
+                  :sent-rev $ Option :none
+                  :sent-store $ Option :none
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.server/ClientSyncState)
+            :args $ [] 'app.server/ClientSyncState 'Number (:: 'Map 'Tag 'Dynamic) 'wss.core/WssSendOutcome
+          :tests $ []
+            %{} 'TestEntry (:name |accepted-records-pending-store)
+              :code $ quote $ assert=
+                struct-with empty-sync-state (:status :active)
+                  :sent-rev $ Option :some 7
+                  :sent-store $ Option :some $ {} (:value 1)
+                  :in-flight? true
+                  :needs-snapshot? false
+                  :slow-client? false
+                  :last-send-outcome $ Option :some :accepted
                 next-sync-send-state
-                  {} $ :status :active
+                  struct-with empty-sync-state $ :status :active
                   , 7
                     {} $ :value 1
                     %:: wss.core/WssSendOutcome :accepted
               :tags $ #{} :server
             %{} 'TestEntry (:name |oversized-payload-requires-snapshot)
               :code $ quote $ assert=
-                {} (:status :active) (:needs-snapshot? true) (:slow-client? true) (:last-send-outcome :too-large)
+                struct-with empty-sync-state (:status :active) (:needs-snapshot? true) (:slow-client? true)
+                  :last-send-outcome $ Option :some :too-large
                 next-sync-send-state
-                  {} $ :status :active
+                  struct-with empty-sync-state $ :status :active
                   , 7
                     {} $ :value 1
                     %:: wss.core/WssSendOutcome :too-large
               :tags $ #{} :server
             %{} 'TestEntry (:name |closed-clears-pending-send)
               :code $ quote $ assert=
-                {} (:status :idle) (:in-flight? false) (:last-send-outcome :closed)
+                struct-with empty-sync-state (:status :idle) (:in-flight? false)
+                  :last-send-outcome $ Option :some :closed
                 next-sync-send-state
-                  {} (:status :active) (:in-flight? true) (:sent-rev 7)
-                    :sent-store $ {} $ :value 1
+                  struct-with empty-sync-state (:status :active) (:in-flight? true)
+                    :sent-rev $ Option :some 7
+                    :sent-store $ Option :some $ {} (:value 1)
                   , 7
                     {} $ :value 1
                     %:: wss.core/WssSendOutcome :closed
               :tags $ #{} :server
             %{} 'TestEntry (:name |backpressure-preserves-latest-dirty-revision)
               :code $ quote $ assert=
-                {} (:status :active) (:acked-rev 5) (:dirty-rev 7) (:slow-client? true) (:last-send-outcome :backpressured)
+                struct-with empty-sync-state (:status :active) (:acked-rev 5) (:dirty-rev 7) (:slow-client? true)
+                  :last-send-outcome $ Option :some :backpressured
                 next-sync-send-state
-                  {} (:status :active) (:acked-rev 5) (:dirty-rev 6)
+                  struct-with empty-sync-state (:status :active) (:acked-rev 5) (:dirty-rev 6)
                   , 7
                     {} $ :value 1
                     %:: wss.core/WssSendOutcome :backpressured
@@ -3281,6 +4556,7 @@
               check-write-file! storage-path file-content
               check-write-file! backup-path file-content
               println |[storage] |persisted storage-path |backup backup-path
+              , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -3289,30 +4565,56 @@
           :doc "|Read synchronization counters plus current pending and slow-client gauges."
           :code $ quote $ defn read-sync-metrics ()
             let
-                states $ vals @*client-states
-                pending-clients $ count $ filter states
-                  fn (state)
-                    option:unwrap-or (get state :in-flight?) false
-                slow-clients $ count $ filter states
-                  fn (state)
-                    option:unwrap-or (get state :slow-client?) false
+                states @*client-states
+                pending-clients $ .len $ .filter-kv states
+                  fn (sid state) (:in-flight? state)
+                slow-clients $ .len $ .filter-kv states
+                  fn (sid state) (:slow-client? state)
               struct-with @*sync-metrics (:pending-clients pending-clients) (:slow-clients slow-clients)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.server/SyncMetrics)
             :args $ []
-          :tests $ [] $ %{} 'TestEntry (:name |typed-metrics-gauges)
-            :code $ quote $ let
-                metrics $ read-sync-metrics
-              assert= 0 $ :pending-clients metrics
-              assert= 0 $ :slow-clients metrics
-            :tags $ #{} :server
+          :tests $ []
+            %{} 'TestEntry (:name |typed-metrics-gauges)
+              :code $ quote $ let
+                  metrics $ read-sync-metrics
+                assert= 0 $ :pending-clients metrics
+                assert= 0 $ :slow-clients metrics
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |counts-clients-with-identical-state)
+              :code $ quote $ let
+                  previous @*client-states
+                  pending $ struct-with empty-sync-state (:in-flight? true) (:slow-client? true)
+                reset! *client-states $ {} (1 pending) (2 pending) (3 empty-sync-state)
+                let
+                    observed $ read-sync-metrics
+                  reset! *client-states previous
+                  assert= 2 $ :pending-clients observed
+                  assert= 2 $ :slow-clients observed
+              :tags $ #{} :server
         'record-resync! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn record-resync! () (swap! *sync-metrics update :resync-count inc)
+          :code $ quote $ defn record-resync! ()
+            swap! *sync-metrics $ fn (metrics)
+              struct-with metrics $ :resync-count $ inc (:resync-count metrics)
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
+          :tests $ [] $ %{} 'TestEntry (:name |increments-only-resync-counter)
+            :code $ quote $ let
+                previous @*sync-metrics
+                first-result $ record-resync!
+                second-result $ record-resync!
+                observed @*sync-metrics
+              reset! *sync-metrics previous
+              assert= &unit first-result
+              assert= &unit second-result
+              assert=
+                struct-with previous $ :resync-count $ + 2 (:resync-count previous)
+                , observed
+            :tags $ #{} :server
         'record-sync-send! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn record-sync-send! (message-kind revision diff-latency payload) (swap! *sync-metrics next-sync-metrics message-kind revision diff-latency payload)
+          :code $ quote $ defn record-sync-send! (message-kind revision diff-latency payload) (swap! *sync-metrics next-sync-metrics message-kind revision diff-latency payload) &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Tag 'Number 'Number 'String
@@ -3320,7 +4622,7 @@
           :code $ quote $ defn reload! () (println "|Code updated..")
             if (not config/dev?) (raise "|reloading only happens in dev mode")
             clear-twig-caches!
-            reset! *reel $ refresh-reel @*reel @*initial-db updater
+            reset! *reel $ refresh-reel @*reel @*initial-db replay-updater
             invalidate-sync-caches!
             request-sync!
           :examples $ []
@@ -3340,21 +4642,45 @@
         'request-sync! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn request-sync! ()
             if @*sync-scheduled? &unit $ do (reset! *sync-scheduled? true)
-              set-timeout sync-coalesce-delay $ fn () (reset! *sync-scheduled? false) (render-loop!)
+              set-timeout! sync-coalesce-delay $ fn () (reset! *sync-scheduled? false) (render-loop!)
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
+          :tests $ [] $ %{} 'TestEntry (:name |already-scheduled-returns-unit)
+            :code $ quote $ let
+                previous @*sync-scheduled?
+              reset! *sync-scheduled? true
+              let
+                  result $ request-sync!
+                  scheduled? @*sync-scheduled?
+                reset! *sync-scheduled? previous
+                assert= &unit result
+                assert= true scheduled?
+            :tags $ #{} :server
         'request-sync-retry! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn request-sync-retry! ()
             if @*sync-retry-scheduled? &unit $ do (reset! *sync-retry-scheduled? true)
-              set-timeout sync-retry-delay $ fn () (reset! *sync-retry-scheduled? false)
+              set-timeout! sync-retry-delay $ fn () (reset! *sync-retry-scheduled? false)
                 when
                   not $ empty? @*dirty-clients
                   request-sync!
                 , &unit
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
+          :tests $ [] $ %{} 'TestEntry (:name |already-scheduled-returns-unit)
+            :code $ quote $ let
+                previous @*sync-retry-scheduled?
+              reset! *sync-retry-scheduled? true
+              let
+                  result $ request-sync-retry!
+                  scheduled? @*sync-retry-scheduled?
+                reset! *sync-retry-scheduled? previous
+                assert= &unit result
+                assert= true scheduled?
+            :tags $ #{} :server
         'run-server! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn run-server! (port)
             wss-serve!
@@ -3363,7 +4689,7 @@
                 match data
                   (:connect sid)
                     do
-                      swap! *client-states assoc sid $ {} (:status :idle)
+                      swap! *client-states assoc sid $ struct-with empty-sync-state (:status :idle)
                         :last-heartbeat $ now-ms
                         :acked-rev 0
                         :dirty-rev @*sync-revision
@@ -3383,6 +4709,7 @@
                       swap! *client-states dissoc sid
                       swap! *dirty-clients exclude sid
                   _ $ println "|unknown data:" data
+                , &unit
             , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -3391,48 +4718,40 @@
           :code $ quote $ defn set-client-dirty-revision (states sid revision)
             let
                 state $ option:unwrap $ get states sid
-              assoc states sid $ assoc state :dirty-rev revision
+              assoc states sid $ struct-with state $ :dirty-rev revision
           :examples $ []
           :schema $ :: 'Fn $ {}
-            :args $ []
-              :: 'Map 'Number $ :: 'Map 'Tag 'V
-              , 'Number 'Number
-            :generics $ [] 'V
-            :return $ :: 'Map 'Number $ :: 'Map 'Tag 'V
+            :args $ [] (:: 'Map 'Number 'app.server/ClientSyncState) 'Number 'Number
+            :return $ :: 'Map 'Number 'app.server/ClientSyncState
           :tests $ [] $ %{} 'TestEntry (:name |preserves-other-client-state)
             :code $ quote $ let
                 states $ {}
-                  1 $ {} (:status :active) (:dirty-rev 2)
-                  2 $ {} (:status :idle) (:dirty-rev 3)
+                  1 $ struct-with empty-sync-state (:status :active) (:dirty-rev 2)
+                  2 $ struct-with empty-sync-state (:status :idle) (:dirty-rev 3)
                 next $ set-client-dirty-revision states 1 7
-              do
-                assert= 7 $ &map:get (&map:get next 1) :dirty-rev
-                assert= :active $ &map:get (&map:get next 1) :status
-                assert= (&map:get states 2) (&map:get next 2)
-                assert= 2 $ &map:get (&map:get states 1) :dirty-rev
+              assert= 7 $ :dirty-rev $ &map:get next 1
+              assert= :active $ :status $ &map:get next 1
+              assert= (&map:get states 2) (&map:get next 2)
+              assert= 2 $ :dirty-rev $ &map:get states 1
             :tags $ #{} :server
         'set-client-last-heartbeat $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-client-last-heartbeat (states sid timestamp)
             let
                 state $ option:unwrap $ get states sid
-              assoc states sid $ assoc state :last-heartbeat timestamp
+              assoc states sid $ struct-with state $ :last-heartbeat timestamp
           :examples $ []
           :schema $ :: 'Fn $ {}
-            :args $ []
-              :: 'Map 'Number $ :: 'Map 'Tag 'V
-              , 'Number 'Number
-            :generics $ [] 'V
-            :return $ :: 'Map 'Number $ :: 'Map 'Tag 'V
+            :args $ [] (:: 'Map 'Number 'app.server/ClientSyncState) 'Number 'Number
+            :return $ :: 'Map 'Number 'app.server/ClientSyncState
           :tests $ [] $ %{} 'TestEntry (:name |preserves-other-client-state)
             :code $ quote $ let
                 states $ {}
-                  1 $ {} (:status :active) (:last-heartbeat 2)
-                  2 $ {} (:status :idle) (:last-heartbeat 3)
+                  1 $ struct-with empty-sync-state (:status :active) (:last-heartbeat 2)
+                  2 $ struct-with empty-sync-state (:status :idle) (:last-heartbeat 3)
                 next $ set-client-last-heartbeat states 1 7
-              do
-                assert= 7 $ &map:get (&map:get next 1) :last-heartbeat
-                assert= :active $ &map:get (&map:get next 1) :status
-                assert= (&map:get states 2) (&map:get next 2)
+              assert= 7 $ :last-heartbeat $ &map:get next 1
+              assert= :active $ :status $ &map:get next 1
+              assert= (&map:get states 2) (&map:get next 2)
             :tags $ #{} :server
         'set-client-send-state $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-client-send-state (states sid revision new-store outcome)
@@ -3442,30 +4761,26 @@
               (:none) states
           :examples $ []
           :schema $ :: 'Fn $ {}
-            :args $ []
-              :: 'Map 'Number $ :: 'Map 'Tag 'V
-              , 'Number 'Number 'U 'wss.core/WssSendOutcome
-            :generics $ [] 'V 'U
-            :return $ :: 'Map 'Number $ :: 'Map 'Tag 'V
+            :args $ [] (:: 'Map 'Number 'app.server/ClientSyncState) 'Number 'Number (:: 'Map 'Tag 'Dynamic) 'wss.core/WssSendOutcome
+            :return $ :: 'Map 'Number 'app.server/ClientSyncState
           :tests $ []
             %{} 'TestEntry (:name |accepted-update-preserves-other-client)
               :code $ quote $ let
                   states $ {}
-                    1 $ {} $ :status :active
-                    2 $ {} $ :status :idle
+                    1 $ struct-with empty-sync-state $ :status :active
+                    2 $ struct-with empty-sync-state $ :status :idle
                   next $ set-client-send-state states 1 7
                     {} $ :value 1
                     %:: wss.core/WssSendOutcome :accepted
-                do
-                  assert= 7 $ &map:get (&map:get next 1) :sent-rev
-                  assert= true $ &map:get (&map:get next 1) :in-flight?
-                  assert= (&map:get states 2) (&map:get next 2)
-                  assert= false $ contains? (&map:get states 1) :sent-rev
+                assert= 7 $ option:unwrap $ :sent-rev (&map:get next 1)
+                assert= true $ :in-flight? $ &map:get next 1
+                assert= (&map:get states 2) (&map:get next 2)
+                assert= false $ option:some? $ :sent-rev (&map:get states 1)
               :tags $ #{} :server
             %{} 'TestEntry (:name |missing-client-is-unchanged)
               :code $ quote $ let
                   states $ {} $ 1
-                    {} $ :status :active
+                    struct-with empty-sync-state $ :status :active
                   next $ set-client-send-state states 3 7
                     {} $ :value 1
                     %:: wss.core/WssSendOutcome :accepted
@@ -3485,8 +4800,8 @@
             :args $ []
         'storage-file $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def storage-file
-            if (empty? calcit-dirname) (&map:get config/site :storage-file)
-              join-path calcit-dirname $ &map:get config/site :storage-file
+            if (empty? calcit-dirname) (:storage-file config/site)
+              join-path calcit-dirname $ :storage-file config/site
           :examples $ []
           :schema $ :: 'String
         'sync-client! $ %{} 'CodeEntry (:doc |)
@@ -3495,23 +4810,21 @@
                 state $ option:unwrap $ get @*client-states sid
               when
                 and
-                  = :active $ option:unwrap $ get state :status
-                  not $ option:unwrap-or (get state :in-flight?) false
+                  = :active $ :status state
+                  not $ :in-flight? state
                 let
-                    db $ schema/database-to-map $ assert-type (:db reel) 'app.schema/DatabaseRecord
+                    db $ schema/database-to-map $ :db reel
                     records $ :records reel
                     session $ schema/read-path db $ [] :sessions sid
                     old-store-option $ get @*client-caches sid
                     new-store $ twig-container db session records
-                    needs-snapshot? $ or
-                      option:unwrap-or (get state :needs-snapshot?) true
-                      option:none? old-store-option
+                    needs-snapshot? $ or (:needs-snapshot? state) (option:none? old-store-option)
                     diff-start $ now-ms
                     changes $ if needs-snapshot? ([])
                       diff-twig (option:unwrap old-store-option) new-store $ {} $ :key :id
                     diff-latency $ - (now-ms) diff-start
                     send-snapshot? $ or needs-snapshot? $ > (count changes) patch-operation-limit
-                    base-revision $ option:unwrap-or (get state :acked-rev) 0
+                    base-revision $ :acked-rev state
                   if send-snapshot?
                     let
                         payload $ format-cirru-edn $ schema/ServerMessage :snapshot revision new-store
@@ -3527,7 +4840,7 @@
             , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ [] 'Number 'cumulo-reel.core/ReelState 'Number
+            :args $ [] 'Number (:: 'cumulo-reel.core/ReelState 'app.schema/DatabaseRecord) 'Number
         'sync-clients! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn sync-clients! (reel)
             when
@@ -3542,7 +4855,7 @@
             , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
-            :args $ [] 'cumulo-reel.core/ReelState
+            :args $ [] $ :: 'cumulo-reel.core/ReelState 'app.schema/DatabaseRecord
         'sync-coalesce-delay $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def sync-coalesce-delay 16
           :examples $ []
@@ -3556,17 +4869,36 @@
             let
                 state $ option:unwrap $ get @*client-states sid
               if
-                = :active $ option:unwrap $ get state :status
+                = :active $ :status state
                 swap! *client-states set-client-last-heartbeat sid $ now-ms
                 mark-client-active! sid client-revision true
+            , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ [] 'Number 'Number
+          :tests $ [] $ %{} 'TestEntry
+            :name |active-heartbeat-returns-unit-and-preserves-peers
+            :code $ quote $ let
+                previous @*client-states
+                active $ struct-with empty-sync-state (:status :active) (:last-heartbeat 0)
+                other $ struct-with empty-sync-state $ :last-heartbeat 42
+              reset! *client-states $ {} (7 active) (8 other)
+              let
+                  result $ touch-client! 7 0
+                  updated @*client-states
+                reset! *client-states previous
+                assert= &unit result
+                assert= other $ &map:get updated 8
+                assert= :active $ :status $ &map:get updated 7
+                assert |heartbeat-advanced $ >
+                  :last-heartbeat $ &map:get updated 7
+                  , 0
+            :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.server
           :require (app.schema :as schema)
-            app.updater :refer $ updater
-            cumulo-reel.core :refer $ reel-reducer refresh-reel reel-schema
+            app.updater :refer $ updater replay-updater
+            cumulo-reel.core :refer $ reel-reducer refresh-reel ReelState
             app.config :as config
             app.twig.container :refer $ twig-container
             recollect.diff :refer $ diff-twig
@@ -3574,7 +4906,7 @@
             recollect.twig :refer $ clear-twig-caches!
             app.$meta :refer $ calcit-dirname
             calcit.std.fs :refer $ path-exists? check-write-file!
-            calcit.std.time :refer $ set-interval set-timeout
+            calcit.std.time :refer $ set-interval! set-timeout!
             calcit.std.path :refer $ join-path
             calcit.std.date :refer $ extract-time Date0 format-time get-timestamp
             calcit.std.util :refer $ get-dylib-path
@@ -3620,37 +4952,45 @@
           :code $ quote $ defn twig-container (db session records)
             let
                 session-data $ if (map? session) session schema/session
-                logged-in? $ some? $ &map:get session-data :user-id
+                logged-in? $ non-nil? $ &map:get session-data :user-id
                 router $ &map:get session-data :router
                 base-data $ {} (:logged-in? logged-in?) (:session session-data) (:router router)
                   :reel-length $ count records
                 user $ schema/read-path db $ [] :users (&map:get session-data :user-id)
               merge base-data $ decode-map-as
                 if logged-in?
-                  {}
-                    :user $ twig-user $ decode-map-as user (:: 'Map 'Tag 'Dynamic)
-                    :router $ assoc router :data $ case-default (&map:get router :name) ({})
-                      :home $ {} $ :tasks
-                        schema/read-path user $ [] :tasks :working
-                      :history $ {}
-                        :week $ &map:get router :data
-                        :tasks $ twig-tasks-by-week
-                          decode-map-as (&map:get router :data) (:: 'Map 'Tag 'Dynamic)
+                  let
+                      user $ decode-map-as user $ :: 'Map 'Tag 'Dynamic
+                      router $ decode-map-as router 'Map
+                    {}
+                      :user $ twig-user user
+                      :router $ assoc router :data $ match (&map:get router :name)
+                        :home $ {} $ :tasks
+                          schema/read-path user $ [] :tasks :working
+                        :history $ {}
+                          :week $ &map:get router :data
+                          :tasks $ twig-tasks-by-week
+                            decode-map-as (&map:get router :data) 'app.schema/HistoryRoute
+                            decode-map-as
+                              schema/read-path user $ [] :tasks :finished
+                              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                        :notes $ twig-notes-by-month
+                          decode-map-as (&map:get router :data) 'app.schema/NotesRoute
                           decode-map-as
-                            schema/read-path user $ [] :tasks :finished
+                            if
+                              map? $ &map:get user :notes
+                              &map:get user :notes
+                              {}
                             :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                      :notes $ twig-notes-by-month
-                        decode-map-as (&map:get router :data) (:: 'Map 'Tag 'Dynamic)
-                        decode-map-as
-                          if
-                            map? $ &map:get user :notes
-                            &map:get user :notes
-                            {}
-                          :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                      :profile $ twig-members (&map:get db :sessions) (&map:get db :users)
-                    :count $ count $ &map:get db :sessions
-                    :color $ rand-hex-color!
-                    :today $ &map:get db :today
+                        :profile $ twig-members
+                          decode-map-as (&map:get db :sessions)
+                            :: 'Map 'Dynamic $ :: 'Map 'Tag 'Dynamic
+                          decode-map-as (&map:get db :users)
+                            :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                        _ $ {}
+                      :count $ count $ decode-map-as (&map:get db :sessions) 'Map
+                      :color $ rand-hex-color!
+                      :today $ &map:get db :today
                   {}
                 :: 'Map 'Tag 'Dynamic
           :examples $ []
@@ -3664,9 +5004,8 @@
                   init-db $ decode-map-as ({}) (:: 'Map 'Tag 'Dynamic)
                   init-records $ []
                   result $ twig-container init-db nil init-records
-                do
-                  assert= true $ map? result
-                  assert= schema/session $ &map:get result :session
+                assert= true $ map? result
+                assert= schema/session $ &map:get result :session
               :tags $ #{} :server
             %{} 'TestEntry (:name |omits-private-fields-for-logged-in-user)
               :code $ quote $ let
@@ -3677,10 +5016,9 @@
                     decode-map-as db $ :: 'Map 'Tag 'Dynamic
                     , session $ []
                   visible-user $ &map:get twig :user
-                do
-                  assert= |Alice $ &map:get visible-user :name
-                  assert= false $ contains? visible-user :password
-                  assert= false $ contains? visible-user :tasks
+                assert= |Alice $ &map:get visible-user :name
+                assert= false $ contains? visible-user :password
+                assert= false $ contains? visible-user :tasks
               :tags $ #{} :server
             %{} 'TestEntry (:name |legacy-user-without-notes-opens-notes)
               :code $ quote $ let
@@ -3696,63 +5034,180 @@
                 assert |legacy-notes-stays-map $ map? notes
                 assert |legacy-notes-is-empty $ empty? notes
               :tags $ #{} :server
+            %{} 'TestEntry (:name |preserves-unknown-route-and-extra-fields)
+              :code $ quote $ let
+                  user $ assoc schema/user :id |u1
+                  db $ assoc-in schema/database ([] :users |u1) user
+                  route $ {} (:name :future-route) (:data |old-data) (|extension 42)
+                  session $ assoc (assoc schema/session :user-id |u1) :router route
+                  twig $ twig-container
+                    decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                    , session $ []
+                assert=
+                  assoc route :data $ {}
+                  &map:get twig :router
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |logged-out-router-is-not-consumed)
+              :code $ quote $ let
+                  session $ assoc schema/session :router |opaque-router
+                  twig $ twig-container
+                    decode-map-as schema/database $ :: 'Map 'Tag 'Dynamic
+                    , session $ []
+                assert= |opaque-router $ &map:get twig :router
+                assert= session $ &map:get twig :session
+                assert= false $ &map:get twig :logged-in?
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |rejects-non-map-router-when-logged-in)
+              :code $ quote $ let
+                  db $ assoc-in schema/database ([] :users |u1) (assoc schema/user :id |u1)
+                  session $ assoc (assoc schema/session :user-id |u1) :router |invalid-router
+                  failed? $ try
+                    do
+                      twig-container
+                        decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                        , session $ []
+                      , false
+                    fn (message) true
+                assert= true failed?
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |profile-preserves-mixed-session-keys)
+              :code $ quote $ let
+                  user $ assoc (assoc schema/user :id |u1) :name |Alice
+                  sessions $ {}
+                    7 $ {} $ :user-id |u1
+                    :guest $ {} $ :user-id nil
+                    |legacy $ {} $ :user-id |u1
+                  db $ assoc
+                    assoc-in schema/database ([] :users |u1) user
+                    , :sessions sessions
+                  session $ assoc (assoc schema/session :user-id |u1) :router $ {} (:name :profile) (:data nil)
+                  twig $ twig-container
+                    decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                    , session $ []
+                assert=
+                  {} (7 |Alice) (:guest "|访客") (|legacy |Alice)
+                  schema/read-path twig $ [] :router :data
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |profile-rejects-non-map-session)
+              :code $ quote $ let
+                  user $ assoc schema/user :id |u1
+                  db $ assoc
+                    assoc-in schema/database ([] :users |u1) user
+                    , :sessions $ {} (7 42)
+                  session $ assoc (assoc schema/session :user-id |u1) :router $ {} (:name :profile) (:data nil)
+                  failed? $ try
+                    do
+                      twig-container
+                        decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                        , session $ []
+                      , false
+                    fn (message) true
+                assert= true failed?
+              :tags $ #{} :server
         'twig-members $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-members (sessions users)
             -> sessions $ filter-map-kv $ fn (k session)
-              %:: MapEntryDecision :keep k $ schema/read-path users $ [] (&map:get session :user-id) :name
+              let
+                  username $ schema/read-path users $ [] (&map:get session :user-id) :name
+                MapEntryDecision :keep k $ if (nil? username) "|访客" $ decode-map-as username 'String
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ []
               :: 'Map 'K $ :: 'Map 'Tag 'S
               :: 'Map 'String $ :: 'Map 'Tag 'U
             :generics $ [] 'K 'S 'U
-            :return $ :: 'Map 'K 'Dynamic
+            :return $ :: 'Map 'K 'String
+          :tests $ []
+            %{} 'TestEntry (:name |keeps-guests-and-original-session-keys)
+              :code $ quote $ let
+                  users $ {}
+                    |alice $ {} $ :name |Alice
+                    |empty $ {} $ :name |
+                  numeric-sessions $ decode-map-as
+                    {}
+                      7 $ {} $ :user-id |alice
+                      8 $ {} $ :user-id nil
+                      9 $ {} $ :user-id |missing
+                      10 $ {} $ :user-id |empty
+                    :: 'Map 'Number $ :: 'Map 'Tag 'Dynamic
+                  string-sessions $ {} $ |guest
+                    {} $ :user-id nil
+                assert=
+                  {} (7 |Alice) (8 "|访客") (9 "|访客") (10 |)
+                  twig-members numeric-sessions users
+                assert=
+                  {} $ |guest "|访客"
+                  twig-members string-sessions users
+            %{} 'TestEntry (:name |rejects-non-string-member-names)
+              :code $ quote $ assert= true
+                try
+                  do
+                    twig-members
+                      {} $ 7 $ {} (:user-id |alice)
+                      {} $ |alice $ {} (:name 42)
+                    , false
+                  fn (message) true
         'twig-notes-by-month $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-notes-by-month (data notes)
             let
-                year $ &map:get data :year
-                month $ inc $ &map:get data :month
+                year $ :year data
+                month $ inc $ :month data
               -> notes (identity)
                 &map:filter-kv $ fn (k task)
                   let
-                      time $ extract-time $ Date0 :date (&map:get task :time)
+                      fields $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
+                      time $ extract-time $ Date0 :date
+                        decode-map-as (&map:get fields :time) 'Number
                     and
                       = year $ &map:get time :year
                       = month $ &map:get time :month
           :examples $ []
           :schema $ :: 'Fn $ {}
-            :args $ [] (:: 'Map 'Tag 'D) (:: 'Map 'K 'N)
-            :generics $ [] 'D 'K 'N
+            :args $ [] 'app.schema/NotesRoute $ :: 'Map 'K 'N
+            :generics $ [] 'K 'N
             :return $ :: 'Map 'K 'N
           :tests $ [] $ %{} 'TestEntry (:name |filters-persisted-note-by-month)
             :code $ quote $ let
                 stamp $ get-timestamp $ from-ymd 2026 9 25
-                result $ twig-notes-by-month
-                  {} (:year 2026) (:month 8)
+                result $ twig-notes-by-month (schema/NotesRoute :year 2026 :month 8)
                   {} $ |n1 $ {} (:time stamp) (:text |test)
               assert= 1 $ count result
             :tags $ #{} :server
         'twig-tasks-by-week $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-tasks-by-week (data tasks)
             let
-                filter-year $ &map:get data :year
-                filter-week $ dec $ &map:get data :week
-                start-time $ parse-date (&map:get data :start) "|%Y-%m-%dT%H:%M:%S %z"
-                end-time $ parse-date (&map:get data :end) "|%Y-%m-%dT%H:%M:%S %z"
-              ; println |start: $ format-time start-time "|%Y-%m-%dT%H:%M:%S %z"
-              ; println "|end " $ format-time end-time "|%Y-%m-%dT%H:%M:%S %z"
+                start-time $ parse-date (:start data) "|%Y-%m-%dT%H:%M:%S %z"
+                end-time $ parse-date (:end data) "|%Y-%m-%dT%H:%M:%S %z"
               -> tasks (identity)
                 &map:filter-kv $ fn (k task)
                   let
-                      t $ &map:get task :finished-time
+                      fields $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
+                      t $ decode-map-as (&map:get fields :finished-time) 'Number
                     and
                       &> t $ get-timestamp start-time
                       &< t $ get-timestamp end-time
           :examples $ []
           :schema $ :: 'Fn $ {}
-            :args $ [] (:: 'Map 'Tag 'D) (:: 'Map 'K 'T)
-            :generics $ [] 'D 'K 'T
+            :args $ [] 'app.schema/HistoryRoute $ :: 'Map 'K 'T
+            :generics $ [] 'K 'T
             :return $ :: 'Map 'K 'T
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-exclusive-range-and-task-data)
+            :code $ quote $ let
+                route $ schema/HistoryRoute :year 2026 :week 40 :start "|2026-09-21T00:00:00 +0000" :end "|2026-09-28T00:00:00 +0000"
+                start $ get-timestamp $ parse-date (:start route) "|%Y-%m-%dT%H:%M:%S %z"
+                end $ get-timestamp $ parse-date (:end route) "|%Y-%m-%dT%H:%M:%S %z"
+                task $ {}
+                  :finished-time $ + start 1
+                  :text |kept
+                  :extra |preserved
+                tasks $ {}
+                  |start $ {} (:finished-time start) (:text |start)
+                  |middle task
+                  |end $ {} (:finished-time end) (:text |end)
+              assert=
+                {} $ |middle task
+                twig-tasks-by-week route tasks
+            :tags $ #{} :server
         'week-millis $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def week-millis (* 7 24 3600 1000)
           :examples $ []
@@ -3785,8 +5240,19 @@
         :code $ quote $ ns app.twig.user
           :require $ [] recollect.twig :refer $ [] deftwig
     'app.updater $ %{} 'FileEntry
-      :defs $ {} $ 'updater
-        %{} 'CodeEntry (:doc |)
+      :defs $ {}
+        'replay-updater $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn replay-updater (db op sid op-id op-time)
+            updater db (decode-map-as op 'app.schema/Op) (decode-map-as sid 'Number) (decode-map-as op-id 'String) (decode-map-as op-time 'Number)
+          :examples $ []
+          :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
+            :args $ [] 'app.schema/DatabaseRecord 'Dynamic 'Dynamic 'Dynamic 'Dynamic
+          :tests $ [] $ %{} 'TestEntry (:name |replay-today)
+            :code $ quote $ let
+                op $ schema/Op :today |2026-10-12
+              assert= (updater schema/empty-database op 1 |op-1 1) (replay-updater schema/empty-database op 1 |op-1 1)
+            :tags $ #{} :unit
+        'updater $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn updater (db op sid op-id op-time)
             match op
               (:today op-data) (misc/set-today db op-data sid op-id op-time)
@@ -4198,7 +5664,7 @@
                     nth op-data 1
                     , .unwrap
                   existing $ find
-                    -> (:users db) (vals) (.to-list)
+                    -> (:users db) (.distinct-values) (.to-list)
                     fn (user-record)
                       hint-fn $ {}
                         :args $ [] 'app.schema/UserRecord
@@ -4247,7 +5713,7 @@
                     nth op-data 1
                     , .unwrap
                   existing $ find
-                    -> (:users db) (vals) (.to-list)
+                    -> (:users db) (.distinct-values) (.to-list)
                     fn (user-record)
                       hint-fn $ {}
                         :args $ [] 'app.schema/UserRecord
