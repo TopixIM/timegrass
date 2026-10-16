@@ -1,0 +1,96 @@
+name: Inspect production toolchain
+
+on:
+  workflow_dispatch: {}
+  pull_request:
+    paths:
+      - .github/workflows/inspect-production.yaml
+
+permissions:
+  contents: read
+
+jobs:
+  inspect:
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Read production metadata without deployment
+        shell: bash
+        env:
+          DEPLOY_KEY: ${{ secrets.rsync_private_key }}
+        run: |
+          set -euo pipefail
+          test -n "$DEPLOY_KEY" || { echo '::error::The deployment key is unavailable'; exit 1; }
+          audit_dir=$(mktemp -d "$RUNNER_TEMP/timegrass-inspect.XXXXXX")
+          trap 'rm -f -- "$audit_dir/key" "$audit_dir/known_hosts"; rmdir -- "$audit_dir"' EXIT
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$audit_dir/key"
+          unset DEPLOY_KEY
+          # Reuse the existing, locally trusted host key; never trust ssh-keyscan output.
+          printf '%s\n' 'tiye.me ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINfDrFyoH0+6TL2+xhosnON6f0+/m9Iz8ydJLWMQQzsm' > "$audit_dir/known_hosts"
+          ssh -T -i "$audit_dir/key" \
+            -o BatchMode=yes -o IdentitiesOnly=yes -o ConnectTimeout=10 \
+            -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$audit_dir/known_hosts" \
+            -o ForwardAgent=no -o ClearAllForwardings=yes \
+            -o PasswordAuthentication=no -o KbdInteractiveAuthentication=no \
+            rsync-user@tiye.me 'bash -s' <<'REMOTE'
+          set -euo pipefail
+          project=/servers/timegrass
+          expected=0.30.1-alpha.4
+          cd "$project"
+          printf 'Target: %s; expected CLI for PR #115: %s\n' "$project" "$expected"
+          printf '\nSSH account PATH candidate (not running-service evidence):\n'
+          if candidate=$(command -v calcit); then
+            printf '%s\n' "$candidate"
+            timeout 10 "$candidate" --version || true
+          else
+            printf 'No calcit in this account PATH\n'
+          fi
+          printf '\nDeployed dependency declarations:\n'
+          test -r deps.cirru
+          sed -n '1,200p' deps.cirru
+          printf '\nDeployed JS runtime declaration (not proof of installation):\n'
+          if command -v jq >/dev/null && test -r package.json; then
+            jq '{procs: .dependencies["@calcit/procs"], devProcs: .devDependencies["@calcit/procs"]}' package.json
+          else
+            printf 'Unavailable: jq or package.json\n'
+          fi
+          printf '\nInstalled project module metadata (not manifest-only proof):\n'
+          metadata_available=false
+          if test -r .calcit/caps-state.cirru; then
+            sed -n '1,300p' .calcit/caps-state.cirru
+            metadata_available=true
+          else
+            printf 'No readable project Caps state\n'
+          fi
+          printf '\nRunning Calcit processes with this exact working directory:\n'
+          observed=0
+          mismatched=0
+          for process in /proc/[0-9]*; do
+            cwd=$(readlink "$process/cwd" 2>/dev/null) || continue
+            test "$cwd" = "$project" || continue
+            executable=$(readlink "$process/exe" 2>/dev/null) || continue
+            case "$executable" in */calcit|*/calcit\ \(deleted\)) ;; *) continue ;; esac
+            observed=$((observed + 1))
+            printf 'PID %s executable: %s\n' "${process##*/}" "$executable"
+            if version=$(timeout 10 "$process/exe" --version); then
+              printf 'Running executable version: %s\n' "$version"
+              test "$version" = "$expected" || mismatched=1
+            else
+              mismatched=1
+            fi
+            printf 'Loaded WSS library paths:\n'
+            if test -r "$process/maps"; then
+              awk '$NF ~ /calcit[_-]wss/ { print $NF }' "$process/maps" | sort -u
+            else
+              printf 'Process library mappings are not readable\n'
+            fi
+          done
+          printf '\nThis inspection does not install modules, deploy, restart, or read application data.\n'
+          printf 'Module identities and loaded-library paths still require comparison with PR #115.\n'
+          if test "$observed" -eq 0 || test "$mismatched" -ne 0 || test "$metadata_available" != true; then
+            printf '::error::Production pairing is NOT verified: running CLI or installed module evidence is missing/mismatched.\n'
+            exit 2
+          fi
+          REMOTE
