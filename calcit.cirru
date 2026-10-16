@@ -332,14 +332,13 @@
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
             :features $ #{} :js-ffi
-        'render-app! $ %{} 'CodeEntry (:doc |)
+        'render-app! $ %{} 'CodeEntry
+          :doc "|Render the selected root-state value directly at the component boundary. A missing state still reaches the existing nil/offline behavior; do not eagerly unwrap or decode before comp-container chooses its branch."
           :code $ quote $ defn render-app! ()
             render! mount-target
-              comp-container
-                match (calcit.core/get @*states :states)
-                  (:some value) value
-                  (:none) nil
-                , @*store
+              match (calcit.core/get @*states :states)
+                (:some value) (comp-container value @*store)
+                (:none) (comp-container nil @*store)
               , dispatch-render-operation!
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -1888,7 +1887,8 @@
             app.schema :as schema
     'app.comp.notes-page $ %{} 'FileEntry
       :defs $ {}
-        'comp-note $ %{} 'CodeEntry (:doc |)
+        'comp-note $ %{} 'CodeEntry
+          :doc "|Render a legacy note Map. Prompt options retain the old nullable initial-value validation; timestamp validation then precedes visible-text validation, and callback-only IDs are decoded only when the action runs. Do not replace the prompt boundary with an eager String decoder."
           :code $ quote $ defcomp comp-note (states note)
             let
                 edit-plugin $ use-prompt (>> states :edit)
@@ -2014,6 +2014,36 @@
                 check-value! :invalid
                 check-value! $ []
                 check-value! $ {}
+              :tags $ #{} :js :option-consumer-contract
+            %{} 'TestEntry (:name |preserves-prompt-and-text-validation-order)
+              :code $ quote $ let
+                  states $ {} $ :cursor ([])
+                  base $ decode-map-as
+                    {} (:id |note) (:time 1735689600000)
+                    :: 'Map 'Tag 'Dynamic
+                  timestamp-error $ match (decode-timestamp nil)
+                    (:err message) message
+                    (:ok _) (raise |Expected-timestamp-error)
+                  text-error $ try (decode-map-as nil 'String)
+                    fn (message) message
+                assert= "|respo-alerts expected text at :initial, got: :bool" $ try
+                  do
+                    comp-note states $ assoc (assoc base :time nil) :text false
+                    raise |Expected-prompt-error
+                  fn (message) message
+                assert= timestamp-error $ try
+                  do
+                    comp-note states $ assoc base :time nil
+                    raise |Expected-timestamp-error
+                  fn (message) message
+                assert= text-error $ try
+                  do (comp-note states base) (raise |Expected-text-error)
+                  fn (message) message
+                assert= text-error $ try
+                  do
+                    comp-note states $ assoc base :text nil
+                    raise |Expected-text-error
+                  fn (message) message
               :tags $ #{} :js :option-consumer-contract
         'comp-notes-page $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-notes-page (states notes info)
@@ -4842,7 +4872,8 @@
             {} (:id nil) (:kind nil) (:text nil)
           :examples $ []
           :schema $ :: 'Dynamic
-        'read-path $ %{} 'CodeEntry (:doc |)
+        'read-path $ %{} 'CodeEntry
+          :doc "|Legacy Map-only wire-path adapter. An empty path returns the value unchanged; missing keys and non-Map intermediates return nil, while false, zero, empty text and nil keys remain valid values/keys. Do not replace this with the throwing get-in walker or an eager concrete decoder. Callers decode at their actual typed consumer."
           :code $ quote $ defn read-path (base path)
             match (destruct-list path)
               (:none) base
@@ -4879,6 +4910,24 @@
                 assert= nil $ read-path ({}) ([] :missing)
                 assert= false $ read-path false $ []
               :tags $ #{} :server
+            %{} 'TestEntry (:name |preserves-nil-key-and-nil-intermediate-contract)
+              :code $ quote $ do
+                assert= |nil-key $ read-path
+                  {} $ :users $ {} (nil |nil-key)
+                  [] :users nil
+                assert= nil $ read-path
+                  {} $ :users nil
+                  [] :users nil
+                assert= false $ read-path
+                  {} $ :users $ {} (nil false)
+                  [] :users nil
+                assert= 0 $ read-path
+                  {} $ :users $ {} (nil 0)
+                  [] :users nil
+                assert= | $ read-path
+                  {} $ :users $ {} (nil |)
+                  [] :users nil
+              :tags $ #{} :option-wire-contract :server
         'route-operation $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn route-operation (data)
             match (decode-route data)
@@ -6100,17 +6149,19 @@
           :schema $ :: 'Fn $ {} (:return 'calcit.std.date/Date0)
             :args $ [] 'String 'String
             :features $ #{} :js-ffi
-        'twig-container $ %{} 'CodeEntry (:doc |)
+        'twig-container $ %{} 'CodeEntry
+          :doc "|Project the existing client wire Map. Retain the router Option until its consumer: logged-out wire fields preserve opaque values and explicit nil, while logged-in routing decodes Map after the user boundary. The legacy today/week fields and nil-capable user-key path remain wire/path adapters, not typed business defaults; client consumers validate them separately."
           :code $ quote $ defn twig-container (db session records)
             let
                 session-data $ if (map? session) session schema/session
                 logged-in? $ match (calcit.core/get session-data :user-id)
                   (:some value) (non-nil? value)
                   (:none) false
-                router $ match (calcit.core/get session-data :router)
-                  (:some value) value
-                  (:none) nil
-                base-data $ {} (:logged-in? logged-in?) (:session session-data) (:router router)
+                router-option $ calcit.core/get session-data :router
+                base-data $ {} (:logged-in? logged-in?) (:session session-data)
+                  :router $ match router-option
+                    (:some value) value
+                    (:none) nil
                   :reel-length $ count records
                 user $ schema/read-path db $ [] :users
                   match (calcit.core/get session-data :user-id)
@@ -6120,7 +6171,9 @@
                 if logged-in?
                   let
                       user $ decode-map-as user $ :: 'Map 'Tag 'Dynamic
-                      router $ decode-map-as router 'Map
+                      router $ match router-option
+                        (:some value) (decode-map-as value 'Map)
+                        (:none) (decode-map-as nil 'Map)
                     {}
                       :user $ twig-user user
                       :router $ assoc router :data $ match (calcit.core/get router :name)
@@ -6323,6 +6376,84 @@
                 check-user! $ assoc base-user :notes $ []
                 check-user! $ assoc base-user :notes $ {}
               :tags $ #{} :option-leaf-contract :server
+            %{} 'TestEntry (:name |preserves-logged-out-router-wire)
+              :code $ quote $ let
+                  db $ decode-map-as schema/database $ :: 'Map 'Tag 'Dynamic
+                  base $ decode-map-as ({}) (:: 'Map 'Tag 'Dynamic)
+                  check-router! $ fn (session expected)
+                    hint-fn $ {} (:return 'Unit)
+                      :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic
+                    let
+                        twig $ twig-container db session $ []
+                      assert= (Option :some expected) (get twig :router)
+                      assert= (Option :some session) (get twig :session)
+                      assert= (Option :some false) (get twig :logged-in?)
+                    , &unit
+                check-router! base nil
+                check-router! (assoc base :router nil) nil
+                check-router! (assoc base :router false) false
+                check-router! (assoc base :router 0) 0
+                check-router! (assoc base :router |) |
+                check-router!
+                  assoc base :router $ [] 1
+                  [] 1
+                check-router!
+                  assoc base :router $ {} $ :extension 7
+                  {} $ :extension 7
+              :tags $ #{} :option-wire-contract :server
+            %{} 'TestEntry
+              :name |preserves-router-validation-order-and-today-wire
+              :code $ quote $ let
+                  db $ decode-map-as
+                    assoc-in schema/database ([] :users |u1) (assoc schema/user :id |u1)
+                    :: 'Map 'Tag 'Dynamic
+                  session $ assoc schema/session :user-id |u1
+                  check-router-error! $ fn (candidate raw)
+                    hint-fn $ {} (:return 'Unit)
+                      :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic
+                    let
+                        map-error $ try (decode-map-as raw 'Map)
+                          fn (message) message
+                      assert= map-error $ try
+                        do
+                          twig-container db candidate $ []
+                          raise |Expected-router-error
+                        fn (message) message
+                    , &unit
+                  valid-session $ assoc session :router $ {} (:name :future-route)
+                  check-today! $ fn (candidate expected)
+                    hint-fn $ {} (:return 'Unit)
+                      :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic
+                    let
+                        twig $ twig-container candidate valid-session $ []
+                      assert= (Option :some expected) (get twig :today)
+                    , &unit
+                check-router-error! (dissoc session :router) nil
+                check-router-error! (assoc session :router nil) nil
+                check-router-error! (assoc session :router false) false
+                check-router-error! (assoc session :router 0) 0
+                check-router-error! (assoc session :router |) |
+                check-router-error!
+                  assoc session :router $ []
+                  []
+                let
+                    user-error $ try
+                      decode-map-as nil $ :: 'Map 'Tag 'Dynamic
+                      fn (message) message
+                  assert= user-error $ try
+                    do
+                      twig-container
+                        assoc db :users $ {}
+                        assoc session :router 7
+                        []
+                      raise |Expected-user-error
+                    fn (message) message
+                check-today! (dissoc db :today) nil
+                check-today! (assoc db :today nil) nil
+                check-today! (assoc db :today false) false
+                check-today! (assoc db :today 0) 0
+                check-today! (assoc db :today |) |
+              :tags $ #{} :option-wire-contract :server
         'twig-members $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-members (sessions users)
             -> sessions $ filter-map-kv $ fn (k session)
