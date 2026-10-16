@@ -80,7 +80,10 @@ Map，仍按原逻辑忽略构造不需要的根元数据，`users` 内部再逐
 客户端 DOM 查询使用
 `respo.ffi.browser/query-selector`，返回 Respo renderer 接受的元素类型，不在应用中
 强转 js-ffi 与 Respo 的 DOM 合同。组件 state 保留泛型 StateKey；成员列表保留真实
-session key，未登录成员显示“访客”。
+session key，未登录成员显示“访客”。成员投影先检查用户标识是否为 String，再通过
+Map 方法读取用户与姓名，保留值的泛型类型，不经开放路径读取恢复 nil。缺失用户、
+缺失或 nil 姓名仍显示“访客”，空标识和空姓名仍保留其原有含义；其他非法姓名
+仍由原 String 解码器报告错误。
 
 本地 `Op :states` 的 cursor 明确为 List，元素仍保留原始 StateKey；解码入口拒绝
 nil、数字、字符串或 Map 代替 cursor，不把混合 Tag/String/Number 路径转成字符串。

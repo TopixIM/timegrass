@@ -39,7 +39,7 @@ try {
     replayFunctions.push(replay);
   }
 
-  for (const target of ['app.schema/load-database', 'app.comp.history/comp-history', 'app.schema/normalize-task-record', 'app.schema/decode-client-message', 'app.schema/decode-user-record', 'app.schema/decode-database', 'app.schema/decode-note-record', 'app.schema/decode-task-record', 'app.schema/decode-server-message', 'app.schema/validate-stored-users', 'app.schema/read-path', 'app.schema/decode-finished-task-view', 'app.comp.history/history-task-groups', 'app.comp.history/sort-finished-tasks', 'app.comp.overview/comp-overview']) {
+  for (const target of ['app.schema/load-database', 'app.comp.history/comp-history', 'app.schema/normalize-task-record', 'app.schema/decode-client-message', 'app.schema/decode-user-record', 'app.schema/decode-database', 'app.schema/decode-note-record', 'app.schema/decode-task-record', 'app.schema/decode-server-message', 'app.schema/validate-stored-users', 'app.schema/read-path', 'app.schema/decode-finished-task-view', 'app.comp.history/history-task-groups', 'app.comp.history/sort-finished-tasks', 'app.comp.overview/comp-overview', 'app.twig.container/twig-members']) {
     const { data } = JSON.parse(run(snapshot, 'query', 'def', target, '--format', 'json'));
     assert.ok(data.tests.length > 0, `Missing attached boundary tests: ${target}`);
     const replay = `${target.split('/')[0]}/replay-${target.split('/')[1]}!`;

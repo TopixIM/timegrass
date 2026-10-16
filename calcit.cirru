@@ -6000,12 +6000,19 @@
           :code $ quote $ defn twig-members (sessions users)
             -> sessions $ filter-map-kv $ fn (k session)
               let
-                  username $ schema/read-path users $ []
-                    match (calcit.core/get session :user-id)
-                      (:some value) value
-                      (:none) nil
-                    , :name
-                MapEntryDecision :keep k $ if (nil? username) "|访客" $ decode-map-as username 'String
+                  username $ match (.get session :user-id)
+                    (:some user-id)
+                      if (string? user-id)
+                        match (.get users user-id)
+                          (:some user)
+                            match (.get user :name)
+                              (:some value)
+                                if (nil? value) "|访客" $ decode-map-as value 'String
+                              (:none) "|访客"
+                          (:none) "|访客"
+                        , "|访客"
+                    (:none) "|访客"
+                MapEntryDecision :keep k username
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ []
@@ -6043,6 +6050,64 @@
                       {} $ |alice $ {} (:name 42)
                     , false
                   fn (message) true
+            %{} 'TestEntry (:name |preserves-guest-and-string-user-key-boundaries)
+              :code $ quote $ let
+                  users $ decode-map-as
+                    {}
+                      |alice $ {} $ :name |Alice
+                      |empty $ {} $ :name |
+                      | $ {} $ :name |Empty-id
+                      |nil-name $ {} $ :name nil
+                      |missing-name $ {}
+                    :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                  sessions $ decode-map-as
+                    {}
+                      1 $ {}
+                      2 $ {} $ :user-id nil
+                      3 $ {} $ :user-id false
+                      4 $ {} $ :user-id 0
+                      5 $ {} $ :user-id |
+                      6 $ {} $ :user-id |alice
+                      7 $ {} $ :user-id |empty
+                      8 $ {} $ :user-id |nil-name
+                      9 $ {} $ :user-id |missing-name
+                      10 $ {} $ :user-id |unknown
+                      11 $ {} $ :user-id true
+                      12 $ {} $ :user-id :alice
+                    :: 'Map 'Number $ :: 'Map 'Tag 'Dynamic
+                assert=
+                  {} (1 "|访客") (2 "|访客") (3 "|访客") (4 "|访客") (5 |Empty-id) (6 |Alice) (7 |) (8 "|访客") (9 "|访客") (10 "|访客") (11 "|访客") (12 "|访客")
+                  twig-members sessions users
+                assert=
+                  {} $ |session |Alice
+                  twig-members
+                    {} $ |session $ {} (:user-id |alice)
+                    , users
+              :tags $ #{} :member-key-contract :server
+            %{} 'TestEntry (:name |preserves-invalid-name-decoder-errors)
+              :code $ quote $ let
+                  check-name! $ fn (value)
+                    hint-fn $ {}
+                      :args $ [] 'Dynamic
+                      :return 'Unit
+                    assert=
+                      try (decode-map-as value 'String)
+                        fn (message) message
+                      try
+                        twig-members
+                          {} $ 7 $ {} (:user-id |alice)
+                          decode-map-as
+                            {} $ |alice $ {} (:name value)
+                            :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                        fn (message) message
+                    , &unit
+                check-name! false
+                check-name! true
+                check-name! 0
+                check-name! :invalid
+                check-name! $ []
+                check-name! $ {}
+              :tags $ #{} :member-key-contract :server
         'twig-notes-by-month $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-notes-by-month (data notes)
             let
