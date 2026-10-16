@@ -38,6 +38,13 @@ try {
   const loginInputData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.login/comp-login', '--format', 'json')).data;
   const loginInputTests = loginInputData.tests.filter(test => test.tags.includes('login-input-contract'));
   assert.equal(loginInputTests.length, 1, 'Replay the mixed-cursor login input tree');
+  const loginValueTests = loginInputData.tests.filter(test => test.tags.includes('login-value-contract'));
+  assert.equal(loginValueTests.length, 1, 'Replay missing/nil/false/zero/empty input values through both callbacks');
+  const loginRequiredTests = loginInputData.tests.filter(test => test.tags.includes('login-required-contract'));
+  assert.equal(loginRequiredTests.length, 4, 'Replay required login fields without business defaults');
+  const notesData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.notes-page/comp-notes-page', '--format', 'json')).data;
+  const notesRouteTests = notesData.tests.filter(test => test.tags.includes('notes-route-contract'));
+  assert.equal(notesRouteTests.length, 3, 'Replay required notes route fields and zero-based months');
   const keydownData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.overview/comp-global-keydown', '--format', 'json')).data;
   const keydownTests = keydownData.tests.filter(test => test.tags.includes('keydown-contract'));
   assert.equal(keydownTests.length, 1, 'Replay the attached keydown forwarding contract');
@@ -48,7 +55,7 @@ try {
   assert.equal(renderData.tests.length, 3, 'Replay checked rendering dispatch, framework cursor dispatch and rejection');
   const containerData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.container/comp-container', '--format', 'json')).data;
   const containerTests = containerData.tests.filter(test => test.tags.includes('container-contract'));
-  assert.equal(containerTests.length, 4, 'Replay the loaded/offline container boundaries');
+  assert.equal(containerTests.length, 8, 'Replay loaded/offline boundaries, lazy router fallback, missing-field paths and scalar validation order');
   const operations = [
     ['edit', 'def', 'app.client/prepare-host-tests!', '--input-format', 'json-ast', '--code',
       JSON.stringify(['defn', 'prepare-host-tests!', [], ['replay-auto-login-tests!'], ['replay-render-operation-tests!'], ['app.comp.overview/replay-title-tests!'], '&unit'])],
@@ -67,11 +74,15 @@ try {
     ['edit', 'schema', 'app.client/replay-render-operation-tests!', '--input-format', 'cirru', '--code',
       "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
     ['edit', 'def', 'app.comp.login/replay-login-tests!', '--input-format', 'json-ast', '--code',
-      JSON.stringify(['defn', 'replay-login-tests!', [], ...loginTests.map(test => test.code), ...loginInputTests.map(test => test.code), '&unit'])],
+      JSON.stringify(['defn', 'replay-login-tests!', [], ...loginTests.map(test => test.code), ...loginInputTests.map(test => test.code), ...loginValueTests.map(test => test.code), ...loginRequiredTests.map(test => test.code), '&unit'])],
     ['edit', 'schema', 'app.comp.login/replay-login-tests!', '--input-format', 'cirru', '--code',
       "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
+    ['edit', 'def', 'app.comp.notes-page/replay-route-tests!', '--input-format', 'json-ast', '--code',
+      JSON.stringify(['defn', 'replay-route-tests!', [], ...notesRouteTests.map(test => test.code), '&unit'])],
+    ['edit', 'schema', 'app.comp.notes-page/replay-route-tests!', '--input-format', 'cirru', '--code',
+      "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
     ['edit', 'def', 'app.comp.overview/replay-title-tests!', '--input-format', 'json-ast', '--code',
-      JSON.stringify(['defn', 'replay-title-tests!', [], ...tests.map(test => test.code), ...sortTests.map(test => test.code), ...keydownTests.map(test => test.code), ['app.comp.login/replay-login-tests!'], ['app.comp.container/replay-container-tests!'], '&unit'])],
+      JSON.stringify(['defn', 'replay-title-tests!', [], ...tests.map(test => test.code), ...sortTests.map(test => test.code), ...keydownTests.map(test => test.code), ['app.comp.login/replay-login-tests!'], ['app.comp.notes-page/replay-route-tests!'], ['app.comp.container/replay-container-tests!'], '&unit'])],
     ['edit', 'schema', 'app.comp.overview/replay-title-tests!', '--input-format', 'cirru', '--code',
       "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
   ];
@@ -97,9 +108,18 @@ try {
   assert.equal(titleClick(titleEvent, titleDispatch), undefined);
   assert.deepEqual(titleCalls, [[titleEvent, titleDispatch]]);
   // Inspect the generated host callbacks without mounting a browser or writing storage.
-  const inputState = core.parse_cirru_edn('{} (:username |existing-user) (:password |existing-password)');
+  const inputState = core.parse_cirru_edn('{} (:username |existing-user) (:password |existing-password) (:extra |preserved)');
   const inputCursor = core.parse_cirru_edn('[] :login |panel 7');
-  const inputStates = core._$n__$M_(core.turn_tag('cursor'), inputCursor, core.turn_tag('data'), inputState);
+  const inputStates = core._$n__$M_(core.turn_tag('cursor'), inputCursor, core.turn_tag('data'), inputState,
+    core.turn_tag('child'), 'tag-branch', 'child', 'string-branch', 7, 'number-branch');
+  // Invalid host callers must not gain get-in's permissive nil-base behavior.
+  for (const invalid of [null, undefined, false, 7, 'invalid', core.parse_cirru_edn('[]'), {}]) {
+    assert.throws(() => login.comp_login(invalid), /decode-map-as failed.*expected map/);
+  }
+  for (const cursor of [null, false, 7, 'invalid', core.parse_cirru_edn('{}')]) {
+    const invalid = core._$n__$M_(core.turn_tag('cursor'), cursor, core.turn_tag('data'), inputState);
+    assert.throws(() => login.comp_login(invalid), /Expected-state-cursor-List/);
+  }
   const loginComponent = login.comp_login(inputStates);
   const inputs = [];
   const visit = node => {
@@ -126,12 +146,23 @@ try {
     assert.equal(calls[0].tag.value, 'states');
     assert.equal(calls[0].get(1), inputCursor, 'preserve the original mixed-key cursor');
     const changed = calls[0].get(2);
+    assert.equal(changed.get(core.turn_tag('extra')), 'preserved', 'retain extra fields in the original state Map');
     assert.equal(changed.get(core.turn_tag(field)), 'edited-value');
     const other = field === 'username' ? 'password' : 'username';
     assert.equal(changed.get(core.turn_tag(other)), `existing-${other === 'username' ? 'user' : 'password'}`);
     assert.equal(inputState.get(core.turn_tag(field)), `existing-${field === 'username' ? 'user' : 'password'}`);
+    for (const [key, expected] of [[core.turn_tag('child'), 'tag-branch'], ['child', 'string-branch'], [7, 'number-branch']]) {
+      assert.equal(inputStates.get(key), expected, 'preserve Tag/String/Number branches in the original tree');
+    }
     const failure = new Error(`isolated ${field} dispatch failure`);
     assert.throws(() => handler(core.parse_cirru_edn('{} (:value |changed)'), () => { throw failure; }), error => error === failure);
+  }
+  const notes = await loadReplayModule(output, 'app.comp.notes-page');
+  const notesStates = core.parse_cirru_edn('{} (:cursor $ [] :notes |panel 7)');
+  for (const [field, invalid] of ['year', 'month'].flatMap(field => ['|invalid', 'nil', 'false'].map(invalid => [field, invalid]))) {
+    const route = core.parse_cirru_edn(`{} (:year ${field === 'year' ? invalid : '2026'}) (:month ${field === 'month' ? invalid : '0'})`);
+    assert.throws(() => notes.comp_notes_page(notesStates, core.parse_cirru_edn('{}'), route),
+      error => error.message.includes('decode-map-as failed') && error.message.includes(field));
   }
   const forwardedError = new Error('isolated keydown callback failure');
   const forwardedHandler = () => { throw forwardedError; };
@@ -222,7 +253,7 @@ try {
       else delete globalThis[name];
     }
   }
-  console.log('All 5 title, 3 task-sort, 2 login, 1 login input tree, 1 keydown, 4 container, 3 render-dispatch and automatic-login contracts passed; mixed-cursor input dispatch, forwarding and storage failure semantics preserved.');
+  console.log('All 5 title, 3 task-sort, 2 login, 1 login input tree, 1 input-value group, 4 required-login, 3 required-route, 1 keydown, 8 container, 3 render-dispatch and automatic-login contracts passed; mixed-cursor input dispatch, extra state fields, forwarding and storage failure semantics preserved.');
 
   for (const [argument, expectedStatus] of [
     [['Option', ':none'], 0],

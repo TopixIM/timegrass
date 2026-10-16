@@ -30,7 +30,7 @@ try {
     const stateTests = data.tests.filter(item => item.name === test.name || item.tags.includes('task-state-contract') || item.tags.includes('menu-contract'));
     const replay = `${target.split('/')[0]}/replay-statekey!`;
     const operations = [
-      ['edit', 'def', replay, '--input-format', 'json-ast', '--code', JSON.stringify(['defn', 'replay-statekey!', [], ...stateTests.map(item => item.code), '&unit'])],
+      ['edit', 'def', replay, '--input-format', 'json-ast', '--code', JSON.stringify(['defn', 'replay-statekey!', [], ...stateTests.map(item => item.code), ['println', `|PASS ${target}: ${stateTests.length} attached tests`], '&unit'])],
       ['edit', 'schema', replay, '--input-format', 'cirru', '--code', "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
     ];
     const args = [snapshot, 'edit', 'transaction', '--code', JSON.stringify(operations), '--format', 'json'];
@@ -39,12 +39,12 @@ try {
     replayFunctions.push(replay);
   }
 
-  for (const target of ['app.schema/decode-finished-task-view', 'app.comp.history/history-task-groups', 'app.comp.history/sort-finished-tasks', 'app.comp.overview/comp-overview']) {
+  for (const target of ['app.schema/load-database', 'app.comp.history/comp-history', 'app.schema/normalize-task-record', 'app.schema/decode-client-message', 'app.schema/decode-user-record', 'app.schema/decode-database', 'app.schema/decode-note-record', 'app.schema/decode-task-record', 'app.schema/decode-server-message', 'app.schema/validate-stored-users', 'app.schema/read-path', 'app.schema/decode-finished-task-view', 'app.comp.history/history-task-groups', 'app.comp.history/sort-finished-tasks', 'app.comp.overview/comp-overview']) {
     const { data } = JSON.parse(run(snapshot, 'query', 'def', target, '--format', 'json'));
-    assert.ok(data.tests.length > 0, `Missing history boundary tests: ${target}`);
+    assert.ok(data.tests.length > 0, `Missing attached boundary tests: ${target}`);
     const replay = `${target.split('/')[0]}/replay-${target.split('/')[1]}!`;
     const operations = [
-      ['edit', 'def', replay, '--input-format', 'json-ast', '--code', JSON.stringify(['defn', replay.split('/')[1], [], ...data.tests.map(item => item.code), '&unit'])],
+      ['edit', 'def', replay, '--input-format', 'json-ast', '--code', JSON.stringify(['defn', replay.split('/')[1], [], ...data.tests.map(item => item.code), ['println', `|PASS ${target}: ${data.tests.length} attached tests`], '&unit'])],
       ['edit', 'schema', replay, '--input-format', 'cirru', '--code', "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
     ];
     const args = [snapshot, 'edit', 'transaction', '--code', JSON.stringify(operations), '--format', 'json'];
@@ -53,16 +53,21 @@ try {
     replayFunctions.push(replay);
   }
 
-  edit(snapshot, 'edit', 'def', 'app.comp.navigation/expose-dayjs-checks!', '--input-format', 'json-ast', '--code',
-    JSON.stringify(['defn', 'expose-dayjs-checks!', [],
-      ['date-labels', '|2026-09-14'],
-      ['week-bounds', '2026', '37'],
-      ['format-timestamp', '0', '|HH:mm'],
-      ['decode-timestamp', '0'],
-      ...replayFunctions.map(target => [target]),
-      '&unit']));
-  edit(snapshot, 'edit', 'schema', 'app.comp.navigation/expose-dayjs-checks!', '--input-format', 'cirru', '--code',
-    "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)");
+  const entryOperations = [
+    ['edit', 'def', 'app.comp.navigation/expose-dayjs-checks!', '--input-format', 'json-ast', '--code',
+      JSON.stringify(['defn', 'expose-dayjs-checks!', [],
+        ['date-labels', '|2026-09-14'],
+        ['week-bounds', '2026', '37'],
+        ['format-timestamp', '0', '|HH:mm'],
+        ['decode-timestamp', '0'],
+        ...replayFunctions.map(target => [target]),
+        '&unit'])],
+    ['edit', 'schema', 'app.comp.navigation/expose-dayjs-checks!', '--input-format', 'cirru', '--code',
+      "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
+  ];
+  const entryTransaction = [snapshot, 'edit', 'transaction', '--code', JSON.stringify(entryOperations), '--format', 'json'];
+  const entryPreview = JSON.parse(edit(...entryTransaction, '--dry-run'));
+  edit(...entryTransaction, '--expect-revision', entryPreview.scoped_revision);
   const entry = [snapshot, '--init-fn', 'app.comp.navigation/expose-dayjs-checks!', '--reload-fn', 'app.comp.navigation/expose-dayjs-checks!'];
   try {
     run(...entry, '--emit-path', output, 'js');
@@ -74,6 +79,7 @@ try {
 
   const core = await import(pathToFileURL(join(output, 'calcit.core.mjs')).href);
   const history = await import(pathToFileURL(join(output, 'app.comp.history.mjs')).href);
+  const overview = await import(pathToFileURL(join(output, 'app.comp.overview.mjs')).href);
   const schema = await import(pathToFileURL(join(output, 'app.schema.mjs')).href);
   const navigation = await import(pathToFileURL(join(output, 'app.comp.navigation.mjs')).href);
   const notes = await import(pathToFileURL(join(output, 'app.comp.notes-page.mjs')).href);
@@ -109,6 +115,18 @@ try {
     return decoded.get(1);
   };
   const note = (timestamp) => _$n__$M_(tags.time, timestamp, tags.text, 'Note', tags.id, 'note-1');
+
+  // Exercise malformed external callers at the JS boundary, not as ill-typed Calcit calls.
+  const unfinished = core.parse_cirru_edn('{} (:id |task-1) (:text |Task) (:detail |) (:pending? false)');
+  for (const invalid of [null, undefined, false, 7, 'invalid', core.parse_cirru_edn('[]'), {}]) {
+    for (const render of [
+      () => overview.comp_overview(invalid, '2026-09-14', _$n__$M_()),
+      () => overview.comp_task(invalid, unfinished, core.turn_tag('working')),
+      () => comp_done_task(invalid, task(1735689600000)),
+    ]) {
+      assert.throws(render, /decode-map-as failed.*expected map/);
+    }
+  }
 
   assert.equal(result_$o_ok_$q_(decode_timestamp(1735689600000)), true);
   assert.equal(result_$o_err_$q_(decode_timestamp('invalid')), true);
