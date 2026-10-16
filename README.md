@@ -75,6 +75,8 @@ Calcit 默认执行严格类型检查。浏览器和服务端入口均以严格�
 Map 格式，启动时清空持久化 session。验证后的 `today` / `users` 先投影并解码为
 `LegacyDatabaseView`，再供 `DatabaseRecord` 构造复用，不逐字段还原 nil；不修改输入
 Map，仍按原逻辑忽略构造不需要的根元数据，`users` 内部再逐项解码为 `UserRecord`。
+旧用户校验从同一不可变 Map 的 keys 读取现存值，保留值的泛型类型后再校验记录，
+不先把读取结果恢复为 nil；非法记录载荷与空 Map 仍按原合同处理。
 客户端 DOM 查询使用
 `respo.ffi.browser/query-selector`，返回 Respo renderer 接受的元素类型，不在应用中
 强转 js-ffi 与 Respo 的 DOM 合同。组件 state 保留泛型 StateKey；成员列表保留真实

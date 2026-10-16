@@ -4677,9 +4677,7 @@
                   (:err message) (Result :err message)
                   (:ok _)
                     let
-                        candidate $ match (calcit.core/get users user-id)
-                          (:some value) value
-                          (:none) nil
+                        candidate $ .unwrap $ calcit.core/get users user-id
                       if (map? candidate)
                         match (decode-user-record candidate)
                           (:ok user)
@@ -4748,6 +4746,25 @@
                     {} (:id |different) (:name |Alice)
                   (:err message) (starts-with? message "|storage.cirru/:users/u1:id differs from map key")
                   (:ok _) false
+              :tags $ #{} :server
+            %{} 'TestEntry
+              :name |rejects-non-map-payloads-without-changing-empty-map
+              :code $ quote $ do
+                assert=
+                  Result :err "|storage.cirru/:users/u1:legacy user record expected Map"
+                  validate-stored-users $ {} $ |u1 nil
+                assert=
+                  Result :err "|storage.cirru/:users/u1:legacy user record expected Map"
+                  validate-stored-users $ {} $ |u1 false
+                assert=
+                  Result :err "|storage.cirru/:users/u1:legacy user record expected Map"
+                  validate-stored-users $ {} $ |u1 0
+                assert=
+                  Result :err "|storage.cirru/:users/u1:legacy user record expected Map"
+                  validate-stored-users $ {} $ |u1 |
+                assert=
+                  Result :ok $ {}
+                  validate-stored-users $ {}
               :tags $ #{} :server
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.schema
