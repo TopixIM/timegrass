@@ -104,6 +104,10 @@ nil、数字、字符串或 Map 代替 cursor，不把混合 Tag/String/Number �
 任务列表的两个排序分支共用 `task-sort-key`：保留原 touched-time / created-time
 选择顺序，验证有效时间为 Number 后取反排序。零、负数和原有 nil/false 回退语义保留；
 错误的有效字段不会被默默换成另一个时间或默认值。附带测试覆盖选择、失败与倒序结果。
+时间选择在 Option 分支内直接完成 Number 解码，未选中的 created-time 不读取或验证。
+界面条件与键盘条件在消费时形成 Bool 结果，保留原 nil/false 和 0/空字符串的真值行为；
+这不表示开放 state 中的原始字段已全部验证为 Bool。路由名在 Option 分支内按原 Tag
+分派，缺失或未知名称仍走原错误/空投影分支，不提前校验未选中路由的数据。
 
 历史页面在入口把投影任务解码为 `FinishedTaskView`（String id/text、Number finished-time），
 然后供日期分组、同日排序和行组件复用。缺失或错误字段明确报错；持久化 TaskRecord
