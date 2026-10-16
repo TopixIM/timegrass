@@ -27,7 +27,7 @@ try {
     const test = data.tests.find(test => test.name === 'accepts-tag-string-number-state-branches');
     assert.ok(test, `Missing state-key regression: ${target}`);
     assert.ok(test.tags.includes('js'), `State-key test requires the JS backend: ${target}`);
-    const stateTests = data.tests.filter(item => item.name === test.name || item.tags.includes('task-state-contract') || item.tags.includes('menu-contract'));
+    const stateTests = data.tests.filter(item => item.name === test.name || item.tags.includes('task-state-contract') || item.tags.includes('menu-contract') || item.tags.includes('option-consumer-contract'));
     const replay = `${target.split('/')[0]}/replay-statekey!`;
     const operations = [
       ['edit', 'def', replay, '--input-format', 'json-ast', '--code', JSON.stringify(['defn', 'replay-statekey!', [], ...stateTests.map(item => item.code), ['println', `|PASS ${target}: ${stateTests.length} attached tests`], '&unit'])],
@@ -39,7 +39,7 @@ try {
     replayFunctions.push(replay);
   }
 
-  for (const target of ['app.schema/load-database', 'app.comp.history/comp-history', 'app.schema/normalize-task-record', 'app.schema/decode-client-message', 'app.schema/decode-user-record', 'app.schema/decode-database', 'app.schema/decode-note-record', 'app.schema/decode-task-record', 'app.schema/decode-server-message', 'app.schema/validate-stored-users', 'app.schema/read-path', 'app.schema/decode-finished-task-view', 'app.comp.history/history-task-groups', 'app.comp.history/sort-finished-tasks', 'app.comp.overview/comp-overview', 'app.twig.container/twig-members']) {
+  for (const target of ['app.schema/load-database', 'app.comp.history/comp-history', 'app.schema/normalize-task-record', 'app.schema/decode-client-message', 'app.schema/decode-user-record', 'app.schema/decode-database', 'app.schema/decode-note-record', 'app.schema/decode-task-record', 'app.schema/decode-server-message', 'app.schema/validate-stored-users', 'app.schema/read-path', 'app.schema/decode-finished-task-view', 'app.comp.history/history-task-groups', 'app.comp.history/sort-finished-tasks', 'app.comp.overview/comp-overview', 'app.twig.container/twig-members', 'app.schema/decode-route-map']) {
     const { data } = JSON.parse(run(snapshot, 'query', 'def', target, '--format', 'json'));
     assert.ok(data.tests.length > 0, `Missing attached boundary tests: ${target}`);
     const replay = `${target.split('/')[0]}/replay-${target.split('/')[1]}!`;
