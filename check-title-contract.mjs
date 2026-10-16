@@ -38,6 +38,8 @@ try {
   const loginInputData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.login/comp-login', '--format', 'json')).data;
   const loginInputTests = loginInputData.tests.filter(test => test.tags.includes('login-input-contract'));
   assert.equal(loginInputTests.length, 1, 'Replay the mixed-cursor login input tree');
+  const loginValueTests = loginInputData.tests.filter(test => test.tags.includes('login-value-contract'));
+  assert.equal(loginValueTests.length, 1, 'Replay missing/nil/false/zero/empty input values through both callbacks');
   const loginRequiredTests = loginInputData.tests.filter(test => test.tags.includes('login-required-contract'));
   assert.equal(loginRequiredTests.length, 4, 'Replay required login fields without business defaults');
   const notesData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.notes-page/comp-notes-page', '--format', 'json')).data;
@@ -72,7 +74,7 @@ try {
     ['edit', 'schema', 'app.client/replay-render-operation-tests!', '--input-format', 'cirru', '--code',
       "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
     ['edit', 'def', 'app.comp.login/replay-login-tests!', '--input-format', 'json-ast', '--code',
-      JSON.stringify(['defn', 'replay-login-tests!', [], ...loginTests.map(test => test.code), ...loginInputTests.map(test => test.code), ...loginRequiredTests.map(test => test.code), '&unit'])],
+      JSON.stringify(['defn', 'replay-login-tests!', [], ...loginTests.map(test => test.code), ...loginInputTests.map(test => test.code), ...loginValueTests.map(test => test.code), ...loginRequiredTests.map(test => test.code), '&unit'])],
     ['edit', 'schema', 'app.comp.login/replay-login-tests!', '--input-format', 'cirru', '--code',
       "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
     ['edit', 'def', 'app.comp.notes-page/replay-route-tests!', '--input-format', 'json-ast', '--code',
@@ -251,7 +253,7 @@ try {
       else delete globalThis[name];
     }
   }
-  console.log('All 5 title, 3 task-sort, 2 login, 1 login input tree, 4 required-login, 3 required-route, 1 keydown, 8 container, 3 render-dispatch and automatic-login contracts passed; mixed-cursor input dispatch, extra state fields, forwarding and storage failure semantics preserved.');
+  console.log('All 5 title, 3 task-sort, 2 login, 1 login input tree, 1 input-value group, 4 required-login, 3 required-route, 1 keydown, 8 container, 3 render-dispatch and automatic-login contracts passed; mixed-cursor input dispatch, extra state fields, forwarding and storage failure semantics preserved.');
 
   for (const [argument, expectedStatus] of [
     [['Option', ':none'], 0],

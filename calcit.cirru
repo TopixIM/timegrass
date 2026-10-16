@@ -1387,9 +1387,9 @@
                                 :args $ [] 'app.schema/Op
                             :return 'Unit
                           d! $ :: :states cursor $ assoc state :username
-                            str $ match (calcit.core/get e :value)
-                              (:some value) value
-                              (:none) nil
+                            match (calcit.core/get e :value)
+                              (:some value) (str value)
+                              (:none) (str nil)
                     =< nil 8
                     div ({})
                       input $ {} (:placeholder |Password)
@@ -1402,9 +1402,9 @@
                                 :args $ [] 'app.schema/Op
                             :return 'Unit
                           d! $ :: :states cursor $ assoc state :password
-                            str $ match (calcit.core/get e :value)
-                              (:some value) value
-                              (:none) nil
+                            match (calcit.core/get e :value)
+                              (:some value) (str value)
+                              (:none) (str nil)
                   =< nil 8
                   div
                     {} $ :style $ {} (:text-align :right)
@@ -1512,6 +1512,89 @@
                     , false
                   fn (message) (starts-with? message "|decode-map-as failed")
               :tags $ #{} :js :login-required-contract
+            %{} 'TestEntry (:name |input-values-preserve-stringification-and-state)
+              :code $ quote $ let
+                  cursor $ [] :login |panel 7
+                  state $ {} (:username |existing-user) (:password |existing-password) (:extra |preserved)
+                  element $ fn (node)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/RenderNode
+                      :return 'respo.schema/Element
+                    match node
+                      (:element value) value
+                      (:component _) (raise |Expected-login-element)
+                  child $ fn (parent index)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/Element 'Number
+                      :return 'respo.schema/RenderNode
+                    .unwrap $ :node $ .unwrap
+                      nth (:children parent) index
+                  root $ element $ .unwrap
+                    :tree $ comp-login $ {} (:cursor cursor) (:data state)
+                  outer $ element $ child root 0
+                  content $ element $ child outer 0
+                  username $ element $ child
+                    element $ child content 0
+                    , 0
+                  password $ element $ child
+                    element $ child content 2
+                    , 0
+                  check-input! $ fn (input event field expected)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/Element (:: 'Map 'Tag 'Dynamic) 'Tag 'String
+                      :return 'Unit
+                    let
+                        handler $ .unwrap $ js-nullish->option
+                          .unwrap $ .get (:event input) :input
+                        calls $ ref 0
+                        dispatch! $ fn (operation)
+                          hint-fn $ {}
+                            :args $ [] 'app.schema/Op
+                            :return 'Unit
+                          match operation
+                            (:states path payload)
+                              do (assert= cursor path)
+                                assert= (assoc state field expected) payload
+                            _ $ raise |Expected-login-state-operation
+                          swap! calls inc
+                          , &unit
+                      handler event dispatch!
+                      assert= 1 @calls
+                check-input! username ({}) :username $ str nil
+                check-input! username
+                  {} $ :value nil
+                  , :username $ str nil
+                check-input! username
+                  {} $ :value false
+                  , :username $ str false
+                check-input! username
+                  {} $ :value 0
+                  , :username $ str 0
+                check-input! username
+                  {} $ :value |
+                  , :username $ str |
+                check-input! username
+                  {} $ :value |changed
+                  , :username $ str |changed
+                check-input! password ({}) :password $ str nil
+                check-input! password
+                  {} $ :value nil
+                  , :password $ str nil
+                check-input! password
+                  {} $ :value false
+                  , :password $ str false
+                check-input! password
+                  {} $ :value 0
+                  , :password $ str 0
+                check-input! password
+                  {} $ :value |
+                  , :password $ str |
+                check-input! password
+                  {} $ :value |changed
+                  , :password $ str |changed
+                assert= |existing-user $ .unwrap $ get state :username
+                assert= |existing-password $ .unwrap $ get state :password
+              :tags $ #{} :js :login-value-contract
         'initial-state $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def initial-state
             {} (:username |) (:password |)
