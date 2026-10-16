@@ -80,7 +80,10 @@ Map，仍按原逻辑忽略构造不需要的根元数据，`users` 内部再逐
 客户端 DOM 查询使用
 `respo.ffi.browser/query-selector`，返回 Respo renderer 接受的元素类型，不在应用中
 强转 js-ffi 与 Respo 的 DOM 合同。组件 state 保留泛型 StateKey；成员列表保留真实
-session key，未登录成员显示“访客”。
+session key，未登录成员显示“访客”。成员投影先检查用户标识是否为 String，再通过
+Map 方法读取用户与姓名，保留值的泛型类型，不经开放路径读取恢复 nil。缺失用户、
+缺失或 nil 姓名仍显示“访客”，空标识和空姓名仍保留其原有含义；其他非法姓名
+仍由原 String 解码器报告错误。
 
 本地 `Op :states` 的 cursor 明确为 List，元素仍保留原始 StateKey；解码入口拒绝
 nil、数字、字符串或 Map 代替 cursor，不把混合 Tag/String/Number 路径转成字符串。
@@ -101,6 +104,10 @@ nil、数字、字符串或 Map 代替 cursor，不把混合 Tag/String/Number �
 任务列表的两个排序分支共用 `task-sort-key`：保留原 touched-time / created-time
 选择顺序，验证有效时间为 Number 后取反排序。零、负数和原有 nil/false 回退语义保留；
 错误的有效字段不会被默默换成另一个时间或默认值。附带测试覆盖选择、失败与倒序结果。
+时间选择在 Option 分支内直接完成 Number 解码，未选中的 created-time 不读取或验证。
+界面条件与键盘条件在消费时形成 Bool 结果，保留原 nil/false 和 0/空字符串的真值行为；
+这不表示开放 state 中的原始字段已全部验证为 Bool。路由名在 Option 分支内按原 Tag
+分派，缺失或未知名称仍走原错误/空投影分支，不提前校验未选中路由的数据。
 
 历史页面在入口把投影任务解码为 `FinishedTaskView`（String id/text、Number finished-time），
 然后供日期分组、同日排序和行组件复用。缺失或错误字段明确报错；持久化 TaskRecord
@@ -139,6 +146,14 @@ Cirru EDN 解析出的 Struct 转成 Map 后按声明类型解码。定义测试
 不把缺失字段先恢复成 nil；原 state 的额外字段仍保留，空字符串和零月份仍有效。
 任务 ID 复用已解码的 `TaskRecord`。旧存储的 nil 时间、用户可选字段和集合默认逻辑
 在 Option 分支内处理，不能把 false、0 或空字符串误当成缺失，也不能借迁移扩大 Dynamic。
+必需字段的解码与时间值解析直接在选中的 Option 分支内完成，得到 Bool、String、List、
+Map 或名义记录的结果后再供下游使用；缺失分支仍交给原解码器报告原错误。
+检查保留原有位置，路由未选中的字段和尚未执行的事件回调不会被提前读取或验证。
+个人页问候文本与备份路径在 Option 分支内完成原 String 转换，保留缺失、nil、false、
+零和空字符串的原输出。消息删除的旧 Map 载荷在入口直接得到已解码的 Result，仍与
+String 载荷共用原错误协议。旧用户的 notes 缺失或不是 Map 时沿用原空 Map 行为；
+有效 Map 在同一位置验证后再投影。完整 twig 投影使用 native std 日期实现，由 server
+入口测试；浏览器日期展示继续使用已有 Dayjs 适配，不以 native 日期 stub 代替 JS 验收。
 
 升级验收必须使用 `deps.cirru` 与 `@calcit/procs` 指定的同一已发布版本，重跑完整严格
 工作流、原定义测试、同源 JS 回放和实际浏览器/native 重启验证。旧 0.29.3 的浏览器

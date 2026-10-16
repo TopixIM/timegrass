@@ -31,7 +31,7 @@ try {
   assert.equal(tests.length, 5, 'Replay every existing title contract');
   const sortData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.overview/task-sort-key', '--format', 'json')).data;
   const sortTests = sortData.tests.filter(test => test.tags.includes('task-sort-contract'));
-  assert.equal(sortTests.length, 3, 'Replay timestamp selection, validation and ordering');
+  assert.equal(sortTests.length, 4, 'Replay timestamp selection, full errors, lazy fallback and ordering');
   const loginData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.login/on-submit', '--format', 'json')).data;
   const loginTests = loginData.tests.filter(test => test.tags.includes('login-contract'));
   assert.equal(loginTests.length, 2, 'Replay both attached login/signup contracts');
@@ -253,7 +253,7 @@ try {
       else delete globalThis[name];
     }
   }
-  console.log('All 5 title, 3 task-sort, 2 login, 1 login input tree, 1 input-value group, 4 required-login, 3 required-route, 1 keydown, 8 container, 3 render-dispatch and automatic-login contracts passed; mixed-cursor input dispatch, extra state fields, forwarding and storage failure semantics preserved.');
+  console.log('All 5 title, 4 task-sort, 2 login, 1 login input tree, 1 input-value group, 4 required-login, 3 required-route, 1 keydown, 8 container, 3 render-dispatch and automatic-login contracts passed; mixed-cursor input dispatch, extra state fields, forwarding and storage failure semantics preserved.');
 
   for (const [argument, expectedStatus] of [
     [['Option', ':none'], 0],

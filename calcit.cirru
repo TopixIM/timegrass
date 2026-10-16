@@ -480,28 +480,22 @@
                           (:some value)
                             if (map? value) (decode-map-as value 'Map) (read-session-router)
                           (:none) (read-session-router)
-                      logged-in? $ decode-map-as
-                        match (calcit.core/get store :logged-in?)
-                          (:some value) value
-                          (:none) nil
-                        , 'Bool
+                      logged-in? $ match (calcit.core/get store :logged-in?)
+                        (:some value) (decode-map-as value 'Bool)
+                        (:none) (decode-map-as nil 'Bool)
                       count-members $ decode-map-as (get store :count) (:: 'Option 'Number)
-                      route-name $ decode-map-as
-                        match (calcit.core/get router :name)
-                          (:some value) value
-                          (:none) nil
-                        , 'Tag
+                      route-name $ match (calcit.core/get router :name)
+                        (:some value) (decode-map-as value 'Tag)
+                        (:none) (decode-map-as nil 'Tag)
                     div
                       {} $ :class-name css-container
                       comp-navigation logged-in? count-members route-name
                       if logged-in?
                         match route-name
                           :home $ comp-overview (>> states :overview)
-                            decode-map-as
-                              match (calcit.core/get store :today)
-                                (:some value) value
-                                (:none) nil
-                              , 'String
+                            match (calcit.core/get store :today)
+                              (:some value) (decode-map-as value 'String)
+                              (:none) (decode-map-as nil 'String)
                             decode-map-as
                               option:unwrap-or
                                 get-in router $ [] :data :tasks
@@ -519,37 +513,37 @@
                                 {}
                               :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
                           :notes $ comp-notes-page (>> states :notes)
-                            decode-map-as
-                              match (calcit.core/get router :data)
-                                (:some value) value
-                                (:none) nil
-                              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                            match (calcit.core/get router :data)
+                              (:some value)
+                                decode-map-as value $ :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                              (:none)
+                                decode-map-as nil $ :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
                             decode-map-as
                               option:unwrap-or
                                 get-in session $ [] :router :data
                                 {}
                               :: 'Map 'Tag 'Number
                           :profile $ comp-profile
-                            decode-map-as
-                              match (calcit.core/get store :user)
-                                (:some value) value
-                                (:none) nil
-                              :: 'Map 'Tag 'Dynamic
-                            decode-map-as
-                              match (calcit.core/get router :data)
-                                (:some value) value
-                                (:none) nil
-                              :: 'Map 'Number 'String
+                            match (calcit.core/get store :user)
+                              (:some value)
+                                decode-map-as value $ :: 'Map 'Tag 'Dynamic
+                              (:none)
+                                decode-map-as nil $ :: 'Map 'Tag 'Dynamic
+                            match (calcit.core/get router :data)
+                              (:some value)
+                                decode-map-as value $ :: 'Map 'Number 'String
+                              (:none)
+                                decode-map-as nil $ :: 'Map 'Number 'String
                           _ $ <> $ str "|404 page:" router
                         comp-login $ >> states :login
                       comp-status-color $ decode-map-as (get store :color) (:: 'Option 'String)
                       when dev? $ comp-inspect |Store store $ {} (:bottom 0) (:left 0) (:z-index 9999)
                       comp-messages
-                        decode-map-as
-                          match (calcit.core/get session :messages)
-                            (:some value) value
-                            (:none) nil
-                          :: 'Map 'String 'Dynamic
+                        match (calcit.core/get session :messages)
+                          (:some value)
+                            decode-map-as value $ :: 'Map 'String 'Dynamic
+                          (:none)
+                            decode-map-as nil $ :: 'Map 'String 'Dynamic
                         {}
                         fn (info d!)
                           match
@@ -557,11 +551,9 @@
                             (:ok op) (d! op)
                             (:err _) &unit
                       when dev? $ comp-reel
-                        decode-map-as
-                          match (calcit.core/get store :reel-length)
-                            (:some value) value
-                            (:none) nil
-                          , 'Number
+                        match (calcit.core/get store :reel-length)
+                          (:some value) (decode-map-as value 'Number)
+                          (:none) (decode-map-as nil 'Number)
                         {}
               if (enum? store)
                 match store
@@ -856,12 +848,10 @@
         'comp-done-task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-done-task (states task) (decode-map-as states 'Map)
             let
-                cursor $ decode-map-as
-                  match
-                    get-in states $ [] :cursor
-                    (:some value) value
-                    (:none) nil
-                  , 'List
+                cursor $ match
+                  get-in states $ [] :cursor
+                  (:some value) (decode-map-as value 'List)
+                  (:none) (decode-map-as nil 'List)
                 state $ decode-map-as
                   match
                     get-in states $ [] :data
@@ -878,8 +868,8 @@
                     {} $ :padding "|4px 8px"
                     if
                       match (calcit.core/get state :show-menu?)
-                        (:some value) value
-                        (:none) nil
+                        (:some value) (if value true false)
+                        (:none) false
                       {} $ :background-color $ hsl 0 0 94
                       {}
                   :on-click $ fn (e d!)
@@ -1909,9 +1899,9 @@
                 remove-plugin $ use-confirm (>> states :remove)
                   {} $ :text "|Sure to delete note?"
                 note-time $ match
-                  decode-timestamp $ match (calcit.core/get note :time)
-                    (:some value) value
-                    (:none) nil
+                  match (calcit.core/get note :time)
+                    (:some value) (decode-timestamp value)
+                    (:none) (decode-timestamp nil)
                   (:ok value) value
                   (:err message) (raise message)
               div
@@ -1934,64 +1924,97 @@
                       fn (e d!)
                         .show edit-plugin d! $ fn (result)
                           d! $ :: :note/edit $ schema/NoteEdit :id
-                            decode-map-as
-                              match (calcit.core/get note :id)
-                                (:some value) value
-                                (:none) nil
-                              , 'String
+                            match (calcit.core/get note :id)
+                              (:some value) (decode-map-as value 'String)
+                              (:none) (decode-map-as nil 'String)
                             , :text (decode-map-as result 'String)
                     =< 8 nil
                     comp-icon :delete
                       &{} :font-size 16 :cursor :pointer :color $ hsl 10 80 60
                       fn (e d!)
                         .show remove-plugin d! $ fn () $ d!
-                          :: :note/remove $ decode-map-as
-                            match (calcit.core/get note :id)
-                              (:some value) value
-                              (:none) nil
-                            , 'String
-                <> $ decode-map-as
-                  match (calcit.core/get note :text)
-                    (:some value) value
-                    (:none) nil
-                  , 'String
+                          :: :note/remove $ match (calcit.core/get note :id)
+                            (:some value) (decode-map-as value 'String)
+                            (:none) (decode-map-as nil 'String)
+                <> $ match (calcit.core/get note :text)
+                  (:some value) (decode-map-as value 'String)
+                  (:none) (decode-map-as nil 'String)
                 .render edit-plugin
                 .render remove-plugin
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
             :args $ [] (:: 'Map 'StateKey 'Dynamic) (:: 'Map 'Tag 'Dynamic)
             :generics $ [] 'StateKey
-          :tests $ [] $ %{} 'TestEntry (:name |accepts-tag-string-number-state-branches)
-            :code $ quote $ let
-                note $ {} (:id |note-1) (:text |Note) (:time 1735689600000)
-                root $ {}
-                  :cursor $ [] :root
-                  :panel $ {} $ :data ({})
-                  |note-1 $ {} $ :data ({})
-                  7 $ {} $ :data ({})
-                tag-branch $ >> root :panel
-                string-branch $ >> root |note-1
-                number-branch $ >> root 7
-              assert= :comp-note $ :name $ comp-note tag-branch note
-              assert= :comp-note $ :name $ comp-note string-branch note
-              assert= :comp-note $ :name $ comp-note number-branch note
-              assert= ([] :root :panel)
-                match (calcit.core/get tag-branch :cursor)
-                  (:some value) value
-                  (:none) nil
-              assert= ([] :root |note-1)
-                match (calcit.core/get string-branch :cursor)
-                  (:some value) value
-                  (:none) nil
-              assert= ([] :root 7)
-                match (calcit.core/get number-branch :cursor)
-                  (:some value) value
-                  (:none) nil
-              assert= ([] :root)
-                match (calcit.core/get root :cursor)
-                  (:some value) value
-                  (:none) nil
-            :tags $ #{} :js
+          :tests $ []
+            %{} 'TestEntry (:name |accepts-tag-string-number-state-branches)
+              :code $ quote $ let
+                  note $ {} (:id |note-1) (:text |Note) (:time 1735689600000)
+                  root $ {}
+                    :cursor $ [] :root
+                    :panel $ {} $ :data ({})
+                    |note-1 $ {} $ :data ({})
+                    7 $ {} $ :data ({})
+                  tag-branch $ >> root :panel
+                  string-branch $ >> root |note-1
+                  number-branch $ >> root 7
+                assert= :comp-note $ :name $ comp-note tag-branch note
+                assert= :comp-note $ :name $ comp-note string-branch note
+                assert= :comp-note $ :name $ comp-note number-branch note
+                assert= ([] :root :panel)
+                  match (calcit.core/get tag-branch :cursor)
+                    (:some value) value
+                    (:none) nil
+                assert= ([] :root |note-1)
+                  match (calcit.core/get string-branch :cursor)
+                    (:some value) value
+                    (:none) nil
+                assert= ([] :root 7)
+                  match (calcit.core/get number-branch :cursor)
+                    (:some value) value
+                    (:none) nil
+                assert= ([] :root)
+                  match (calcit.core/get root :cursor)
+                    (:some value) value
+                    (:none) nil
+              :tags $ #{} :js
+            %{} 'TestEntry (:name |preserves-timestamp-decoder-errors)
+              :code $ quote $ let
+                  check-note! $ fn (note expected)
+                    hint-fn $ {}
+                      :args $ [] (:: 'Map 'Tag 'Dynamic) 'String
+                      :return 'Unit
+                    assert= expected $ try
+                      do
+                        comp-note
+                          {} $ :cursor $ []
+                          , note
+                        raise |Expected-timestamp-error
+                      fn (message) message
+                    , &unit
+                  check-value! $ fn (value)
+                    hint-fn $ {}
+                      :args $ [] 'Dynamic
+                      :return 'Unit
+                    match (decode-timestamp value)
+                      (:err message)
+                        check-note!
+                          {} (:id |note) (:text |Note) (:time value)
+                          , message
+                      (:ok _) (raise |Expected-invalid-timestamp)
+                    , &unit
+                match (decode-timestamp nil)
+                  (:err message)
+                    check-note!
+                      {} (:id |note) (:text |Note)
+                      , message
+                  (:ok _) (raise |Expected-missing-timestamp-error)
+                check-value! nil
+                check-value! false
+                check-value! |
+                check-value! :invalid
+                check-value! $ []
+                check-value! $ {}
+              :tags $ #{} :js :option-consumer-contract
         'comp-notes-page $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-notes-page (states notes info)
             let
@@ -2067,9 +2090,9 @@
                             let
                                 note $ .unwrap $ calcit.core/get notes note-key
                                 note-time $ match
-                                  decode-timestamp $ match (calcit.core/get note :time)
-                                    (:some value) value
-                                    (:none) nil
+                                  match (calcit.core/get note :time)
+                                    (:some value) (decode-timestamp value)
+                                    (:none) (decode-timestamp nil)
                                   (:ok value) value
                                   (:err message) (raise message)
                               format-timestamp note-time |MM-DD
@@ -2094,9 +2117,9 @@
                                       let
                                           note $ .unwrap $ calcit.core/get notes note-key
                                           note-time $ match
-                                            decode-timestamp $ match (calcit.core/get note :time)
-                                              (:some value) value
-                                              (:none) nil
+                                            match (calcit.core/get note :time)
+                                              (:some value) (decode-timestamp value)
+                                              (:none) (decode-timestamp nil)
                                             (:ok value) value
                                             (:err message) (raise message)
                                         negate note-time
@@ -2235,28 +2258,22 @@
                   hint-fn $ {}
                     :args $ [] 'String $ :: 'Map 'Tag 'Dynamic
                     :return 'Bool
-                  not $ decode-map-as
-                    match (calcit.core/get task :pending?)
-                      (:some value) value
-                      (:none) nil
-                    , 'Bool
+                  not $ match (calcit.core/get task :pending?)
+                    (:some value) (decode-map-as value 'Bool)
+                    (:none) (decode-map-as nil 'Bool)
                 pending-tasks $ .filter-kv tasks $ fn (key task)
                   hint-fn $ {}
                     :args $ [] 'String $ :: 'Map 'Tag 'Dynamic
                     :return 'Bool
-                  decode-map-as
-                    match (calcit.core/get task :pending?)
-                      (:some value) value
-                      (:none) nil
-                    , 'Bool
+                  match (calcit.core/get task :pending?)
+                    (:some value) (decode-map-as value 'Bool)
+                    (:none) (decode-map-as nil 'Bool)
                 create-plugin $ use-prompt (>> states :create)
                   {} $ :text "|Create new task:"
-                cursor $ decode-map-as
-                  match
-                    get-in states $ [] :cursor
-                    (:some value) value
-                    (:none) nil
-                  , 'List
+                cursor $ match
+                  get-in states $ [] :cursor
+                  (:some value) (decode-map-as value 'List)
+                  (:none) (decode-map-as nil 'List)
                 state $ decode-map-as
                   match
                     get-in states $ [] :data
@@ -2290,11 +2307,11 @@
                       when
                         and
                           match (calcit.core/get e :meta?)
-                            (:some value) value
-                            (:none) nil
-                          = |i $ match (calcit.core/get e :key)
-                            (:some value) value
-                            (:none) nil
+                            (:some value) (if value true false)
+                            (:none) false
+                          match (calcit.core/get e :key)
+                            (:some value) (= |i value)
+                            (:none) false
                         .show create-plugin d! $ fn (result)
                           d! $ :: :task/create-working $ decode-map-as result 'String
                           , &unit
@@ -2319,11 +2336,9 @@
                           let
                               task-data $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
                             [] k $ comp-task
-                              >> states $ decode-map-as
-                                match (calcit.core/get task-data :id)
-                                  (:some value) value
-                                  (:none) nil
-                                , 'String
+                              >> states $ match (calcit.core/get task-data :id)
+                                (:some value) (decode-map-as value 'String)
+                                (:none) (decode-map-as nil 'String)
                               , task-data :working
                   when
                     not $ empty? pending-tasks
@@ -2339,8 +2354,8 @@
                           , &unit
                       if
                         match (calcit.core/get state :show-later?)
-                          (:some value) value
-                          (:none) nil
+                          (:some value) (if value true false)
+                          (:none) false
                         list-> ({})
                           -> pending-tasks (&map:to-list)
                             &list:sort-by $ fn (pair)
@@ -2351,11 +2366,9 @@
                               let
                                   task-data $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
                                 [] k $ comp-task
-                                  >> states $ decode-map-as
-                                    match (calcit.core/get task-data :id)
-                                      (:some value) value
-                                      (:none) nil
-                                    , 'String
+                                  >> states $ match (calcit.core/get task-data :id)
+                                    (:some value) (decode-map-as value 'String)
+                                    (:none) (decode-map-as nil 'String)
                                   , task-data :pending
                         div
                           {}
@@ -2464,18 +2477,139 @@
                     :data false
                   , |2026-09-14 ({})
               :tags $ #{} :js :task-state-contract
+            %{} 'TestEntry (:name |preserves-required-cursor-decoder-errors)
+              :code $ quote $ let
+                  check-state! $ fn (state expected)
+                    hint-fn $ {}
+                      :args $ [] (:: 'Map 'Tag 'Dynamic) 'String
+                      :return 'Unit
+                    assert= expected $ try
+                      do
+                        comp-overview state |2026-09-14 $ {}
+                        raise |Expected-cursor-error
+                      fn (message) message
+                    , &unit
+                  check-value! $ fn (value)
+                    hint-fn $ {}
+                      :args $ [] 'Dynamic
+                      :return 'Unit
+                    check-state!
+                      {} $ :cursor value
+                      str "|[Respo] expected states cursor as a list, got: " $ type-of value
+                    , &unit
+                match (try-decode-map-as nil 'List)
+                  (:err message)
+                    do
+                      check-state! ({}) message
+                      check-state!
+                        {} $ :cursor nil
+                        , message
+                  (:ok _) (raise |Expected-missing-cursor-error)
+                check-value! false
+                check-value! 0
+                check-value! |
+                check-value! $ {}
+              :tags $ #{} :js :option-consumer-contract
+            %{} 'TestEntry (:name |preserves-keyboard-selection-and-dispatch)
+              :code $ quote $ let
+                  element $ fn (node)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/RenderNode
+                      :return 'respo.schema/Element
+                    match node
+                      (:element value) value
+                      (:component _) (raise |Expected-element)
+                  child $ fn (parent index)
+                    hint-fn $ {}
+                      :args $ [] 'respo.schema/Element 'Number
+                      :return 'respo.schema/RenderNode
+                    .unwrap $ :node $ .unwrap
+                      nth (:children parent) index
+                  root $ element $ .unwrap
+                    :tree $ comp-overview
+                      {} $ :cursor $ []
+                      , |2026-09-14 $ {}
+                  content $ element $ child root 0
+                  header $ element $ child content 0
+                  global $ match (child header 1)
+                    (:component value) value
+                    (:element _) (raise |Expected-keydown-component)
+                  tree $ element $ .unwrap (:tree global)
+                  keydown $ .unwrap $ js-nullish->option
+                    .unwrap $ .get (:event tree) :keydown
+                  calls $ ref 0
+                  dispatch! $ fn (op)
+                    hint-fn $ {}
+                      :args $ [] 'app.schema/Op
+                      :return 'Unit
+                    swap! calls inc
+                    , &unit
+                  check-event! $ fn (event expected)
+                    hint-fn $ {}
+                      :args $ [] (:: 'Map 'Tag 'Dynamic) 'Number
+                      :return 'Unit
+                    reset! calls 0
+                    assert= &unit $ keydown event dispatch!
+                    assert= expected @calls
+                    , &unit
+                  reject-dispatch! $ fn (op)
+                    hint-fn $ {}
+                      :args $ [] 'app.schema/Op
+                      :return 'Unit
+                    raise |Keyboard-dispatch-error
+                check-event! ({}) 0
+                check-event!
+                  {} $ :key |i
+                  , 0
+                check-event!
+                  {} (:meta? nil) (:key |i)
+                  , 0
+                check-event!
+                  {} (:meta? false) (:key |i)
+                  , 0
+                check-event!
+                  {} $ :meta? true
+                  , 0
+                check-event!
+                  {} (:meta? true) (:key nil)
+                  , 0
+                check-event!
+                  {} (:meta? true) (:key false)
+                  , 0
+                check-event!
+                  {} (:meta? true) (:key 0)
+                  , 0
+                check-event!
+                  {} (:meta? true) (:key |)
+                  , 0
+                check-event!
+                  {} (:meta? true) (:key |other)
+                  , 0
+                check-event!
+                  {} (:meta? true) (:key |i)
+                  , 1
+                check-event!
+                  {} (:meta? 0) (:key |i)
+                  , 1
+                check-event!
+                  {} (:meta? |) (:key |i)
+                  , 1
+                assert= |Keyboard-dispatch-error $ try
+                  keydown
+                    {} (:meta? true) (:key |i)
+                    , reject-dispatch!
+                  fn (message) message
+              :tags $ #{} :js :option-condition-contract
         'comp-task $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-task (states task mode) (decode-map-as states 'Map)
             let
                 decoded-task $ match (schema/decode-task-record task)
                   (:ok record) record
                   (:err message) (raise message)
-                cursor $ decode-map-as
-                  match
-                    get-in states $ [] :cursor
-                    (:some value) value
-                    (:none) nil
-                  , 'List
+                cursor $ match
+                  get-in states $ [] :cursor
+                  (:some value) (decode-map-as value 'List)
+                  (:none) (decode-map-as nil 'List)
                 state $ decode-map-as
                   match
                     get-in states $ [] :data
@@ -2496,8 +2630,8 @@
                 {} (:class-name css-task-base)
                   :style $ merge $ if
                     match (calcit.core/get state :menu?)
-                      (:some value) value
-                      (:none) nil
+                      (:some value) (if value true false)
+                      (:none) false
                     {} $ :background-color $ hsl 0 0 94
                     {}
                   :on-click $ fn (e d!)
@@ -2520,11 +2654,9 @@
                       :: :item :copy |Copy
                       :: :item :edit |Edit
                       :: :item :remove |Remove
-                  decode-map-as
-                    match (calcit.core/get state :menu?)
-                      (:some value) value
-                      (:none) nil
-                    , 'Bool
+                  match (calcit.core/get state :menu?)
+                    (:some value) (decode-map-as value 'Bool)
+                    (:none) (decode-map-as nil 'Bool)
                   fn (d!)
                     d! $ :: :states cursor $ assoc state :menu? false
                     , &unit
@@ -2956,15 +3088,16 @@
               :tags $ #{} :client
         'task-sort-key $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn task-sort-key (task)
-            negate $ decode-map-as
-              or
-                match (calcit.core/get task :touched-time)
-                  (:some value) value
-                  (:none) nil
+            negate $ match (calcit.core/get task :touched-time)
+              (:some value)
+                if value (decode-map-as value 'Number)
+                  match (calcit.core/get task :created-time)
+                    (:some value) (decode-map-as value 'Number)
+                    (:none) (decode-map-as nil 'Number)
+              (:none)
                 match (calcit.core/get task :created-time)
-                  (:some value) value
-                  (:none) nil
-              , 'Number
+                  (:some value) (decode-map-as value 'Number)
+                  (:none) (decode-map-as nil 'Number)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Number)
             :args $ [] $ :: 'Map 'Tag 'Dynamic
@@ -3005,6 +3138,36 @@
                 assert= ([] touched newer older)
                   &list:sort-by ([] older touched newer) task-sort-key
               :tags $ #{} :client :task-sort-contract
+            %{} 'TestEntry
+              :name |preserves-full-errors-and-unselected-created-time
+              :code $ quote $ let
+                  check-error! $ fn (task invalid)
+                    hint-fn $ {}
+                      :args $ [] (:: 'Map 'Tag 'Dynamic) 'Dynamic
+                      :return 'Unit
+                    match (try-decode-map-as invalid 'Number)
+                      (:err message)
+                        assert= message $ try (task-sort-key task)
+                          fn (failure) failure
+                      (:ok _) (raise |Expected-invalid-time)
+                    , &unit
+                check-error! ({}) nil
+                check-error!
+                  {} (:touched-time false) (:created-time false)
+                  , false
+                check-error!
+                  {} (:touched-time nil) (:created-time false)
+                  , false
+                check-error!
+                  {} (:touched-time |) (:created-time 100)
+                  , |
+                check-error!
+                  {} (:touched-time true) (:created-time 100)
+                  , true
+                assert= 0 $ task-sort-key $ {} (:touched-time 0) (:created-time |unselected)
+                assert= 5 $ task-sort-key $ {} (:touched-time -5)
+                  :created-time $ []
+              :tags $ #{} :client :task-sort-contract
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.comp.overview
           :require
@@ -3033,9 +3196,9 @@
                 div
                   {} (:class-name css/font-fancy)
                     :style $ {} (:font-size 32) (:font-weight 100)
-                  <> $ str "|Hello! " $ match (calcit.core/get user :name)
-                    (:some value) value
-                    (:none) nil
+                  <> $ match (calcit.core/get user :name)
+                    (:some value) (str "|Hello! " value)
+                    (:none) (str "|Hello! " nil)
                 =< nil 16
                 div
                   {} $ :class-name css/row
@@ -3067,6 +3230,53 @@
           :schema $ :: 'Fn $ {} (:return 'respo.schema/Component)
             :args $ [] (:: 'Map 'Tag 'Dynamic) (:: 'Map 'MemberKey 'String)
             :generics $ [] 'MemberKey
+          :tests $ [] $ %{} 'TestEntry (:name |preserves-greeting-stringification)
+            :code $ quote $ let
+                element $ fn (node)
+                  hint-fn $ {}
+                    :args $ [] 'respo.schema/RenderNode
+                    :return 'respo.schema/Element
+                  match node
+                    (:element value) value
+                    (:component _) (raise |Expected-profile-element)
+                child $ fn (parent index)
+                  hint-fn $ {}
+                    :args $ [] 'respo.schema/Element 'Number
+                    :return 'respo.schema/RenderNode
+                  .unwrap $ :node $ .unwrap
+                    nth (:children parent) index
+                members $ decode-map-as ({}) (:: 'Map 'Number 'String)
+                check-user! $ fn (user expected)
+                  hint-fn $ {}
+                    :args $ [] (:: 'Map 'Tag 'Dynamic) 'String
+                    :return 'Unit
+                  let
+                      root $ element $ .unwrap
+                        :tree $ comp-profile user members
+                      content $ element $ child root 0
+                      heading $ element $ child content 0
+                      text $ element $ child heading 0
+                    assert=
+                      [] $ [] :inner-text expected
+                      :attrs text
+                  , &unit
+              check-user! ({}) (str "|Hello! " nil)
+              check-user!
+                {} $ :name nil
+                str "|Hello! " nil
+              check-user!
+                {} $ :name false
+                str "|Hello! " false
+              check-user!
+                {} $ :name 0
+                str "|Hello! " 0
+              check-user!
+                {} $ :name |
+                str "|Hello! " |
+              check-user!
+                {} $ :name |Ada
+                str "|Hello! " |Ada
+            :tags $ #{} :js :option-leaf-contract
         'css-member-label $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstyle css-member-label
             {} $ |$0 $ {} (:padding "|0 8px")
@@ -3663,12 +3873,12 @@
                   Result :ok $ Op :session/disconnect
                 (:session/remove-message value)
                   let
-                      raw-id $ if (map? value)
+                      decoded-id $ if (map? value)
                         match (calcit.core/get value :id)
-                          (:some value) value
-                          (:none) nil
-                        , value
-                    match (try-decode-map-as raw-id 'String)
+                          (:some value) (try-decode-map-as value 'String)
+                          (:none) (try-decode-map-as nil 'String)
+                        try-decode-map-as value 'String
+                    match decoded-id
                       (:ok message-id)
                         Result :ok $ Op :session/remove-message message-id
                       (:err message)
@@ -3959,6 +4169,39 @@
                 assert= true $ result:err? $ decode-operation
                   :: :states ({}) nil
               :tags $ #{} :client :server
+            %{} 'TestEntry (:name |preserves-message-id-decoder-errors)
+              :code $ quote $ let
+                  check-id! $ fn (value)
+                    hint-fn $ {}
+                      :args $ [] 'Dynamic
+                      :return 'Unit
+                    match (try-decode-map-as value 'String)
+                      (:err message)
+                        assert=
+                          invalid-message $ str "|Invalid session/remove-message operation: " message
+                          decode-operation $ :: :session/remove-message $ {} (:id value) (:extra |kept)
+                      (:ok _) (raise |Expected-invalid-message-id)
+                    , &unit
+                check-id! nil
+                check-id! false
+                check-id! 0
+                check-id! true
+                check-id! :invalid
+                check-id! $ []
+                check-id! $ {}
+                match (try-decode-map-as nil 'String)
+                  (:err message)
+                    assert=
+                      invalid-message $ str "|Invalid session/remove-message operation: " message
+                      decode-operation $ :: :session/remove-message $ {}
+                  (:ok _) (raise |Expected-missing-message-id)
+                assert=
+                  Result :ok $ Op :session/remove-message |
+                  decode-operation $ :: :session/remove-message |
+                assert=
+                  Result :ok $ Op :session/remove-message |
+                  decode-operation $ :: :session/remove-message $ {} (:id |)
+              :tags $ #{} :client :option-leaf-contract :server
         'decode-route $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-route (raw)
             if (enum? raw)
@@ -4006,58 +4249,127 @@
             let
                 data $ if (struct? raw) (&struct:to-map raw) raw
               if (map? data)
-                match
-                  match (calcit.core/get data :name)
-                    (:some value) value
-                    (:none) nil
-                  :home $ Result :ok $ Route :home
-                  :profile $ Result :ok $ Route :profile
-                  :history $ match
-                    try-decode-map-as
-                      match (calcit.core/get data :data)
-                        (:some value) value
-                        (:none) nil
-                      , HistoryRoute
-                    (:ok route)
-                      if
-                        and
-                          >= (:week route) 1
-                          <= (:week route) 53
-                          =
-                            round $ :year route
-                            :year route
-                          =
-                            round $ :week route
-                            :week route
-                        Result :ok $ Route :history route
-                        Result :err |Invalid-history-range
-                    (:err message) (Result :err message)
-                  :notes $ match
-                    try-decode-map-as
-                      match (calcit.core/get data :data)
-                        (:some value) value
-                        (:none) nil
-                      , NotesRoute
-                    (:ok route)
-                      if
-                        and
-                          >= (:month route) 0
-                          <= (:month route) 11
-                          =
-                            round $ :year route
-                            :year route
-                          =
-                            round $ :month route
-                            :month route
-                        Result :ok $ Route :notes route
-                        Result :err |Invalid-notes-range
-                    (:err message) (Result :err message)
-                  _ $ Result :err |Unknown-route
+                match (calcit.core/get data :name)
+                  (:some selected-route-name)
+                    match selected-route-name
+                      :home $ Result :ok $ Route :home
+                      :profile $ Result :ok $ Route :profile
+                      :history $ match
+                        match (calcit.core/get data :data)
+                          (:some value) (try-decode-map-as value HistoryRoute)
+                          (:none) (try-decode-map-as nil HistoryRoute)
+                        (:ok route)
+                          if
+                            and
+                              >= (:week route) 1
+                              <= (:week route) 53
+                              =
+                                round $ :year route
+                                :year route
+                              =
+                                round $ :week route
+                                :week route
+                            Result :ok $ Route :history route
+                            Result :err |Invalid-history-range
+                        (:err message) (Result :err message)
+                      :notes $ match
+                        match (calcit.core/get data :data)
+                          (:some value) (try-decode-map-as value NotesRoute)
+                          (:none) (try-decode-map-as nil NotesRoute)
+                        (:ok route)
+                          if
+                            and
+                              >= (:month route) 0
+                              <= (:month route) 11
+                              =
+                                round $ :year route
+                                :year route
+                              =
+                                round $ :month route
+                                :month route
+                            Result :ok $ Route :notes route
+                            Result :err |Invalid-notes-range
+                        (:err message) (Result :err message)
+                      _ $ Result :err |Unknown-route
+                  (:none) (Result :err |Unknown-route)
                 Result :err |Expected-route-map
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
             :return $ :: 'calcit.core/Result 'app.schema/Route 'String
+          :tests $ []
+            %{} 'TestEntry (:name |preserves-absent-route-payload-errors)
+              :code $ quote $ do
+                match (try-decode-map-as nil HistoryRoute)
+                  (:err message)
+                    assert= (Result :err message)
+                      decode-route-map $ {} $ :name :history
+                  (:ok _) (raise |Expected-history-payload-error)
+                match (try-decode-map-as nil NotesRoute)
+                  (:err message)
+                    assert= (Result :err message)
+                      decode-route-map $ {} $ :name :notes
+                  (:ok _) (raise |Expected-notes-payload-error)
+                assert=
+                  Result :ok $ Route :history $ HistoryRoute :year 2026 :week 1 :start |2026-01-01 :end |2026-01-07
+                  decode-route-map $ {} (:name :history)
+                    :data $ {} (:year 2026) (:week 1) (:start |2026-01-01) (:end |2026-01-07)
+                assert=
+                  Result :ok $ Route :notes $ NotesRoute :year 2026 :month 0
+                  decode-route-map $ {} (:name :notes)
+                    :data $ {} (:year 2026) (:month 0)
+              :tags $ #{} :client :option-consumer-contract :server
+            %{} 'TestEntry (:name |preserves-invalid-route-payload-errors)
+              :code $ quote $ let
+                  check-payload! $ fn (value)
+                    hint-fn $ {}
+                      :args $ [] 'Dynamic
+                      :return 'Unit
+                    match (try-decode-map-as value HistoryRoute)
+                      (:err message)
+                        assert= (Result :err message)
+                          decode-route-map $ {} (:name :history) (:data value)
+                      (:ok _) (raise |Expected-history-payload-error)
+                    match (try-decode-map-as value NotesRoute)
+                      (:err message)
+                        assert= (Result :err message)
+                          decode-route-map $ {} (:name :notes) (:data value)
+                      (:ok _) (raise |Expected-notes-payload-error)
+                    , &unit
+                check-payload! nil
+                check-payload! false
+                check-payload! 0
+                check-payload! |
+                check-payload! :invalid
+                check-payload! $ []
+                check-payload! $ {}
+              :tags $ #{} :client :option-consumer-contract :server
+            %{} 'TestEntry (:name |preserves-route-name-selection)
+              :code $ quote $ let
+                  check-name! $ fn (value)
+                    hint-fn $ {}
+                      :args $ [] 'Dynamic
+                      :return 'Unit
+                    assert= (Result :err |Unknown-route)
+                      decode-route-map $ {} $ :name value
+                    , &unit
+                assert= (Result :err |Unknown-route)
+                  decode-route-map $ {}
+                check-name! nil
+                check-name! false
+                check-name! 0
+                check-name! |
+                check-name! |home
+                check-name! :unknown
+                check-name! $ []
+                check-name! $ {}
+                assert=
+                  Result :ok $ Route :home
+                  decode-route-map $ {} (:name :home) (:data 7)
+                assert=
+                  Result :ok $ Route :profile
+                  decode-route-map $ {} (:name :profile) (:data false)
+              :tags $ #{} :client :option-condition-contract :server
         'decode-server-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-server-message (data)
             let
@@ -5046,14 +5358,12 @@
             let
                 now $ extract-time $ current-date!
               join-path calcit-dirname |backups
-                str $ match (calcit.core/get now :month)
-                  (:some value) value
-                  (:none) nil
-                str
-                  match (calcit.core/get now :day)
-                    (:some value) value
-                    (:none) nil
-                  , |-snapshot.cirru
+                match (calcit.core/get now :month)
+                  (:some value) (str value)
+                  (:none) (str nil)
+                match (calcit.core/get now :day)
+                  (:some value) (str value |-snapshot.cirru)
+                  (:none) (str nil |-snapshot.cirru)
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'String)
             :args $ []
@@ -5813,58 +6123,48 @@
                       router $ decode-map-as router 'Map
                     {}
                       :user $ twig-user user
-                      :router $ assoc router :data $ match
-                        match (calcit.core/get router :name)
-                          (:some value) value
-                          (:none) nil
-                        :home $ {} $ :tasks
-                          schema/read-path user $ [] :tasks :working
-                        :history $ {}
-                          :week $ match (calcit.core/get router :data)
-                            (:some value) value
-                            (:none) nil
-                          :tasks $ twig-tasks-by-week
-                            decode-map-as
+                      :router $ assoc router :data $ match (calcit.core/get router :name)
+                        (:some selected-route-name)
+                          match selected-route-name
+                            :home $ {} $ :tasks
+                              schema/read-path user $ [] :tasks :working
+                            :history $ {}
+                              :week $ match (calcit.core/get router :data)
+                                (:some value) value
+                                (:none) nil
+                              :tasks $ twig-tasks-by-week
+                                match (calcit.core/get router :data)
+                                  (:some value) (decode-map-as value 'app.schema/HistoryRoute)
+                                  (:none) (decode-map-as nil 'app.schema/HistoryRoute)
+                                decode-map-as
+                                  schema/read-path user $ [] :tasks :finished
+                                  :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                            :notes $ twig-notes-by-month
                               match (calcit.core/get router :data)
-                                (:some value) value
-                                (:none) nil
-                              , 'app.schema/HistoryRoute
-                            decode-map-as
-                              schema/read-path user $ [] :tasks :finished
-                              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                        :notes $ twig-notes-by-month
-                          decode-map-as
-                            match (calcit.core/get router :data)
-                              (:some value) value
-                              (:none) nil
-                            , 'app.schema/NotesRoute
-                          decode-map-as
-                            if
-                              map? $ match (calcit.core/get user :notes)
-                                (:some value) value
-                                (:none) nil
-                              match (calcit.core/get user :notes)
-                                (:some value) value
-                                (:none) nil
-                              {}
-                            :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                        :profile $ twig-members
-                          decode-map-as
-                            match (calcit.core/get db :sessions)
-                              (:some value) value
-                              (:none) nil
-                            :: 'Map 'Dynamic $ :: 'Map 'Tag 'Dynamic
-                          decode-map-as
-                            match (calcit.core/get db :users)
-                              (:some value) value
-                              (:none) nil
-                            :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                        _ $ {}
-                      :count $ count $ decode-map-as
-                        match (calcit.core/get db :sessions)
-                          (:some value) value
-                          (:none) nil
-                        , 'Map
+                                (:some value) (decode-map-as value 'app.schema/NotesRoute)
+                                (:none) (decode-map-as nil 'app.schema/NotesRoute)
+                              decode-map-as
+                                match (calcit.core/get user :notes)
+                                  (:some notes-value)
+                                    if (map? notes-value) notes-value $ {}
+                                  (:none) ({})
+                                :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                            :profile $ twig-members
+                              match (calcit.core/get db :sessions)
+                                (:some value)
+                                  decode-map-as value $ :: 'Map 'Dynamic $ :: 'Map 'Tag 'Dynamic
+                                (:none)
+                                  decode-map-as nil $ :: 'Map 'Dynamic $ :: 'Map 'Tag 'Dynamic
+                              match (calcit.core/get db :users)
+                                (:some value)
+                                  decode-map-as value $ :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                                (:none)
+                                  decode-map-as nil $ :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                            _ $ {}
+                        (:none) ({})
+                      :count $ count $ match (calcit.core/get db :sessions)
+                        (:some value) (decode-map-as value 'Map)
+                        (:none) (decode-map-as nil 'Map)
                       :color $ rand-hex-color!
                       :today $ match (calcit.core/get db :today)
                         (:some value) value
@@ -5996,16 +6296,50 @@
                     fn (message) true
                 assert= true failed?
               :tags $ #{} :server
+            %{} 'TestEntry (:name |preserves-legacy-notes-map-boundary)
+              :code $ quote $ let
+                  base-user $ decode-map-as
+                    {} (:id |u1) (:name |Alice)
+                    :: 'Map 'Tag 'Dynamic
+                  session $ assoc (assoc schema/session :user-id |u1) :router $ {} (:name :notes)
+                    :data $ {} (:year 2026) (:month 8)
+                  check-user! $ fn (user)
+                    hint-fn $ {}
+                      :args $ [] $ :: 'Map 'Tag 'Dynamic
+                      :return 'Unit
+                    let
+                        db $ decode-map-as
+                          assoc-in schema/database ([] :users |u1) user
+                          :: 'Map 'Tag 'Dynamic
+                        twig $ twig-container db session $ []
+                      assert= ({})
+                        schema/read-path twig $ [] :router :data
+                    , &unit
+                check-user! base-user
+                check-user! $ assoc base-user :notes nil
+                check-user! $ assoc base-user :notes false
+                check-user! $ assoc base-user :notes 0
+                check-user! $ assoc base-user :notes |
+                check-user! $ assoc base-user :notes $ []
+                check-user! $ assoc base-user :notes $ {}
+              :tags $ #{} :option-leaf-contract :server
         'twig-members $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-members (sessions users)
             -> sessions $ filter-map-kv $ fn (k session)
               let
-                  username $ schema/read-path users $ []
-                    match (calcit.core/get session :user-id)
-                      (:some value) value
-                      (:none) nil
-                    , :name
-                MapEntryDecision :keep k $ if (nil? username) "|访客" $ decode-map-as username 'String
+                  username $ match (.get session :user-id)
+                    (:some user-id)
+                      if (string? user-id)
+                        match (.get users user-id)
+                          (:some user)
+                            match (.get user :name)
+                              (:some value)
+                                if (nil? value) "|访客" $ decode-map-as value 'String
+                              (:none) "|访客"
+                          (:none) "|访客"
+                        , "|访客"
+                    (:none) "|访客"
+                MapEntryDecision :keep k username
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ []
@@ -6043,6 +6377,64 @@
                       {} $ |alice $ {} (:name 42)
                     , false
                   fn (message) true
+            %{} 'TestEntry (:name |preserves-guest-and-string-user-key-boundaries)
+              :code $ quote $ let
+                  users $ decode-map-as
+                    {}
+                      |alice $ {} $ :name |Alice
+                      |empty $ {} $ :name |
+                      | $ {} $ :name |Empty-id
+                      |nil-name $ {} $ :name nil
+                      |missing-name $ {}
+                    :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                  sessions $ decode-map-as
+                    {}
+                      1 $ {}
+                      2 $ {} $ :user-id nil
+                      3 $ {} $ :user-id false
+                      4 $ {} $ :user-id 0
+                      5 $ {} $ :user-id |
+                      6 $ {} $ :user-id |alice
+                      7 $ {} $ :user-id |empty
+                      8 $ {} $ :user-id |nil-name
+                      9 $ {} $ :user-id |missing-name
+                      10 $ {} $ :user-id |unknown
+                      11 $ {} $ :user-id true
+                      12 $ {} $ :user-id :alice
+                    :: 'Map 'Number $ :: 'Map 'Tag 'Dynamic
+                assert=
+                  {} (1 "|访客") (2 "|访客") (3 "|访客") (4 "|访客") (5 |Empty-id) (6 |Alice) (7 |) (8 "|访客") (9 "|访客") (10 "|访客") (11 "|访客") (12 "|访客")
+                  twig-members sessions users
+                assert=
+                  {} $ |session |Alice
+                  twig-members
+                    {} $ |session $ {} (:user-id |alice)
+                    , users
+              :tags $ #{} :member-key-contract :server
+            %{} 'TestEntry (:name |preserves-invalid-name-decoder-errors)
+              :code $ quote $ let
+                  check-name! $ fn (value)
+                    hint-fn $ {}
+                      :args $ [] 'Dynamic
+                      :return 'Unit
+                    assert=
+                      try (decode-map-as value 'String)
+                        fn (message) message
+                      try
+                        twig-members
+                          {} $ 7 $ {} (:user-id |alice)
+                          decode-map-as
+                            {} $ |alice $ {} (:name value)
+                            :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                        fn (message) message
+                    , &unit
+                check-name! false
+                check-name! true
+                check-name! 0
+                check-name! :invalid
+                check-name! $ []
+                check-name! $ {}
+              :tags $ #{} :member-key-contract :server
         'twig-notes-by-month $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-notes-by-month (data notes)
             let
@@ -6053,11 +6445,9 @@
                   let
                       fields $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
                       time $ extract-time $ Date0 :date
-                        decode-map-as
-                          match (calcit.core/get fields :time)
-                            (:some value) value
-                            (:none) nil
-                          , 'Number
+                        match (calcit.core/get fields :time)
+                          (:some value) (decode-map-as value 'Number)
+                          (:none) (decode-map-as nil 'Number)
                     and
                       match (calcit.core/get time :year)
                         (:some value) (= year value)
@@ -6086,11 +6476,9 @@
                 &map:filter-kv $ fn (k task)
                   let
                       fields $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
-                      t $ decode-map-as
-                        match (calcit.core/get fields :finished-time)
-                          (:some value) value
-                          (:none) nil
-                        , 'Number
+                      t $ match (calcit.core/get fields :finished-time)
+                        (:some value) (decode-map-as value 'Number)
+                        (:none) (decode-map-as nil 'Number)
                     and
                       &> t $ get-timestamp start-time
                       &< t $ get-timestamp end-time
