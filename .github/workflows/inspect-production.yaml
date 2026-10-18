@@ -37,9 +37,9 @@ jobs:
             rsync-user@tiye.me 'bash -s' <<'REMOTE'
           set -euo pipefail
           project=/servers/timegrass
-          expected=0.30.1-alpha.4
+          expected=0.30.1-alpha.5
           cd "$project"
-          printf 'Target: %s; expected CLI for PR #115: %s\n' "$project" "$expected"
+          printf 'Target: %s; expected CLI for PR #119: %s\n' "$project" "$expected"
           printf '\nSSH account PATH candidate (not running-service evidence):\n'
           if candidate=$(command -v calcit); then
             printf '%s\n' "$candidate"
@@ -88,7 +88,7 @@ jobs:
             fi
           done
           printf '\nThis inspection does not install modules, deploy, restart, or read application data.\n'
-          printf 'Module identities and loaded-library paths still require comparison with PR #115.\n'
+          printf 'Module identities and loaded-library paths still require comparison with PR #119.\n'
           if test "$observed" -eq 0 || test "$mismatched" -ne 0 || test "$metadata_available" != true; then
             printf '::error::Production pairing is NOT verified: running CLI or installed module evidence is missing/mismatched.\n'
             exit 2
