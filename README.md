@@ -62,6 +62,11 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
+当前配对为已发布的 Calcit / `@calcit/procs` `0.30.1-alpha.5`，并使用正式
+Cumulo Reel `0.0.58`、Recollect `0.0.63` 与 WS-EDN `0.0.43`。
+升级生产环境时还须核对实际服务进程使用的 Calcit 路径、版本和已安装模块图；
+构建机或本机配对成功不代表运行中的服务已经升级。
+
 `.yarnrc.yml` 明确将 npm 新版本安装隔离期设为一小时，统一用于本地和 CI；不再为
 Calcit 单个版本维护免等待例外。这只调整 npm 依赖解析，不影响发版间隔、Cargo 或
 Calcit 模块安装，也不替代严格类型、测试、锁文件和 review 门禁。
