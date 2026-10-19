@@ -29,9 +29,17 @@ formatter 的原始 unresolved slot 统计从 55 到 62，主要因为显式增�
 
 本节对应 Calcit #2080 的消费者迁移，不是上文 0.22.1 历史回放的重新认证。
 当前 CLI/runtime 固定为已发布的 0.30.1-alpha.5；未使用的 Markdown 加载项和根依赖
-已清理，不把无调用的版本升级当作业务类型收益。Cumulo Reel/Recollect 的最终依赖配对、完整原测试及实际浏览器/native
+已清理，不把无调用的版本升级当作业务类型收益。Cumulo Reel0.0.59/Recollect0.0.65已正常统一声明，完整原测试及实际浏览器/native
 持久化重启验收仍由 [#112](https://github.com/TopixIM/timegrass/issues/112) 跟踪。
 不以依赖解析或局部测试替代这些交付门槛。
+
+`decode-database` 的成功结果使用真实的 `Map<Tag,Dynamic>` 合同，替代对 `database`
+模板值的不透明类型引用。实际实现本来就在成功分支检查 Map key 并产生该 Map；没有增加
+decoder 或修改执行表达式。`load-database` 的 `legacy` 因而保留 Map 结构，原 `.filter-kv`
+由编译器选择 Map 实现并 lowering；回调 key 为 Tag，payload 仍开放，不能把其内容直接
+当成 UserRecord。新增定义测试验证 typed Map 消费、nil/false/0/空串与 Ref 身份、原输入
+不变及 session 清空；同组断言也在原实现/原合同上运行，类型与 lowering 的改进另由官方
+`query type-at` 证据核对，不把语义测试通过误称为已证明所有字段类型。
 
 运行态 `DatabaseRecord` 与 updater 的闭合合同保持不变。保留 nil 的位置须根据
 实际数据消费者分类，而不是以计数清零作为目标：
