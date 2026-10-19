@@ -63,9 +63,10 @@ development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
 当前配对为已发布的 Calcit / `@calcit/procs` `0.30.1-alpha.5`，并使用正式
-Markdown `0.4.58`、Cumulo Reel `0.0.58`、Recollect `0.0.63` 与 WS-EDN `0.0.43`。
-Markdown 的内部列表追加与增量解析已保留 Option，原异质列表、组件参数和输出合同不变；
-应用无需增加强转或默认值。此项独立升级不代表 Cumulo Reel/Recollect 的最终配对已经完成。
+Cumulo Reel `0.0.58`、Recollect `0.0.63` 与 WS-EDN `0.0.43`。
+未使用的 Markdown 根依赖和浏览器 entry 加载项已移除；笔记保持原纯文本显示，
+不因清理依赖自动新增 Markdown 解释。源码、附带测试/示例、imports 与两入口调用链均无
+`respo-md` 消费者；历史升级记录仍保留。此项清理不代表 Cumulo Reel/Recollect 的最终配对已经完成。
 
 Actions 只承担现有构建、验证及资源上传，不探测服务器内部 CLI、进程、模块元数据或
 加载的 WSS 身份，也不承担安装或重启。生产升级由管理员独立安排，不能把本地/CI

@@ -28,8 +28,8 @@ formatter 的原始 unresolved slot 统计从 55 到 62，主要因为显式增�
 ## 0.30.1 兼容边界的源码审阅
 
 本节对应 Calcit #2080 的消费者迁移，不是上文 0.22.1 历史回放的重新认证。
-当前 CLI/runtime 固定为已发布的 0.30.1-alpha.5；Markdown 已独立升级到正式
-0.4.58。Cumulo Reel/Recollect 的最终依赖配对、完整原测试及实际浏览器/native
+当前 CLI/runtime 固定为已发布的 0.30.1-alpha.5；未使用的 Markdown 加载项和根依赖
+已清理，不把无调用的版本升级当作业务类型收益。Cumulo Reel/Recollect 的最终依赖配对、完整原测试及实际浏览器/native
 持久化重启验收仍由 [#112](https://github.com/TopixIM/timegrass/issues/112) 跟踪。
 不以依赖解析或局部测试替代这些交付门槛。
 
