@@ -63,9 +63,13 @@ development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
 当前配对为已发布的 Calcit / `@calcit/procs` `0.30.1-alpha.5`，并使用正式
-Cumulo Reel `0.0.58`、Recollect `0.0.63` 与 WS-EDN `0.0.43`。
-升级生产环境时还须核对实际服务进程使用的 Calcit 路径、版本和已安装模块图；
-构建机或本机配对成功不代表运行中的服务已经升级。
+Markdown `0.4.58`、Cumulo Reel `0.0.58`、Recollect `0.0.63` 与 WS-EDN `0.0.43`。
+Markdown 的内部列表追加与增量解析已保留 Option，原异质列表、组件参数和输出合同不变；
+应用无需增加强转或默认值。此项独立升级不代表 Cumulo Reel/Recollect 的最终配对已经完成。
+
+Actions 只承担现有构建、验证及资源上传，不探测服务器内部 CLI、进程、模块元数据或
+加载的 WSS 身份，也不承担安装或重启。生产升级由管理员独立安排，不能把本地/CI
+成功描述为生产已经升级；无法访问服务器内部状态不阻塞 Calcit 语言发布。
 
 `.yarnrc.yml` 明确将 npm 新版本安装隔离期设为一小时，统一用于本地和 CI；不再为
 Calcit 单个版本维护免等待例外。这只调整 npm 依赖解析，不影响发版间隔、Cargo 或
@@ -75,6 +79,8 @@ Calcit 默认执行严格类型检查。浏览器和服务端入口均以严格�
 兼容模式代替。运行态数据库与 updater 输入/返回使用 `DatabaseRecord`，用户、任务、
 笔记、session 和路由也有明确字段类型；客户端投影、外部输入及 UI state 仍是显式边界。
 不再用 Dynamic 数量基线作为合并门禁，具体合同见[数据库类型迁移](docs/typed-database.md)。
+仍保留的 Option→nil 出口及其测试位置见该文档的[兼容边界](docs/typed-database.md#0301-兼容边界的源码审阅)，
+不能把旧 wire 的 nil 当成内部业务字段重新放宽为 Dynamic 的理由。
 
 服务端读取 `storage.cirru` 时验证旧 Map 数据，再构造名义记录；保存时转换回兼容的
 Map 格式，启动时清空持久化 session。验证后的 `today` / `users` 先投影并解码为

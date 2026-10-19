@@ -5,7 +5,7 @@
     |Cumulo/cumulo-util.calcit |0.0.29
     |Respo/alerts.calcit |0.10.55
     |Respo/respo-feather.calcit |0.4.29
-    |Respo/respo-markdown.calcit |0.4.56
+    |Respo/respo-markdown.calcit |0.4.58
     |Respo/respo-message.calcit |0.0.37
     |Respo/respo-ui.calcit |0.7.41
     |Respo/respo.calcit |0.16.122
