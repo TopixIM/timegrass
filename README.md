@@ -6,7 +6,7 @@ Time flies and tasks grow like grass.
 
 ### 前端 COS 与 CDN 部署
 
-COS Action 1.2.0 使用已有 `public-base-url` 启用内置引用与公开访问 verify，不复制额外上传校验脚本。PR 资源按仓库/PR 编号/run/attempt 隔离，Vite base 与 COS prefix 使用同一结果；fork PR 保留构建，但不上传。生产 COS 前缀与现有 web/server rsync 路径保持不变。
+COS Action 1.2.0 使用已有 `public-base-url` 启用内置引用与公开访问 verify，不复制额外上传校验脚本。PR 资源按仓库/PR 编号/run/attempt 隔离，Vite base 与 COS prefix 使用同一结果；fork 和 Dependabot PR 保留完整检查与构建，但不上传。Dependabot 不使用普通 Actions 部署 secrets，人工重跑也不增加权限。生产 COS 前缀与现有 web/server rsync 路径保持不变。
 
 同一 PR 或生产分支的运行排队，不取消正在执行的上传；job/upload 分别限时 15/10 分钟。工具链版本以 `deps.cirru` 和 `package.json` 为准，客户端/服务端严格类型与业务门禁必须保留。
 
