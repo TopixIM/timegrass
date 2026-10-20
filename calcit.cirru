@@ -5,7 +5,7 @@
   :entries $ {}
     :default $ {} (:description "||Browser client bundle") (:init-fn 'app.client/main!) (:mode :js) (:reload-fn 'app.client/reload!) (:target :browser)
       :feature-policy $ {}
-      :modules $ [] |recollect/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |respo-feather.calcit/ |alerts.calcit/ |respo-markdown.calcit/ |respo.calcit/ |js-ffi/
+      :modules $ [] |recollect/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |respo-feather.calcit/ |alerts.calcit/ |respo.calcit/ |js-ffi/
       :type-slots $ {} $ :dispatch-op |app.schema/Op
     :server $ {} (:description "||Realtime server") (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!) (:target :native)
       :feature-policy $ {}
@@ -3659,7 +3659,7 @@
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] 'Dynamic
-            :return $ :: 'calcit.core/Result 'app.schema/database 'String
+            :return $ :: 'calcit.core/Result (:: 'Map 'Tag 'Dynamic) 'String
           :tests $ []
             %{} 'TestEntry (:name |defaults-missing-fields)
               :code $ quote $ assert= true
@@ -3796,6 +3796,47 @@
                 (:ok db)
                   assert= (Option :some |) (get db :today)
                 (:err message) (raise message)
+              :tags $ #{} :server
+            %{} 'TestEntry (:name |passes-checked-map-to-typed-method-consumer)
+              :code $ quote $ let
+                  select-extra $ fn (data)
+                    hint-fn $ {}
+                      :args $ [] $ :: 'Map 'Tag 'Dynamic
+                      :return $ :: 'Map 'Tag 'Dynamic
+                    data.filter-kv $ fn (key value) (= key :extra)
+                match
+                  decode-database $ {} (:today |) (:extra 0)
+                  (:ok legacy)
+                    assert=
+                      {} $ :extra 0
+                      select-extra legacy
+                  (:err message) (raise message)
+              :tags $ #{} :server
+            %{} 'TestEntry
+              :name |preserves-opaque-root-payloads-and-session-clearing
+              :code $ quote $ let
+                  marker $ ref 17
+                each ([] nil false 0 | marker)
+                  fn (payload)
+                    let
+                        raw $ {} (:today |) (:extra payload)
+                          :sessions $ {} $ 1
+                            {} $ :user-id |u1
+                          :users $ {}
+                      match (decode-database raw)
+                        (:ok legacy)
+                          do
+                            assert= (Option :some payload) (legacy.get :extra)
+                            assert=
+                              Option :some $ {}
+                              legacy.get :sessions
+                            assert= (Option :some |) (legacy.get :today)
+                            assert= (Option :some payload) (raw.get :extra)
+                            match (legacy.get :extra)
+                              (:some actual)
+                                assert= true $ identical? payload actual
+                              (:none) (raise "|missing opaque root payload")
+                        (:err message) (raise message)
               :tags $ #{} :server
         'decode-finished-task-view $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn decode-finished-task-view (raw)
