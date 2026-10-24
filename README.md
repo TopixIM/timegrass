@@ -136,7 +136,7 @@ nil、数字、字符串或 Map 代替 cursor，不把混合 Tag/String/Number �
 state 继续保留原始混合 key。Respo renderer 的开放 operation 回调通过
 `dispatch-render-operation!` 复用应用操作解码器，将框架的匿名 Enum 规范化为应用 Op，
 再进入 typed dispatch；不是直接要求框架已生成名义 Op。非 Enum 或非法 payload
-明确报错，不修改本地状态。附带测试覆盖真实 `wrap-dispatch` 的 cursor/payload 调用。
+明确报错，不修改本地状态。附带测试覆盖框架发出的匿名 `:states` Enum（cursor/payload）。
 watch 注册与热更新复用同一个泛型渲染回调，init/reload 明确返回 Unit。
 
 站点配置使用 `SiteConfig`，同步链保留 `ReelState<DatabaseRecord>` 的数据库参数，
