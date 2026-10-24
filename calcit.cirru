@@ -168,11 +168,11 @@
                   updated @*states
                 reset! *states saved
                 assert= &unit returned
-                assert= (Option :some |unchanged)
+                assert= (Result :ok |unchanged)
                   get-in updated $ [] :other
-                assert= (Option :some |untouched)
+                assert= (Result :ok |untouched)
                   get-in updated $ [] :states :peer :data
-                assert= (Option :some state)
+                assert= (Result :ok state)
                   get-in updated $ [] :states :panel |task-1 7 :data
             :tags $ #{} :client :js
         'dispatch-render-operation! $ %{} 'CodeEntry (:doc |)
@@ -216,11 +216,11 @@
                     updated @*states
                   reset! *states saved
                   assert= &unit returned
-                  assert= (Option :some |unchanged)
+                  assert= (Result :ok |unchanged)
                     get-in updated $ [] :other
-                  assert= (Option :some |untouched)
+                  assert= (Result :ok |untouched)
                     get-in updated $ [] :states :peer :data
-                  assert= (Option :some state)
+                  assert= (Result :ok state)
                     get-in updated $ [] :states :panel |task-1 7 :data
               :tags $ #{} :client :js
             %{} 'TestEntry (:name |accepts-framework-list-cursor-dispatch)
@@ -233,17 +233,15 @@
                       {} $ :data |untouched
                 reset! *states initial
                 let
-                    returned $ let
-                        forward $ respo.controller.client/wrap-dispatch $ ref dispatch-render-operation!
-                      forward cursor state
+                    returned $ dispatch-render-operation! $ :: :states cursor state
                     updated @*states
                   reset! *states saved
                   assert= &unit returned
-                  assert= (Option :some |unchanged)
+                  assert= (Result :ok |unchanged)
                     get-in updated $ [] :other
-                  assert= (Option :some |untouched)
+                  assert= (Result :ok |untouched)
                     get-in updated $ [] :states :peer :data
-                  assert= (Option :some state)
+                  assert= (Result :ok state)
                     get-in updated $ [] :states :panel |task-1 7 :data
               :tags $ #{} :client :js
         'main! $ %{} 'CodeEntry (:doc |)
@@ -339,7 +337,10 @@
               match (calcit.core/get @*states :states)
                 (:some value) (comp-container value @*store)
                 (:none) (comp-container nil @*store)
-              , dispatch-render-operation!
+              fn (op)
+                hint-fn $ {} (:return 'Unit)
+                  :args $ [] 'app.schema/Op
+                dispatch-render-operation! op
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
             :args $ []
@@ -496,18 +497,18 @@
                               (:some value) (decode-map-as value 'String)
                               (:none) (decode-map-as nil 'String)
                             decode-map-as
-                              option:unwrap-or
+                              .unwrap-or
                                 get-in router $ [] :data :tasks
                                 {}
                               :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
                           :history $ comp-history (>> states :history)
                             decode-map-as
-                              option:unwrap-or
+                              .unwrap-or
                                 get-in router $ [] :data :week
                                 {}
                               :: 'Map 'Tag 'Dynamic
                             decode-map-as
-                              option:unwrap-or
+                              .unwrap-or
                                 get-in router $ [] :data :tasks
                                 {}
                               :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
@@ -518,7 +519,7 @@
                               (:none)
                                 decode-map-as nil $ :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
                             decode-map-as
-                              option:unwrap-or
+                              .unwrap-or
                                 get-in session $ [] :router :data
                                 {}
                               :: 'Map 'Tag 'Number
@@ -849,14 +850,14 @@
             let
                 cursor $ match
                   get-in states $ [] :cursor
-                  (:some value) (decode-map-as value 'List)
-                  (:none) (decode-map-as nil 'List)
+                  (:ok value) (decode-map-as value 'List)
+                  (:err _e) (decode-map-as nil 'List)
                 state $ decode-map-as
                   match
                     get-in states $ [] :data
-                    (:some value)
+                    (:ok value)
                       or value $ {} $ :show-menu? false
-                    (:none)
+                    (:err _e)
                       {} $ :show-menu? false
                   , 'Map
                 finished-time $ :finished-time task
@@ -1319,7 +1320,7 @@
             :code $ quote $ let
                 earlier $ schema/FinishedTaskView :id |earlier :text |Earlier :finished-time 100
                 later $ schema/FinishedTaskView :id |later :text |Later :finished-time 200
-                empty-tasks $ slice ([] earlier later) 0 0
+                empty-tasks $ slice ([] earlier later) 0 $ Option :some 0
               assert= ([] later earlier)
                 sort-finished-tasks $ [] earlier later
               assert= empty-tasks $ sort-finished-tasks empty-tasks
@@ -1347,14 +1348,14 @@
             let
                 cursor $ match
                   get-in states $ [] :cursor
-                  (:some raw-cursor)
+                  (:ok raw-cursor)
                     if (list? raw-cursor) raw-cursor $ raise |Expected-state-cursor-List
-                  (:none) (raise |Expected-state-cursor-List)
+                  (:err _e) (raise |Expected-state-cursor-List)
                 state $ decode-map-as
                   match
                     get-in states $ [] :data
-                    (:some value) (or value initial-state)
-                    (:none) initial-state
+                    (:ok value) (or value initial-state)
+                    (:err _e) initial-state
                   :: 'Map 'Tag 'String
                 credentials $ decode-map-as
                   .filter-kv state $ fn (key value)
@@ -1922,16 +1923,26 @@
                     comp-icon :edit
                       &{} :font-size 16 :curspr :pointer :color $ hsl 200 80 80
                       fn (e d!)
+                        hint-fn $ {} (:return 'Unit)
+                          :args $ [] 'Dynamic $ :: 'Fn
+                            {} (:return 'Unit)
+                              :args $ [] 'app.schema/Op
                         .show edit-plugin d! $ fn (result)
                           d! $ :: :note/edit $ schema/NoteEdit :id
                             match (calcit.core/get note :id)
                               (:some value) (decode-map-as value 'String)
                               (:none) (decode-map-as nil 'String)
                             , :text (decode-map-as result 'String)
+                          , &unit
+                        , &unit
                     =< 8 nil
                     comp-icon :delete
                       &{} :font-size 16 :cursor :pointer :color $ hsl 10 80 60
                       fn (e d!)
+                        hint-fn $ {} (:return 'Unit)
+                          :args $ [] 'Dynamic $ :: 'Fn
+                            {} (:return 'Unit)
+                              :args $ [] 'Enum
                         .show remove-plugin d! $ fn () $ d!
                           :: :note/remove $ match (calcit.core/get note :id)
                             (:some value) (decode-map-as value 'String)
@@ -2074,8 +2085,14 @@
                       comp-icon :plus
                         &{} :font-size 16 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
+                          hint-fn $ {} (:return 'Unit)
+                            :args $ [] 'Dynamic $ :: 'Fn
+                              {} (:return 'Unit)
+                                :args $ [] 'app.schema/Op
                           .show add-plugin d! $ fn (result)
                             d! $ :: :note/add result
+                            , &unit
+                          , &unit
                     div
                       {} $ :class-name css/row-middle
                       comp-icon :arrow-left
@@ -2302,14 +2319,14 @@
                   {} $ :text "|Create new task:"
                 cursor $ match
                   get-in states $ [] :cursor
-                  (:some value) (decode-map-as value 'List)
-                  (:none) (decode-map-as nil 'List)
+                  (:ok value) (decode-map-as value 'List)
+                  (:err _e) (decode-map-as nil 'List)
                 state $ decode-map-as
                   match
                     get-in states $ [] :data
-                    (:some value)
+                    (:ok value)
                       or value $ {} $ :show-later? false
-                    (:none)
+                    (:err _e)
                       {} $ :show-later? false
                   , 'Map
                 today-labels $ app.comp.navigation/date-labels today
@@ -2324,6 +2341,10 @@
                       Option :some $ comp-icon :plus
                         &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
+                          hint-fn $ {} (:return 'Unit)
+                            :args $ [] 'Dynamic $ :: 'Fn
+                              {} (:return 'Unit)
+                                :args $ [] 'app.schema/Op
                           .show create-plugin d! $ fn (result)
                             d! $ :: :task/create-working $ decode-map-as result 'String
                             , &unit
@@ -2638,14 +2659,14 @@
                   (:err message) (raise message)
                 cursor $ match
                   get-in states $ [] :cursor
-                  (:some value) (decode-map-as value 'List)
-                  (:none) (decode-map-as nil 'List)
+                  (:ok value) (decode-map-as value 'List)
+                  (:err _e) (decode-map-as nil 'List)
                 state $ decode-map-as
                   match
                     get-in states $ [] :data
-                    (:some value)
+                    (:ok value)
                       or value $ {} $ :menu? false
-                    (:none)
+                    (:err _e)
                       {} $ :menu? false
                   , 'Map
                 update-plugin $ use-prompt (>> states :drafter)
@@ -2691,6 +2712,10 @@
                     d! $ :: :states cursor $ assoc state :menu? false
                     , &unit
                   fn (item d!)
+                    hint-fn $ {} (:return 'Unit)
+                      :args $ [] 'Dynamic $ :: 'Fn
+                        {} (:return 'Unit)
+                          :args $ [] 'Enum
                     if (nil? item)
                       d! $ :: :states cursor $ assoc state :menu? false
                       if (enum? item)
@@ -2994,6 +3019,7 @@
                   calls $ ref 0
                   handler $ fn (e d!)
                     reset! calls $ inc @calls
+                    , &unit
                   dispatch! $ fn (op) &unit
                 hint-fn handler $ {}
                   :return $ quote Unit
@@ -3863,7 +3889,8 @@
               :code $ quote $ assert= true
                 match
                   decode-finished-task-view $ {} (:id |task-1) (:text |Done)
-                  (:err message) (starts-with? message "|decode-map-as failed at $.finished-time:")
+                  (:err message)
+                    starts-with? message "|decode-map-as failed at $: struct :FinishedTaskView is missing required field :finished-time"
                   (:ok _) false
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-nil-finished-time)
