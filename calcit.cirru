@@ -3018,20 +3018,21 @@
                   evaluations $ ref 0
                   calls $ ref 0
                   handler $ fn (e d!)
+                    hint-fn $ {}
+                      :return $ quote Unit
+                      :args $ []
+                        :: (quote Map) (quote Tag) (quote Dynamic)
+                        :: (quote Fn)
+                          {}
+                            :return $ quote Unit
+                            :args $ [] $ quote app.schema/Op
                     reset! calls $ inc @calls
                     , &unit
-                  dispatch! $ fn (op) &unit
-                hint-fn handler $ {}
-                  :return $ quote Unit
-                  :args $ []
-                    :: (quote Map) (quote Tag) (quote Dynamic)
-                    :: (quote Fn)
-                      {}
-                        :return $ quote Unit
-                        :args $ [] $ quote app.schema/Op
-                hint-fn dispatch! $ {}
-                  :args $ [] $ quote app.schema/Op
-                  :return $ quote Unit
+                  dispatch! $ fn (op)
+                    hint-fn $ {}
+                      :args $ [] $ quote app.schema/Op
+                      :return $ quote Unit
+                    , &unit
                 let
                     component $ comp-title |Title (%none)
                       do
@@ -3077,10 +3078,11 @@
                   old-false $ do
                     reset! evaluations $ inc @evaluations
                     , false
-                  dispatch! $ fn (op) (raise |Unexpected-dispatch)
-                hint-fn dispatch! $ {}
-                  :args $ [] $ quote app.schema/Op
-                  :return $ quote Unit
+                  dispatch! $ fn (op)
+                    hint-fn $ {}
+                      :args $ [] $ quote app.schema/Op
+                      :return $ quote Unit
+                    raise |Unexpected-dispatch
                 assert= true $ nil? old-nil
                 assert= false old-false
                 assert= false $ fn? old-nil
