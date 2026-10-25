@@ -6,13 +6,17 @@ const exec=(name,args)=>execFileSync(name,args,{encoding:'utf8',maxBuffer:64e6,s
 const run=(...a)=>exec('calcit',['calcit.cirru',...a]);
 const norm=v=>Array.isArray(v)?v.map(norm):v&&typeof v==='object'?Object.fromEntries(Object.entries(v).map(([k,x])=>[k,k==='__edn_set'?x.map(norm).sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b))):norm(x)])):v;
 const input=norm(JSON.parse(readFileSync('reviewed.json','utf8')));
+// Only schema-map field order is semantic-free; executable code and all other
+// metadata remain exact. edit schema serializes the selected Fn contracts.
+const schemaMap=v=>Array.isArray(v)?v[0]==='{}'?['{}',...v.slice(1).map(schemaMap).sort((a,b)=>String(a[0]).localeCompare(String(b[0])))]:v.map(schemaMap):v;
+const compareView=v=>{const x=structuredClone(v);for(const s of input.schemaSites??[]){const d=x.defs.find(d=>d.id===s.id);d.schema=schemaMap(d.schema);}return x;};
 const q=(...a)=>norm(JSON.parse(run('query',...a,'--format','json')).data);
 const views=()=>({config:q('config'),namespaces:q('ns').namespaces.map(n=>q('ns',n)),defs:input.before.defs.map(d=>q('def',d.id))});
 const blob=()=>exec('git',['hash-object','calcit.cirru']).trim();
 mkdirSync('acceptance',{recursive:true});
 if(process.argv[2]==='apply'){
  assert.equal(exec('calcit',['-v']).trim(),input.baseline);
- assert.equal(blob(),input.snapshotBlob);assert.deepEqual(views(),input.before);
+ assert.equal(blob(),input.snapshotBlob);assert.deepEqual(compareView(views()),compareView(input.before));
  const expected=structuredClone(input.before),ops=[],tests=new Map();
  for(const s of input.sites){
   const d=expected.defs.find(d=>d.id===s.id),test=s.region==='test'?d.tests.find(t=>t.name===s.testName):null,tree=test?test.code:d.code;
@@ -41,13 +45,26 @@ if(process.argv[2]==='apply'){
   }else{assert.equal(s.region,'test');tests.set(s.id+'|'+s.testName,{id:s.id,test});}
   if(s.path.length){const parent=s.path.slice(0,-1).reduce((v,i)=>v[i],tree);parent[s.path.at(-1)]=next;}else d.code=next;
  }
+ assert.equal(input.schemaSites.length,3);
+ assert.deepEqual(input.schemaSites.map(s=>s.id),['app.schema/normalize-task-record','app.schema/normalize-note-record','app.client/validate-server-patch']);
+ for(const s of input.schemaSites){
+  const d=expected.defs.find(d=>d.id===s.id);assert.deepEqual(d.schema,s.before);
+  const after=structuredClone(s.before).filter(x=>!Array.isArray(x)||x[0]!==':generics');
+  const args=after.find(x=>Array.isArray(x)&&x[0]===':args');assert.equal(args[1][1],"'T");args[1][1]="'Dynamic";
+  const ret=after.find(x=>Array.isArray(x)&&x[0]===':return');
+  if(s.id==='app.client/validate-server-patch'){assert.deepEqual(ret[1],['::',"'calcit.core/Result","'T","'app.client/ClientPatchError"]);ret[1][2]="'Dynamic";}
+  else{assert.equal(ret[1],"'T");ret[1]="'Dynamic";}
+  assert.deepEqual(after,s.after);d.schema=after;
+  const contract=['{}',...after.slice(1).filter(pair=>pair[0]!==':kind')];
+  ops.push(['edit','schema',s.id,'--input-format','json-ast','--code',JSON.stringify(['::',"'Fn",contract])]);
+ }
  assert.deepEqual(expected,input.expected);
  for(const{id,test}of tests.values())ops.push(['edit','add-test',id,test.name,'--tags',test.tags.join(','),'--input-format','json-ast','--code',JSON.stringify(test.code),'--overwrite']);
  writeFileSync('acceptance/operations.json',JSON.stringify(ops));
  const txn=['edit','transaction','--file','acceptance/operations.json','--format','json'],preview=JSON.parse(run(...txn,'--dry-run'));
  assert.ok(preview.scoped_revision);writeFileSync('acceptance/preview.json',JSON.stringify(preview));
  writeFileSync('acceptance/applied.json',run(...txn,'--expect-revision',preview.scoped_revision));
- assert.deepEqual(views(),expected);writeFileSync('acceptance/source-after.json',JSON.stringify(views()));
+ assert.deepEqual(compareView(views()),compareView(expected));writeFileSync('acceptance/source-after.json',JSON.stringify(views()));
  writeFileSync('acceptance/snapshot-after-blob.txt',blob());
  for(const file of ['deps.cirru','package.json'])assert.equal(readFileSync(file,'utf8'),input.manifests[file]);
  const needle='(:calcit-version |'+input.baseline+')';assert.equal(input.manifests['deps.cirru'].split(needle).length,2);
@@ -57,7 +74,7 @@ if(process.argv[2]==='apply'){
 }else{
  assert.equal(process.argv[2],'verify');assert.equal(exec('calcit',['-v']).trim(),'0.31.0-alpha.4');
  assert.equal(blob(),readFileSync('acceptance/snapshot-after-blob.txt','utf8'));
- const actual=views();assert.deepEqual(actual,norm(JSON.parse(readFileSync('acceptance/source-after.json','utf8'))));
+ const actual=views();assert.deepEqual(compareView(actual),compareView(norm(JSON.parse(readFileSync('acceptance/source-after.json','utf8')))));
  writeFileSync('acceptance/after.json',JSON.stringify(actual));
  for(const[from,to]of [['calcit.cirru','snapshot.cirru'],['deps.cirru','deps.cirru'],['package.json','package.json'],['yarn.lock','yarn.lock']])writeFileSync('acceptance/'+to,readFileSync(from));
 }
