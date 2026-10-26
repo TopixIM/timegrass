@@ -79,7 +79,7 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-当前配对为已发布的 Calcit / `@calcit/procs` `0.31.0-alpha.5`，并使用已有
+当前配对为已发布的 Calcit / `@calcit/procs` `0.31.0-alpha.6`，并使用已有
 Cumulo Reel `0.1.0-alpha.1`、Recollect `0.1.0-alpha.1` 与正式 WS-EDN `0.0.47`。
 未使用的 Markdown 根依赖和浏览器 entry 加载项已移除；笔记保持原纯文本显示，
 不因清理依赖自动新增 Markdown 解释。源码、附带测试/示例、imports 与两入口调用链均无
