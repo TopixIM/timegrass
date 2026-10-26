@@ -95,12 +95,12 @@ try {
   const overview = await loadReplayModule(output, 'app.comp.overview');
   const login = await loadReplayModule(output, 'app.comp.login');
   const core = await loadReplayModule(output, 'calcit.core');
-  assert.doesNotThrow(() => overview.comp_title('Title', core._PCT_none(), core._PCT_none()));
+  assert.doesNotThrow(() => overview.comp_title('Title', core._PCT__$o__$o_(core.Option, core.turn_tag('none')), core._PCT__$o__$o_(core.Option, core.turn_tag('none'))));
   console.log('Title optional-parameter contract passed on freshly generated JavaScript');
   const titleEvent = core.parse_cirru_edn('{} (:value |title-event)');
   const titleDispatch = () => {};
   const titleCalls = [];
-  const titleComponent = overview.comp_title('Title', core._PCT_none(), core._PCT_some((event, dispatch) => {
+  const titleComponent = overview.comp_title('Title', core._PCT__$o__$o_(core.Option, core.turn_tag('none')), core._PCT__$o__$o_(core.Option, core.turn_tag('some'), (event, dispatch) => {
     titleCalls.push([event, dispatch]);
   }));
   const titleTree = core.option_$o_unwrap(titleComponent.get('tree')).get(1);
