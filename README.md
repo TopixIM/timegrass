@@ -4,6 +4,23 @@ Timegrass
 
 Time flies and tasks grow like grass.
 
+### 本轮迁移影响与验收范围
+
+此分支已经使用 0.31 预发布依赖图，本轮将 Calcit CLI 与 `@calcit/procs` 配对到已发布的
+`0.31.0-alpha.5`；不是面向正式 0.30.1 消费者的升级建议，也不代表已跟进最新 alpha.6。
+数据库持久化、网络协议、业务字段和失败行为不变。后端安装/重启仍由管理员独立安排，
+不能只部署前端就声称整套服务已升级。
+
+清理附带测试中的 50 处旧 Result/Option 构造写法，并将 18 处已知 Map 删除操作改为
+保留接收者类型的写法；其中四处 `swap!` 回调按原宏展开为同顺序的 `reset!`。
+原 JS 标题合同夹具的四处已删除 Option 构造器改用运行时的名义 Option 构造，
+不复制断言或新增验证脚本。原始类型合同、测试名称/断言及门禁保留。
+
+官方 Linux CI 已通过源码迁移前、迁移后及目标配对的完整原门禁，包含客户端 48 项、
+服务端 154 项原生测试及原有四个 JS 回放/业务脚本；完整 218 个定义和元数据逐项比对。
+这些宿主回放不等于实际浏览器登录、native 服务重启或真实存档验收，后者尚未完成。
+本 PR 不合并、不触发生产部署、不放宽类型或基线。
+
 ### 前端 COS 与 CDN 部署
 
 COS Action 1.2.0 使用已有 `public-base-url` 启用内置引用与公开访问 verify，不复制额外上传校验脚本。PR 资源按仓库/PR 编号/run/attempt 隔离，Vite base 与 COS prefix 使用同一结果；fork 和 Dependabot PR 保留完整检查与构建，但不上传。Dependabot 不使用普通 Actions 部署 secrets，人工重跑也不增加权限。生产 COS 前缀与现有 web/server rsync 路径保持不变。
@@ -62,12 +79,12 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-当前配对为已发布的 Calcit / `@calcit/procs` `0.30.1-alpha.5`，并使用正式
-Cumulo Reel `0.0.59`、Recollect `0.0.65` 与 WS-EDN `0.0.43`。
+当前配对为已发布的 Calcit / `@calcit/procs` `0.31.0-alpha.5`，并使用已有
+Cumulo Reel `0.1.0-alpha.1`、Recollect `0.1.0-alpha.1` 与正式 WS-EDN `0.0.47`。
 未使用的 Markdown 根依赖和浏览器 entry 加载项已移除；笔记保持原纯文本显示，
 不因清理依赖自动新增 Markdown 解释。源码、附带测试/示例、imports 与两入口调用链均无
-`respo-md` 消费者；历史升级记录仍保留。Cumulo Reel 与根 Recollect 的请求已统一到上述正式版本，
-仍须按下文重放完整 strict、原测试及实际后端，不以版本声明代替验收。
+`respo-md` 消费者；历史升级记录仍保留。Cumulo Reel 与根 Recollect 的请求已统一到上述已发布版本，
+模块版本本轮不变，仍须按下文重放完整 strict、原测试及实际后端，不以版本声明代替验收。
 
 Actions 只承担现有构建、验证及资源上传，不探测服务器内部 CLI、进程、模块元数据或
 加载的 WSS 身份，也不承担安装或重启。生产升级由管理员独立安排，不能把本地/CI
