@@ -5586,10 +5586,7 @@
                     :sent-store $ Option :none
                   , next-state-base
               swap! *client-states assoc sid next-state
-              when resumed?
-                reset! *client-caches $ .dissoc @*client-caches sid
-                swap! *dirty-clients include sid
-                request-sync!
+              when resumed? (swap! *client-caches dissoc sid) (swap! *dirty-clients include sid) (request-sync!)
             , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -5603,7 +5600,7 @@
                   struct-with state (:status :idle) (:acked-rev client-revision) (:in-flight? false) (:needs-snapshot? true)
                   :sent-rev $ Option :none
                   :sent-store $ Option :none
-              reset! *client-caches $ .dissoc @*client-caches sid
+              swap! *client-caches dissoc sid
               swap! *dirty-clients exclude sid
             , &unit
           :examples $ []
@@ -5930,8 +5927,8 @@
                   (:disconnect sid)
                     do (println "|Client closed!")
                       dispatch! (schema/Op :session/disconnect) sid
-                      reset! *client-caches $ .dissoc @*client-caches sid
-                      reset! *client-states $ .dissoc @*client-states sid
+                      swap! *client-caches dissoc sid
+                      swap! *client-states dissoc sid
                       swap! *dirty-clients exclude sid
                   _ $ println "|unknown data:" data
                 , &unit
