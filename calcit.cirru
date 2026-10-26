@@ -398,9 +398,8 @@
               Result :err $ ClientPatchError :revision-mismatch base-revision local-revision
           :examples $ []
           :schema $ :: 'Fn $ {}
-            :args $ [] 'T 'Number 'Number $ :: 'List 'recollect.schema/change-op
-            :generics $ [] 'T
-            :return $ :: 'calcit.core/Result 'T 'app.client/ClientPatchError
+            :args $ [] 'Dynamic 'Number 'Number $ :: 'List 'recollect.schema/change-op
+            :return $ :: 'calcit.core/Result 'Dynamic 'app.client/ClientPatchError
           :tests $ []
             %{} 'TestEntry (:name |accepts-valid-revisioned-patch)
               :code $ quote $ let
@@ -4850,9 +4849,8 @@
                   normalize-note-record $ &list:nth pair 1
               , raw
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'T)
-            :args $ [] 'T
-            :generics $ [] 'T
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
         'normalize-note-record $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-note-record (raw)
             if (map? raw)
@@ -4862,9 +4860,8 @@
                 (:none) (dissoc raw :updated-time)
               , raw
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'T)
-            :args $ [] 'T
-            :generics $ [] 'T
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
         'normalize-task-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-task-map (raw)
             if (map? raw)
@@ -4873,9 +4870,8 @@
                   normalize-task-record $ &list:nth pair 1
               , raw
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'T)
-            :args $ [] 'T
-            :generics $ [] 'T
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
         'normalize-task-record $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-task-record (raw)
             if (map? raw)
@@ -4886,9 +4882,8 @@
                   (:none) (dissoc entry field)
               , raw
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'T)
-            :args $ [] 'T
-            :generics $ [] 'T
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
           :tests $ []
             %{} 'TestEntry (:name |preserves-present-values-and-removes-legacy-nil)
               :code $ quote $ let
@@ -4916,9 +4911,8 @@
                   normalize-task-map $ &list:nth pair 1
               , raw
           :examples $ []
-          :schema $ :: 'Fn $ {} (:return 'T)
-            :args $ [] 'T
-            :generics $ [] 'T
+          :schema $ :: 'Fn $ {} (:return 'Dynamic)
+            :args $ [] 'Dynamic
         'note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def note
             {} (:id nil) (:time nil) (:updated-time nil) (:text nil)
