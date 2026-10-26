@@ -34,13 +34,24 @@ if(mode==='apply'){
     tests.set(d.id+'#'+test.name,{id:d.id,test});
   }
   for(const {id,test}of tests.values())ops.push(['edit','add-test',id,test.name,'--tags',test.tags.join(','),'--input-format','json-ast','--code',JSON.stringify(test.code),'--overwrite']);
-  assert.equal(input.sourceSites.length,14);const subtrees=[];
+  assert.equal(input.sourceSites.length,18);const subtrees=[];
   for(const site of input.sourceSites){
     const d=expected.defs.find(d=>d.id===site.id),tree=site.path.reduce((v,i)=>v[i],d.code);
-    assert.deepEqual(tree,site.before);assert.equal(tree[0],'dissoc');assert.deepEqual(site.after,['.dissoc',...tree.slice(1)]);
+    assert.deepEqual(tree,site.before);
+    if(site.kind==='swap-map-delete'){
+      assert.equal(tree[0],'swap!');assert.equal(tree[2],'dissoc');assert.equal(tree.length,4);
+      assert.ok(['*client-caches','*client-states'].includes(tree[1]));assert.equal(tree[3],'sid');
+      assert.deepEqual(site.after,['reset!',tree[1],['.dissoc','@'+tree[1],tree[3]]]);
+    }else{assert.equal(tree[0],'dissoc');assert.deepEqual(site.after,['.dissoc',...tree.slice(1)]);}
     const actual=JSON.parse(run('tree','show',site.id,'--path','@'+site.path.join('.'),'--format','json')).tree;
-    assert.deepEqual(actual,tree);subtrees.push({id:site.id,path:site.path,tree:actual,evidence:site.evidence});tree[0]='.dissoc';
-    ops.push(['tree','replace',site.id,'--path','@'+[...site.path,0].join('.'),'--input-format','json-ast','--code',JSON.stringify('.dissoc')]);
+    assert.deepEqual(actual,tree);subtrees.push({id:site.id,path:site.path,tree:actual,evidence:site.evidence});
+    if(site.kind==='swap-map-delete'){
+      tree.splice(0,tree.length,...structuredClone(site.after));
+      ops.push(['tree','replace',site.id,'--path','@'+site.path.join('.'),'--input-format','json-ast','--code',JSON.stringify(site.after)]);
+    }else{
+      tree[0]='.dissoc';
+      ops.push(['tree','replace',site.id,'--path','@'+[...site.path,0].join('.'),'--input-format','json-ast','--code',JSON.stringify('.dissoc')]);
+    }
   }
   writeFileSync('acceptance/subtrees.json',JSON.stringify(subtrees));
   assert.deepEqual(expected,input.expected);writeFileSync('acceptance/operations.json',JSON.stringify(ops));
