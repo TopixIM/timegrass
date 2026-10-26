@@ -55,6 +55,7 @@ jobs:
           yarn install --immutable
           caps verify --toolchain
           calcit calcit.cirru edit format
+          node apply-reviewed.mjs target-api
           bash reviewed-gates.sh > acceptance-alpha5.log 2>&1
           node apply-reviewed.mjs verify
       - uses: actions/upload-artifact@v7.0.2
