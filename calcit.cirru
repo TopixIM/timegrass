@@ -406,7 +406,7 @@
                   store $ {} $ :value 1
                   changes $ [] $ %:: patch-schema/change-op :assoc :value 2
                 assert=
-                  %ok $ {} $ :value 2
+                  Result :ok $ {} $ :value 2
                   validate-server-patch store 7 7 changes
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-revision-mismatch)
@@ -414,7 +414,7 @@
                   store $ {} $ :value 1
                   changes $ [] $ %:: patch-schema/change-op :assoc :value 2
                 assert=
-                  %err $ ClientPatchError :revision-mismatch 8 7
+                  Result :err $ ClientPatchError :revision-mismatch 8 7
                   validate-server-patch store 7 8 changes
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-invalid-patch-atomically)
@@ -422,7 +422,7 @@
                   store $ {} $ :stable 1
                   changes $ [] (%:: patch-schema/change-op :assoc :temporary 2)
                     %:: patch-schema/change-op :update :missing $ %:: patch-schema/change-op :replace 3
-                  expected $ %err $ ClientPatchError :invalid-patch
+                  expected $ Result :err $ ClientPatchError :invalid-patch
                     %:: PatchError :missing-node $ [] $ %:: PatchPathSegment :field :missing
                 assert= expected $ validate-server-patch store 9 9 changes
                 assert=
@@ -3003,7 +3003,7 @@
               :tags $ #{} :js :title-contract
             %{} 'TestEntry (:name |explicit-none)
               :code $ quote $ let
-                  component $ comp-title |Title (%none) (%none)
+                  component $ comp-title |Title (Option :none) (Option :none)
                   tree $ match
                     .unwrap $ :tree component
                     (:element element) element
@@ -3033,10 +3033,10 @@
                       :return $ quote Unit
                     , &unit
                 let
-                    component $ comp-title |Title (%none)
+                    component $ comp-title |Title (Option :none)
                       do
                         reset! evaluations $ inc @evaluations
-                        %some handler
+                        Option :some handler
                     tree $ match
                       .unwrap $ :tree component
                       (:element element) element
@@ -3056,7 +3056,7 @@
             %{} 'TestEntry (:name |child-once)
               :code $ quote $ let
                   evaluations $ ref 0
-                  component $ comp-title |Parent $ %some
+                  component $ comp-title |Parent $ Option :some
                     do
                       reset! evaluations $ inc @evaluations
                       comp-title |Child
@@ -3087,7 +3087,7 @@
                 assert= false $ fn? old-nil
                 assert= false $ fn? old-false
                 let
-                    component $ comp-title |Title (%none) (%none)
+                    component $ comp-title |Title (Option :none) (Option :none)
                     tree $ match
                       .unwrap $ :tree component
                       (:element element) element
@@ -3707,12 +3707,12 @@
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-malformed-fields)
               :code $ quote $ do
-                assert= (%err "|storage.cirru expected Map") (decode-database nil)
-                assert= (%err "|storage.cirru/:today expected String")
+                assert= (Result :err "|storage.cirru expected Map") (decode-database nil)
+                assert= (Result :err "|storage.cirru/:today expected String")
                   decode-database $ {} $ :today 3
-                assert= (%err "|storage.cirru/:users expected Map")
+                assert= (Result :err "|storage.cirru/:users expected Map")
                   decode-database $ {} $ :users []
-                assert= (%err "|storage.cirru/:sessions expected Map")
+                assert= (Result :err "|storage.cirru/:sessions expected Map")
                   decode-database $ {} $ :sessions nil
               :tags $ #{} :server
             %{} 'TestEntry (:name |drops-runtime-sessions-but-keeps-users)
@@ -3808,11 +3808,11 @@
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-present-nil-in-original-field-order)
               :code $ quote $ do
-                assert= (%err "|storage.cirru/:today expected String")
+                assert= (Result :err "|storage.cirru/:today expected String")
                   decode-database $ {} (:today nil) (:sessions 7) (:users false)
-                assert= (%err "|storage.cirru/:sessions expected Map")
+                assert= (Result :err "|storage.cirru/:sessions expected Map")
                   decode-database $ {} (:today |) (:sessions nil) (:users false)
-                assert= (%err "|storage.cirru/:users expected Map")
+                assert= (Result :err "|storage.cirru/:users expected Map")
                   decode-database $ {} (:today |)
                     :sessions $ {}
                     :users nil
@@ -4097,7 +4097,7 @@
           :tests $ []
             %{} 'TestEntry (:name |accepts-today-string)
               :code $ quote $ assert=
-                %ok $ Op :today |2026-09-25
+                Result :ok $ Op :today |2026-09-25
                 decode-operation $ :: :today |2026-09-25
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-today-number)
@@ -4110,7 +4110,7 @@
               :tags $ #{} :server
             %{} 'TestEntry (:name |accepts-note-add-string)
               :code $ quote $ assert=
-                %ok $ Op :note/add |hello
+                Result :ok $ Op :note/add |hello
                 decode-operation $ :: :note/add |hello
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-note-add-number)
@@ -4123,7 +4123,7 @@
               :tags $ #{} :server
             %{} 'TestEntry (:name |accepts-note-remove-string)
               :code $ quote $ assert=
-                %ok $ Op :note/remove |note-1
+                Result :ok $ Op :note/remove |note-1
                 decode-operation $ :: :note/remove |note-1
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-note-remove-number)
@@ -4137,22 +4137,22 @@
             %{} 'TestEntry (:name |accepts-typed-task-text-and-ids)
               :code $ quote $ do
                 assert=
-                  %ok $ Op :task/create-working |write-docs
+                  Result :ok $ Op :task/create-working |write-docs
                   decode-operation $ :: :task/create-working |write-docs
                 assert=
-                  %ok $ Op :task/remove-working |task-1
+                  Result :ok $ Op :task/remove-working |task-1
                   decode-operation $ :: :task/remove-working |task-1
                 assert=
-                  %ok $ Op :task/finish-working |task-1
+                  Result :ok $ Op :task/finish-working |task-1
                   decode-operation $ :: :task/finish-working |task-1
                 assert=
-                  %ok $ Op :task/touch-working |task-1
+                  Result :ok $ Op :task/touch-working |task-1
                   decode-operation $ :: :task/touch-working |task-1
                 assert=
-                  %ok $ Op :task/put-back |task-1
+                  Result :ok $ Op :task/put-back |task-1
                   decode-operation $ :: :task/put-back |task-1
                 assert=
-                  %ok $ Op :task/pend |task-1
+                  Result :ok $ Op :task/pend |task-1
                   decode-operation $ :: :task/pend |task-1
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-non-string-task-payloads)
@@ -4167,10 +4167,10 @@
             %{} 'TestEntry (:name |accepts-typed-credentials)
               :code $ quote $ do
                 assert=
-                  %ok $ Op :user/log-in $ [] |Alice |secret
+                  Result :ok $ Op :user/log-in $ [] |Alice |secret
                   decode-operation $ :: :user/log-in $ [] |Alice |secret
                 assert=
-                  %ok $ Op :user/sign-up $ [] |Alice |secret
+                  Result :ok $ Op :user/sign-up $ [] |Alice |secret
                   decode-operation $ :: :user/sign-up $ [] |Alice |secret
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-malformed-credentials)
@@ -4186,10 +4186,10 @@
             %{} 'TestEntry (:name |accepts-typed-edit-payloads)
               :code $ quote $ do
                 assert=
-                  %ok $ Op :task/update-working $ TaskEdit :id |t1 :text |Updated
+                  Result :ok $ Op :task/update-working $ TaskEdit :id |t1 :text |Updated
                   decode-operation $ :: :task/update-working $ {} (:id |t1) (:text |Updated)
                 assert=
-                  %ok $ Op :note/edit $ NoteEdit :id |n1 :text |Updated
+                  Result :ok $ Op :note/edit $ NoteEdit :id |n1 :text |Updated
                   decode-operation $ :: :note/edit $ {} (:id |n1) (:text |Updated)
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-malformed-edit-payloads)
@@ -4205,17 +4205,17 @@
             %{} 'TestEntry (:name |accepts-serialized-edit-structs)
               :code $ quote $ do
                 assert=
-                  %ok $ Op :task/update-working $ TaskEdit :id |t1 :text |Updated
+                  Result :ok $ Op :task/update-working $ TaskEdit :id |t1 :text |Updated
                   decode-operation $ parse-cirru-edn $ format-cirru-edn
                     Op :task/update-working $ TaskEdit :id |t1 :text |Updated
                 assert=
-                  %ok $ Op :note/edit $ NoteEdit :id |n1 :text |Updated
+                  Result :ok $ Op :note/edit $ NoteEdit :id |n1 :text |Updated
                   decode-operation $ parse-cirru-edn $ format-cirru-edn
                     Op :note/edit $ NoteEdit :id |n1 :text |Updated
               :tags $ #{} :server
             %{} 'TestEntry (:name |accepts-message-removal-ids)
               :code $ quote $ let
-                  expected $ %ok $ Op :session/remove-message |m1
+                  expected $ Result :ok $ Op :session/remove-message |m1
                 assert= expected $ decode-operation $ :: :session/remove-message |m1
                 assert= expected $ decode-operation $ :: :session/remove-message
                   {} (:id |m1) (:token nil) (:index 0)
@@ -4237,10 +4237,10 @@
               :code $ quote $ let
                   route $ Route :notes $ NotesRoute :year 2026 :month 8
                   operation $ Op :router/change route
-                assert= (%ok operation)
+                assert= (Result :ok operation)
                   decode-operation $ :: :router/change $ {} (:name :notes)
                     :data $ {} (:year 2026) (:month 8)
-                assert= (%ok operation)
+                assert= (Result :ok operation)
                   decode-operation $ parse-cirru-edn $ format-cirru-edn operation
                 assert= true $ result:err? $ decode-operation (:: :router/change nil)
                 assert= true $ result:err? $ decode-operation
@@ -4252,12 +4252,12 @@
                   cursor $ [] :panel |task-1 7
                   state $ {} (:editing? true) (:text |Draft)
                   operation $ Op :states cursor state
-                assert= (%ok operation)
+                assert= (Result :ok operation)
                   decode-operation $ :: :states cursor state
-                assert= (%ok operation)
+                assert= (Result :ok operation)
                   decode-operation $ parse-cirru-edn $ format-cirru-edn operation
                 assert=
-                  %ok $ Op :states ([]) nil
+                  Result :ok $ Op :states ([]) nil
                   decode-operation $ :: :states ([]) nil
               :tags $ #{} :client :server
             %{} 'TestEntry (:name |rejects-non-list-state-cursor)
@@ -4328,7 +4328,7 @@
           :tests $ [] $ %{} 'TestEntry (:name |validates-route-shapes)
             :code $ quote $ do
               assert=
-                %ok $ Route :home
+                Result :ok $ Route :home
                 decode-route $ {} $ :name :home
               assert= true $ result:ok? $ decode-route
                 {} (:name :notes)
@@ -4641,8 +4641,8 @@
                       cleaned $ foldl ([] :nickname :avatar :password) raw $ fn (entry field)
                         match (calcit.core/get entry field)
                           (:some value)
-                            if (nil? value) (dissoc entry field) entry
-                          (:none) (dissoc entry field)
+                            if (nil? value) (.dissoc entry field) entry
+                          (:none) (.dissoc entry field)
                       tasks $ calcit.core/get cleaned :tasks
                       notes $ calcit.core/get cleaned :notes
                       empty-tasks $ {}
@@ -4804,7 +4804,7 @@
             :return $ :: 'calcit.core/Result 'app.schema/DatabaseRecord 'String
           :tests $ []
             %{} 'TestEntry (:name |empty-legacy)
-              :code $ quote $ assert= (%ok empty-database)
+              :code $ quote $ assert= (Result :ok empty-database)
                 load-database $ {}
               :tags $ #{} :server
             %{} 'TestEntry (:name |legacy-round-trip)
@@ -4812,7 +4812,7 @@
                   db $ struct-with (test-database)
                     :sessions $ {}
                   text $ format-cirru-edn $ database-to-map db
-                assert= (%ok db)
+                assert= (Result :ok db)
                   load-database $ parse-cirru-edn text
               :tags $ #{} :server
             %{} 'TestEntry
@@ -4821,16 +4821,16 @@
                   db $ struct-with (test-database)
                     :sessions $ {}
                   raw $ assoc (database-to-map db) :extra 7
-                assert= (%ok db) (load-database raw)
+                assert= (Result :ok db) (load-database raw)
                 assert= (Option :some 7) (get raw :extra)
               :tags $ #{} :server
             %{} 'TestEntry (:name |preserves-validation-error-order)
               :code $ quote $ do
-                assert= (%err "|storage.cirru/:today expected String")
+                assert= (Result :err "|storage.cirru/:today expected String")
                   load-database $ {} (:today 0) (:sessions nil) (:users false)
-                assert= (%err "|storage.cirru/:sessions expected Map")
+                assert= (Result :err "|storage.cirru/:sessions expected Map")
                   load-database $ {} (:today |) (:sessions nil) (:users false)
-                assert= (%err "|storage.cirru/:users expected Map")
+                assert= (Result :err "|storage.cirru/:users expected Map")
                   load-database $ {} (:today |)
                     :sessions $ {}
                     :users false
@@ -4856,8 +4856,8 @@
             if (map? raw)
               match (calcit.core/get raw :updated-time)
                 (:some value)
-                  if (nil? value) (dissoc raw :updated-time) raw
-                (:none) (dissoc raw :updated-time)
+                  if (nil? value) (.dissoc raw :updated-time) raw
+                (:none) (.dissoc raw :updated-time)
               , raw
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
@@ -4878,8 +4878,8 @@
               foldl ([] :created-time :touched-time :finished-time :archived-time) raw $ fn (entry field)
                 match (calcit.core/get entry field)
                   (:some value)
-                    if (nil? value) (dissoc entry field) entry
-                  (:none) (dissoc entry field)
+                    if (nil? value) (.dissoc entry field) entry
+                  (:none) (.dissoc entry field)
               , raw
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Dynamic)
@@ -5586,7 +5586,10 @@
                     :sent-store $ Option :none
                   , next-state-base
               swap! *client-states assoc sid next-state
-              when resumed? (swap! *client-caches dissoc sid) (swap! *dirty-clients include sid) (request-sync!)
+              when resumed?
+                reset! *client-caches $ .dissoc @*client-caches sid
+                swap! *dirty-clients include sid
+                request-sync!
             , &unit
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'Unit)
@@ -5600,7 +5603,7 @@
                   struct-with state (:status :idle) (:acked-rev client-revision) (:in-flight? false) (:needs-snapshot? true)
                   :sent-rev $ Option :none
                   :sent-store $ Option :none
-              swap! *client-caches dissoc sid
+              reset! *client-caches $ .dissoc @*client-caches sid
               swap! *dirty-clients exclude sid
             , &unit
           :examples $ []
@@ -5927,8 +5930,8 @@
                   (:disconnect sid)
                     do (println "|Client closed!")
                       dispatch! (schema/Op :session/disconnect) sid
-                      swap! *client-caches dissoc sid
-                      swap! *client-states dissoc sid
+                      reset! *client-caches $ .dissoc @*client-caches sid
+                      reset! *client-states $ .dissoc @*client-states sid
                       swap! *dirty-clients exclude sid
                   _ $ println "|unknown data:" data
                 , &unit
@@ -6715,7 +6718,7 @@
       :defs $ {} $ 'twig-user
         %{} 'CodeEntry (:doc |)
           :code $ quote $ defn twig-user (user)
-            -> user (dissoc :password) (dissoc :tasks)
+            -> user (.dissoc :password) (.dissoc :tasks)
           :examples $ []
           :schema $ :: 'Fn $ {}
             :args $ [] $ :: 'Map 'Tag 'V
@@ -6896,7 +6899,7 @@
               hint-fn $ {}
                 :args $ [] 'app.schema/UserRecord
                 :return 'app.schema/UserRecord
-              struct-with user-record $ :notes $ dissoc (:notes user-record) op-data
+              struct-with user-record $ :notes $ .dissoc (:notes user-record) op-data
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
             :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
@@ -6936,12 +6939,12 @@
                 get (:sessions db) 7
                 get (:sessions updated) 7
               assert=
-                %some $ schema/new-session 9
+                Option :some $ schema/new-session 9
                 get (:sessions updated) 9
             :tags $ #{} :server
         'disconnect $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn disconnect (db sid op-id op-time)
-            struct-with db $ :sessions $ dissoc (:sessions db) sid
+            struct-with db $ :sessions $ .dissoc (:sessions db) sid
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
             :args $ [] 'app.schema/DatabaseRecord 'Number 'String 'Number
@@ -6949,7 +6952,7 @@
             :code $ quote $ let
                 db $ schema/test-database
                 updated $ disconnect db 7 |op 1
-              assert= (%none)
+              assert= (Option :none)
                 get (:sessions updated) 7
               assert=
                 get (:sessions db) 8
@@ -6962,7 +6965,7 @@
               hint-fn $ {}
                 :args $ [] 'app.schema/SessionRecord
                 :return 'app.schema/SessionRecord
-              struct-with session-record $ :messages $ dissoc (:messages session-record) op-data
+              struct-with session-record $ :messages $ .dissoc (:messages session-record) op-data
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
             :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
@@ -6974,10 +6977,10 @@
                   session-record $
                     get (:sessions updated) 7
                     , .unwrap
-                assert= (%none)
+                assert= (Option :none)
                   get (:messages session-record) |m1
                 assert=
-                  %some $ schema/NotificationRecord :id |m2 :text |keep
+                  Option :some $ schema/NotificationRecord :id |m2 :text |keep
                   get (:messages session-record) |m2
                 assert=
                   get (:sessions db) 8
@@ -7021,7 +7024,7 @@
                   (:none) user-record
                   (:some task)
                     struct-with user-record $ :tasks $ struct-with tasks
-                      :working $ dissoc (:working tasks) op-data
+                      :working $ .dissoc (:working tasks) op-data
                       :finished $ assoc (:finished tasks) op-data $ struct-with task
                         :finished-time $ Option :some op-time
           :examples $ []
@@ -7069,7 +7072,7 @@
                   (:none) user-record
                   (:some task)
                     struct-with user-record $ :tasks $ struct-with tasks
-                      :finished $ dissoc (:finished tasks) op-data
+                      :finished $ .dissoc (:finished tasks) op-data
                       :working $ assoc (:working tasks) op-data $ struct-with task
                         :touched-time $ Option :some op-time
           :examples $ []
@@ -7084,7 +7087,7 @@
               let
                   tasks $ :tasks user-record
                 struct-with user-record $ :tasks $ struct-with tasks
-                  :working $ dissoc (:working tasks) op-data
+                  :working $ .dissoc (:working tasks) op-data
           :examples $ []
           :schema $ :: 'Fn $ {} (:return 'app.schema/DatabaseRecord)
             :args $ [] 'app.schema/DatabaseRecord 'String 'Number 'String 'Number
@@ -7242,7 +7245,7 @@
                 session-record $
                   get (:sessions updated) 7
                   , .unwrap
-              assert= (%some |u1) (:user-id session-record)
+              assert= (Option :some |u1) (:user-id session-record)
               assert= ({}) (:notes user-record)
               assert= ({})
                 :working $ :tasks user-record
