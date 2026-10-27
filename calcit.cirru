@@ -1236,6 +1236,9 @@
             %{} 'TestEntry (:name |route-rejects-nonnumeric-fields)
               :code $ quote $ let
                   rejects? $ fn (data)
+                    hint-fn $ {}
+                      :args $ [] $ :: 'Map 'Tag 'Dynamic
+                      :return 'Bool
                     try
                       do
                         comp-history
