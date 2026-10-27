@@ -6,8 +6,8 @@ Time flies and tasks grow like grass.
 
 ### 本轮迁移影响与验收范围
 
-此分支已经使用 0.31 预发布依赖图，当前 Calcit CLI 与 `@calcit/procs` 配对到已发布的
-`0.31.0-alpha.7`；不是面向正式 0.30.1 消费者的升级建议。
+此分支已经使用 0.31 依赖图，当前 Calcit CLI 与 `@calcit/procs` 配对到已发布的
+`0.31.0`；不是面向正式 0.30.1 消费者的升级建议。
 数据库持久化、网络协议、业务字段和失败行为不变。后端安装/重启仍由管理员独立安排，
 不能只部署前端就声称整套服务已升级。
 
@@ -86,7 +86,7 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-当前配对为已发布的 Calcit / `@calcit/procs` `0.31.0-alpha.7`，并使用已有
+当前配对为已发布的 Calcit / `@calcit/procs` `0.31.0`，并使用已有
 Cumulo Reel `0.1.0-alpha.1`、Recollect `0.1.0-alpha.1` 与正式 WS-EDN `0.0.47`。
 未使用的 Markdown 根依赖和浏览器 entry 加载项已移除；笔记保持原纯文本显示，
 不因清理依赖自动新增 Markdown 解释。源码、附带测试/示例、imports 与两入口调用链均无
