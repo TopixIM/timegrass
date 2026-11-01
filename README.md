@@ -6,27 +6,16 @@ Time flies and tasks grow like grass.
 
 ### 本轮迁移影响与验收范围
 
-此分支已经使用 0.31 依赖图，当前 Calcit CLI 与 `@calcit/procs` 配对到已发布的
-`0.31.0`；不是面向正式 0.30.1 消费者的升级建议。
-数据库持久化、网络协议、业务字段和失败行为不变。后端安装/重启仍由管理员独立安排，
-不能只部署前端就声称整套服务已升级。
+本轮将 Calcit CLI 与 `@calcit/procs` 配对到正式 `0.32.1`，同步新的类型标注语法，
+并改用已发布的正式模块依赖。原 216 个定义的代码及 212 条测试元数据保持一致；
+补齐两个样式 Map 的真实类型声明，并通过官方接口清理九个 namespace 的旧 import 标记。
+数据库持久化、网络协议、业务字段和失败行为保持原合同，页面热更新的 `hud!` 报错提示保留。
+本轮前后端 strict workflow、客户端 48 项及服务端 154 项原测试、原有四组 JS 合同测试和构建均通过。
+公开定义按实际目标检查：浏览器 140/140、native 139/139；两入口 deprecated-call 与 dynamic-method 均为零。
+隔离回环 native 服务的实际访客连接与刷新通过；未做本轮登录后业务验收，不能以版本声明替代验收。
+后端安装和重启由管理员独立安排，源码上传不代表生产进程已升级。
 
-清理附带测试中的 50 处旧 Result/Option 构造写法，并将 18 处已知 Map 删除操作改为
-保留接收者类型的写法；其中四处为旧工具链手写展开的 `reset!`，现已在 alpha.6 上
-恢复为 `swap! <原引用> dissoc sid`。两个引用的 `Ref<Map<Number,V>>` 合同保持不变，
-不新增 helper、强转或 Dynamic，也不改变读取、删除、写回的顺序。这四处简化依赖
-alpha.6 已知 Map 调用的类型专门化，不能单独摘取回 alpha.5；公开 `dissoc` 的 schema
-仍是开放分派，不代表任意回调或开放输入都能保留具体类型。
-原 JS 标题合同夹具的四处已删除 Option 构造器改用运行时的名义 Option 构造，
-不复制断言或新增验证脚本。原始类型合同、测试名称/断言及门禁保留。
-
-官方 Linux CI 已通过 alpha.5 原基线、alpha.6 原源码及上述四处简化后的完整原门禁，
-每阶段包含客户端 48 项、服务端 154 项原生测试及原有四个 JS 回放/业务脚本；
-完整 218 个定义、22 个 namespace 和 212 条测试元数据逐项比对，仅三定义内四节点变化。
-前后双目标生成模块分别为 209、192 个，均只有 `app.server.mjs` 的 hash 改变；
-这是变更归属检查，不是逐行生成 JS 差异证明。
-这些宿主回放不等于实际浏览器登录、native 服务重启或真实存档验收，后者尚未完成。
-本 PR 不合并、不触发生产部署、不放宽类型或基线。
+此前 0.31 迁移已清理旧 Result/Option 构造及 Map 删除写法；相关历史验收不替代本轮验证。
 
 ### 前端 COS 与 CDN 部署
 
@@ -44,7 +33,7 @@ https://github.com/Cumulo/calcium-workflow
 fnm use 24
 corepack enable
 corepack prepare yarn@4.18.0 --activate
-caps --ci
+caps --strict --ci
 yarn install --immutable
 
 # browser client and static assets
@@ -59,7 +48,7 @@ WSS_BIND_ADDRESS=127.0.0.1 mode=dev calcit calcit.cirru --entry server -w
 只设置服务端进程环境变量，不会自动设置浏览器运行时参数。缺少该参数时浏览器会连接
 正式服务地址，开发与验收时请先确认控制台显示本地 WebSocket 地址。
 
-`WSS_BIND_ADDRESS` 通过正式 calcit-wss 0.2.36 的 String 地址参数控制 native 监听；
+`WSS_BIND_ADDRESS` 通过正式 calcit-wss Git 模块 0.2.40 的 String 地址参数控制 native 监听；
 本机开发/验收显式设置 `127.0.0.1`。未设置时仍使用原来的 `0.0.0.0`，不改变生产默认值；
 地址只接受 IP 字面量，端口仍由原 `port` 环境变量控制。不要将本机连接 URL 当作监听隔离证明。
 
@@ -86,21 +75,15 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-当前配对为已发布的 Calcit / `@calcit/procs` `0.31.0`，并使用已有
-Cumulo Reel `0.1.0-alpha.1`、Recollect `0.1.0-alpha.1` 与正式 WS-EDN `0.0.47`。
-未使用的 Markdown 根依赖和浏览器 entry 加载项已移除；笔记保持原纯文本显示，
-不因清理依赖自动新增 Markdown 解释。源码、附带测试/示例、imports 与两入口调用链均无
-`respo-md` 消费者；历史升级记录仍保留。Cumulo Reel 与根 Recollect 的请求已统一到上述已发布版本，
-模块版本本轮不变，仍须按下文重放完整 strict、原测试及实际后端，不以版本声明代替验收。
+当前使用正式 Calcit / `@calcit/procs` `0.32.1`、Cumulo Reel `0.1.0`、Recollect `0.1.0`、
+WS-EDN `0.0.51` 和 WSS Git 模块 `0.2.40`。UI `0.9.0` 的 Router `0.9.0-alpha.4`
+仍遵循其正式依赖图，不单独替换。笔记保持纯文本显示，不新增 Markdown 解释。
 
 Actions 只承担现有构建、验证及资源上传，不探测服务器内部 CLI、进程、模块元数据或
 加载的 WSS 身份，也不承担安装或重启。生产升级由管理员独立安排，不能把本地/CI
 成功描述为生产已经升级；无法访问服务器内部状态不阻塞 Calcit 语言发布。
 
-`.yarnrc.yml` 将 npm 新版本安装隔离期设为一小时，统一用于本地和 CI。版本配对
-[PR #128](https://github.com/TopixIM/timegrass/pull/128) 另含 alpha.6 的精确免等待项，
-属于需单独审阅的安装策略变化；本次四处源码精简不新增或扩展该项。安装策略不影响
-发版间隔、Cargo 或 Calcit 模块安装，也不替代严格类型、测试、锁文件和 review 门禁。
+`.yarnrc.yml` 统一设置 npm 新版本一小时安装隔离期，不增加版本免等待项。
 
 Calcit 默认执行严格类型检查。浏览器和服务端入口均以严格检查作为门禁，不能用
 兼容模式代替。运行态数据库与 updater 输入/返回使用 `DatabaseRecord`，用户、任务、

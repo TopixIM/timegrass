@@ -42,12 +42,14 @@ jobs:
 
     - name: Install and validate dependencies
       run: |
-        caps --ci
+        set -euo pipefail
+        caps --strict --ci
         yarn install --immutable
         caps verify --toolchain
     - name: Validate Calcit snapshot, types, and tests
       run: |
-        calcit calcit.cirru fix --workflow strict --verify --format edn
+        set -euo pipefail
+        calcit calcit.cirru fix --workflow strict --verify --format json | jq -e '.data.workflow.status == "passed" and (.diagnostics | length == 0)'
         calcit calcit.cirru edit format
         git diff --exit-code -- calcit.cirru
         calcit calcit.cirru --check-only
