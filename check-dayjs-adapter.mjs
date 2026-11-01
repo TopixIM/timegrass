@@ -31,7 +31,7 @@ try {
     const replay = `${target.split('/')[0]}/replay-statekey!`;
     const operations = [
       ['edit', 'def', replay, '--input-format', 'json-ast', '--code', JSON.stringify(['defn', 'replay-statekey!', [], ...stateTests.map(item => item.code), ['println', `|PASS ${target}: ${stateTests.length} attached tests`], '&unit'])],
-      ['edit', 'schema', replay, '--input-format', 'cirru', '--code', "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
+      ['edit', 'schema', replay, '--input-format', 'cirru', '--code', "quote $ Fn (-> Unit)"],
     ];
     const args = [snapshot, 'edit', 'transaction', '--code', JSON.stringify(operations), '--format', 'json'];
     const preview = JSON.parse(edit(...args, '--dry-run'));
@@ -46,7 +46,7 @@ try {
     const replay = `${target.split('/')[0]}/replay-${target.split('/')[1]}!`;
     const operations = [
       ['edit', 'def', replay, '--input-format', 'json-ast', '--code', JSON.stringify(['defn', replay.split('/')[1], [], ...data.tests.map(item => item.code), ['println', `|PASS ${target}: ${data.tests.length} attached tests`], '&unit'])],
-      ['edit', 'schema', replay, '--input-format', 'cirru', '--code', "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
+      ['edit', 'schema', replay, '--input-format', 'cirru', '--code', "quote $ Fn (-> Unit)"],
     ];
     const args = [snapshot, 'edit', 'transaction', '--code', JSON.stringify(operations), '--format', 'json'];
     const preview = JSON.parse(edit(...args, '--dry-run'));
@@ -64,7 +64,7 @@ try {
         ...replayFunctions.map(target => [target]),
         '&unit'])],
     ['edit', 'schema', 'app.comp.navigation/expose-dayjs-checks!', '--input-format', 'cirru', '--code',
-      "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)"],
+      "quote $ Fn (-> Unit)"],
   ];
   const entryTransaction = [snapshot, 'edit', 'transaction', '--code', JSON.stringify(entryOperations), '--format', 'json'];
   const entryPreview = JSON.parse(edit(...entryTransaction, '--dry-run'));

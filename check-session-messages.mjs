@@ -22,7 +22,7 @@ try {
       ['database-to-map', ['test-database']],
       '&unit']));
   run(snapshot, 'edit', 'schema', 'app.schema/expose-session-checks!', '--input-format', 'cirru', '--code',
-    "quote $ :: 'Fn $ {} (:args $ []) (:return 'Unit)");
+    "quote $ Fn (-> Unit)");
   run(snapshot, '--reload-fn', 'app.schema/expose-session-checks!', '--emit-path', output, 'js');
 
   const core = await import(pathToFileURL(join(output, 'calcit.core.mjs')).href);
