@@ -97,7 +97,9 @@ try {
   const core = await loadReplayModule(output, 'calcit.core');
   assert.doesNotThrow(() => overview.comp_title('Title', core._PCT__$o__$o_(core.Option, core.turn_tag('none')), core._PCT__$o__$o_(core.Option, core.turn_tag('none'))));
   console.log('Title optional-parameter contract passed on freshly generated JavaScript');
-  const titleEvent = core.parse_cirru_edn('{} (:value |title-event)');
+  const { event__GT_edn: toRespoEvent } = await loadReplayModule(output, 'respo.util.format');
+  const clickEvent = toRespoEvent(new Event('click'));
+  const titleEvent = clickEvent.assoc('value', 'title-event');
   const titleDispatch = () => {};
   const titleCalls = [];
   const titleComponent = overview.comp_title('Title', core._PCT__$o__$o_(core.Option, core.turn_tag('none')), core._PCT__$o__$o_(core.Option, core.turn_tag('some'), (event, dispatch) => {
@@ -141,7 +143,7 @@ try {
   for (const [index, field] of ['username', 'password'].entries()) {
     const handler = inputs[index].get('event').get(core.turn_tag('input'));
     const calls = [];
-    assert.equal(handler(core._$n__$M_(core.turn_tag('value'), 'edited-value'), op => { calls.push(op); }), undefined);
+    assert.equal(handler(clickEvent.assoc('value', 'edited-value'), op => { calls.push(op); }), undefined);
     assert.equal(calls.length, 1);
     assert.equal(calls[0].tag.value, 'states');
     assert.equal(calls[0].get(1), inputCursor, 'preserve the original mixed-key cursor');
@@ -155,7 +157,7 @@ try {
       assert.equal(inputStates.get(key), expected, 'preserve Tag/String/Number branches in the original tree');
     }
     const failure = new Error(`isolated ${field} dispatch failure`);
-    assert.throws(() => handler(core.parse_cirru_edn('{} (:value |changed)'), () => { throw failure; }), error => error === failure);
+    assert.throws(() => handler(clickEvent.assoc('value', 'changed'), () => { throw failure; }), error => error === failure);
   }
   const notes = await loadReplayModule(output, 'app.comp.notes-page');
   const notesStates = core.parse_cirru_edn('{} (:cursor $ [] :notes |panel 7)');
@@ -171,7 +173,7 @@ try {
   assert.equal(keydownNode.get(0).value, 'element');
   const keydownHandler = keydownNode.get(1).get('event').get(core.parse_cirru_edn('do :keydown'));
   assert.equal(keydownHandler, forwardedHandler, 'preserve the original typed callback');
-  assert.throws(() => keydownHandler(core.parse_cirru_edn('{}'), () => {}), error => error === forwardedError);
+  assert.throws(() => keydownHandler(clickEvent, () => {}), error => error === forwardedError);
   const globals = ['window', 'localStorage', 'document'].map(name => [name, Object.getOwnPropertyDescriptor(globalThis, name)]);
   const values = new Map();
   const writes = [];
@@ -223,7 +225,7 @@ try {
       'timegrass', core.format_cirru_edn(core.parse_cirru_edn('[] |type-test-user |type-test-password')),
     ]));
     const handler = login.on_submit('type-test-user', 'type-test-password', false);
-    const event = core.parse_cirru_edn('{}');
+    const event = clickEvent;
     timeline.length = 0;
     assert.equal(handler(event, () => { timeline.push('dispatch'); }), undefined);
     assert.deepEqual(timeline, ['dispatch', 'storage']);
