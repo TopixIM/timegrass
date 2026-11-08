@@ -6,20 +6,17 @@ Time flies and tasks grow like grass.
 
 ### 本轮迁移影响与验收范围
 
-本轮将 Calcit CLI 与 `@calcit/procs` 配对到正式 `0.32.1`，同步新的类型标注语法，
-并改用已发布的正式模块依赖。原 216 个定义的代码及 212 条测试元数据保持一致；
-补齐两个样式 Map 的真实类型声明，并通过官方接口清理九个 namespace 的旧 import 标记。
-数据库持久化、网络协议、业务字段和失败行为保持原合同，页面热更新的 `hud!` 报错提示保留。
-本轮前后端 strict workflow、客户端 48 项及服务端 154 项原测试、原有四组 JS 合同测试和构建均通过。
-公开定义按实际目标检查：浏览器 140/140、native 139/139；两入口 deprecated-call 与 dynamic-method 均为零。
-隔离回环 native 服务的实际访客连接与刷新通过；未做本轮登录后业务验收，不能以版本声明替代验收。
-后端安装和重启由管理员独立安排，源码上传不代表生产进程已升级。
+升级后前端与原生服务使用配对的 Calcit 和 `@calcit/procs` 0.38.0。部署前请备份存档，
+并在服务器准备匹配的正式 native 模块。旧 Cirru EDN 存档和 WebSocket 消息继续沿用。
+客户端在补丁无效或缺少快照时请求重新同步，并保留原有 ACK 和恢复流程。
 
-此前 0.31 迁移已清理旧 Result/Option 构造及 Map 删除写法；相关历史验收不替代本轮验证。
+客户端投影用 union 区分未连接状态和已载入的 Map。路径查询在内部保留字段缺失和显式
+`nil` 的区别，序列化时继续按旧约定输出字段。登录输入和快捷键读取 Respo 具名事件，
+热更新继续通过 HUD 展示错误。
 
 ### 前端 COS 与 CDN 部署
 
-COS Action 1.2.0 使用已有 `public-base-url` 启用内置引用与公开访问 verify，不复制额外上传校验脚本。PR 资源按仓库/PR 编号/run/attempt 隔离，Vite base 与 COS prefix 使用同一结果；fork 和 Dependabot PR 保留完整检查与构建，但不上传。Dependabot 不使用普通 Actions 部署 secrets，人工重跑也不增加权限。生产 COS 前缀与现有 web/server rsync 路径保持不变。
+COS Action 1.3.0 使用已有 `public-base-url` 启用内置引用与公开访问 verify，不复制额外上传校验脚本。PR 资源按仓库/PR 编号/run/attempt 隔离，Vite base 与 COS prefix 使用同一结果；fork 和 Dependabot PR 保留完整检查与构建，但不上传。Dependabot 不使用普通 Actions 部署 secrets，人工重跑也不增加权限。生产 COS 前缀与现有 web/server rsync 路径保持不变。
 
 同一 PR 或生产分支的运行排队，不取消正在执行的上传；job/upload 分别限时 15/10 分钟。工具链版本以 `deps.cirru` 和 `package.json` 为准，客户端/服务端严格类型与业务门禁必须保留。
 
@@ -75,9 +72,8 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-当前使用正式 Calcit / `@calcit/procs` `0.32.1`、Cumulo Reel `0.1.0`、Recollect `0.1.0`、
-WS-EDN `0.0.51` 和 WSS Git 模块 `0.2.40`。UI `0.9.0` 的 Router `0.9.0-alpha.4`
-仍遵循其正式依赖图，不单独替换。笔记保持纯文本显示，不新增 Markdown 解释。
+当前使用正式 Calcit / `@calcit/procs` `0.38.0`、Cumulo Reel `0.3.2`、
+Recollect `0.3.4`、WS-EDN `0.1.1` 和 WSS Git 模块 `0.2.44`。笔记保持纯文本显示。
 
 Actions 只承担现有构建、验证及资源上传，不探测服务器内部 CLI、进程、模块元数据或
 加载的 WSS 身份，也不承担安装或重启。生产升级由管理员独立安排，不能把本地/CI
@@ -229,3 +225,19 @@ SHA-256 `18212a22d8dfdcd9e9f3ecd8cbc7a5fd8975b7644432e4435ea0297a1935b191`.
 ### License
 
 MIT
+
+<details>
+<summary>0.32.1 历史迁移记录</summary>
+
+本轮将 Calcit CLI 与 `@calcit/procs` 配对到正式 `0.32.1`，同步新的类型标注语法，
+并改用已发布的正式模块依赖。原 216 个定义的代码及 212 条测试元数据保持一致；
+补齐两个样式 Map 的真实类型声明，并通过官方接口清理九个 namespace 的旧 import 标记。
+数据库持久化、网络协议、业务字段和失败行为保持原合同，页面热更新的 `hud!` 报错提示保留。
+本轮前后端 strict workflow、客户端 48 项及服务端 154 项原测试、原有四组 JS 合同测试和构建均通过。
+公开定义按实际目标检查：浏览器 140/140、native 139/139；两入口 deprecated-call 与 dynamic-method 均为零。
+隔离回环 native 服务的实际访客连接与刷新通过；未做本轮登录后业务验收，不能以版本声明替代验收。
+后端安装和重启由管理员独立安排，源码上传不代表生产进程已升级。
+
+此前 0.31 迁移已清理旧 Result/Option 构造及 Map 删除写法；相关历史验收不替代本轮验证。
+
+</details>

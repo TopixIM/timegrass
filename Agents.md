@@ -1,6 +1,6 @@
 # Timegrass maintenance
 
-Use the released Calcit CLI and `@calcit/procs` versions declared in deps.cirru and package.json. Read `calcit docs agents --full` and `calcit docs upgrade` before editing; command syntax from old migrations is not authoritative.
+Use the released Calcit CLI and `@calcit/procs` versions declared in deps.cirru and package.json. Read `calcit docs agents --full` and `calcit docs read upgrade.md` before editing; command syntax from old migrations is not authoritative.
 
 ## Source editing
 

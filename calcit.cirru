@@ -6,7 +6,7 @@
     :default $ {} (:description "||Browser client bundle") (:init-fn 'app.client/main!) (:mode :js) (:reload-fn 'app.client/reload!) (:target :browser)
       :feature-policy $ {}
       :modules $ [] |recollect/ |respo-ui.calcit/ |ws-edn.calcit/ |cumulo-util.calcit/ |respo-message.calcit/ |cumulo-reel.calcit/ |respo-feather.calcit/ |alerts.calcit/ |respo.calcit/ |js-ffi/
-      :type-slots $ {} $ :dispatch-op |app.schema/Op
+      :type-slots $ {} $ :dispatch-op 'app.schema/Op
     :server $ {} (:description "||Realtime server") (:init-fn 'app.server/main!) (:mode :native) (:reload-fn 'app.server/reload!) (:target :native)
       :feature-policy $ {}
       :modules $ [] |recollect/ |cumulo-util.calcit/ |cumulo-reel.calcit/ |calcit.std/ |calcit-wss/
@@ -25,9 +25,9 @@
           :examples $ []
           :schema $ quote $ Ref (Map Tag Dynamic)
         '*store $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defref *store (:: :initial)
+          :code $ quote $ defref *store (OfflineProjection :initial)
           :examples $ []
-          :schema $ quote Ref
+          :schema $ quote $ Ref ClientProjection
         '*sync-revision $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defref *sync-revision 0
           :examples $ []
@@ -38,16 +38,20 @@
           :examples $ []
           :schema $ quote $ Ref (calcit.core/Option ws-edn.client/WsClient)
         'ClientPatchError $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum ClientPatchError (:revision-mismatch 'Number 'Number) (:invalid-patch 'recollect.patch/PatchError)
+          :code $ quote $ defenum ClientPatchError (:revision-mismatch Number Number) (:invalid-patch recollect.patch/PatchError)
           :examples $ []
           :schema $ quote EnumDef
+        'ClientProjection $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defunion ClientProjection OfflineProjection ReadyProjection
+          :examples $ []
+          :schema $ quote UnionDef
         'ConnectionRecoveryAction $ %{} 'CodeEntry (:doc "|Deterministic browser recovery choice.")
           :code $ quote $ defenum ConnectionRecoveryAction (:none) (:reconnect) (:connect)
           :examples $ []
           :schema $ quote EnumDef
         'DayjsFactoryHost $ %{} 'CodeEntry (:doc |)
           :code $ quote $ deftrait DayjsFactoryHost
-            .extend! $ quote $ Fn app.client/DayjsFactoryHost JsObject (-> Unit)
+            .extend! $ Fn app.client/DayjsFactoryHost JsObject $ -> Unit
           :examples $ []
           :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
             :names $ {} $ :extend! |extend
@@ -57,6 +61,10 @@
           :examples $ []
           :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
           :schema $ quote Trait
+        'OfflineProjection $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defenum OfflineProjection (:initial) (:offline)
+          :examples $ []
+          :schema $ quote EnumDef
         'ParsedUrlHost $ %{} 'CodeEntry (:doc |)
           :code $ quote $ deftrait ParsedUrlHost (:query 'app.client/ParsedUrlQueryHost)
           :examples $ []
@@ -64,11 +72,16 @@
           :schema $ quote Trait
         'ParsedUrlQueryHost $ %{} 'CodeEntry (:doc |)
           :code $ quote $ deftrait ParsedUrlQueryHost
-            :host $ quote $ JsNullish String
-            :port $ quote $ JsNullish String
+            :host $ JsNullish String
+            :port $ JsNullish String
           :examples $ []
           :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
           :schema $ quote Trait
+        'ReadyProjection $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defstruct ReadyProjection
+            :store $ Map Dynamic Dynamic
+          :examples $ []
+          :schema $ quote StructDef
         'ack-sync! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn ack-sync! (revision)
             ws-send! $ schema/ClientMessage :sync/ack revision
@@ -76,17 +89,31 @@
           :schema $ quote $ Fn Number (-> Unit)
         'apply-server-patch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn apply-server-patch! (base-revision revision changes)
-            match (validate-server-patch @*store @*sync-revision base-revision changes)
-              (:ok next-store)
-                do (reset! *store next-store) (reset! *sync-revision revision) (ack-sync! revision)
-              (:err error)
-                do
-                  match error
-                    (:revision-mismatch expected actual)
-                      console-warn! $ str |Sync-revision-mismatch-expected= expected |,-actual= actual
-                    (:invalid-patch patch-error)
-                      console-error! $ str |Failed-to-apply-server-patch:_ $ patch-error-message patch-error
-                  request-snapshot!
+            match @*store
+              (OfflineProjection _) (request-snapshot!)
+              (ReadyProjection ready)
+                match
+                  validate-server-patch (:store ready) @*sync-revision base-revision changes
+                  (:ok next-store)
+                    match
+                      try-decode-map-as next-store $ Map Dynamic Dynamic
+                      (:ok decoded-store)
+                        do
+                          reset! *store $ ReadyProjection :store decoded-store
+                          reset! *sync-revision revision
+                          ack-sync! revision
+                      (:err error)
+                        do
+                          console-error! $ str "|Invalid patched projection: " error
+                          request-snapshot!
+                  (:err error)
+                    do
+                      match error
+                        (:revision-mismatch expected actual)
+                          console-warn! $ str |Sync-revision-mismatch-expected= expected |,-actual= actual
+                        (:invalid-patch patch-error)
+                          console-error! $ str |Failed-to-apply-server-patch:_ $ patch-error-message patch-error
+                      request-snapshot!
           :examples $ []
           :schema $ quote $ Fn Number Number (List recollect.schema/change-op) (-> Unit)
         'choose-recovery-action $ %{} 'CodeEntry
@@ -118,12 +145,12 @@
                   str $ :port config/site
                 ws-url $ if config/dev? (str |ws:// host |: port) |wss://timegrass.topix.im/ws
               js/console.info |[connection] |opening ws-url
-              reset! *store $ :: :loading
+              reset! *store $ OfflineProjection :initial
               reset! *ws-client $ Option :some $ ws-connect! ws-url
                 {}
                   :on-open $ fn (event) (js/console.info |[connection] |open ws-url) (reset! *connected? true) (request-snapshot!) (send-activity!) (simulate-login!)
                   :on-close $ fn (event) (reset! *connected? false)
-                    reset! *store $ :: :offline
+                    reset! *store $ OfflineProjection :offline
                     js/console.error |[connection] |closed ws-url
                   :on-data on-server-data
                   :heartbeat-timeout-ms 75000
@@ -139,7 +166,7 @@
                 str $ &enum:nth op 0
             match op
               (:states cursor s)
-                reset! *states $ decode-map-as (update-states @*states cursor s) (:: 'Map 'Tag 'Dynamic)
+                reset! *states $ decode-map-as (update-states @*states cursor s) (Map Tag Dynamic)
               (:effect/connect) (connect!)
               _ $ ws-send! $ schema/ClientMessage :dispatch op
             , &unit
@@ -247,9 +274,12 @@
             add-watch! *store :changes render-on-state-change!
             add-watch! *states :changes render-on-state-change!
             on-page-touch $ fn ()
-              if
-                = @*store $ :: :offline
-                recover-connection!
+              match @*store
+                (OfflineProjection offline)
+                  when
+                    = offline $ OfflineProjection :offline
+                    recover-connection!
+                (ReadyProjection _) &unit
               , &unit
             js/window.addEventListener |visibilitychange $ fn (event)
               when @*connected? $ send-activity!
@@ -274,7 +304,10 @@
               (:ok message)
                 match message
                   (:snapshot revision store)
-                    do (reset! *store store) (reset! *sync-revision revision) (ack-sync! revision)
+                    do
+                      reset! *store $ ReadyProjection :store store
+                      reset! *sync-revision revision
+                      ack-sync! revision
                   (:patch base-revision revision changes) (apply-server-patch! base-revision revision changes)
                   (:effect/pong) &unit
               (:err error)
@@ -317,9 +350,17 @@
           :doc "|Render the selected root-state value directly at the component boundary. A missing state still reaches the existing nil/offline behavior; do not eagerly unwrap or decode before comp-container chooses its branch."
           :code $ quote $ defn render-app! ()
             render! mount-target
-              match (calcit.core/get @*states :states)
-                (:some value) (comp-container value @*store)
-                (:none) (comp-container nil @*store)
+              match @*store
+                (OfflineProjection offline)
+                  match offline
+                    (:initial) (app.comp.container/comp-offline :initial)
+                    (:offline) (app.comp.container/comp-offline :offline)
+                (ReadyProjection ready)
+                  match (get @*states :states)
+                    (:some value)
+                      comp-container value $ :store ready
+                    (:none)
+                      comp-container nil $ :store ready
               fn (op)
                 hint-fn $ Fn app.schema/Op $ -> Unit
                 dispatch-render-operation! op
@@ -451,7 +492,7 @@
                       logged-in? $ match (calcit.core/get store :logged-in?)
                         (:some value) (decode-map-as value 'Bool)
                         (:none) (decode-map-as nil 'Bool)
-                      count-members $ decode-map-as (get store :count) (:: 'Option 'Number)
+                      count-members $ decode-map-as (get store :count) (Option Number)
                       route-name $ match (calcit.core/get router :name)
                         (:some value) (decode-map-as value 'Tag)
                         (:none) (decode-map-as nil 'Tag)
@@ -468,61 +509,65 @@
                               .unwrap-or
                                 get-in router $ [] :data :tasks
                                 {}
-                              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                              Map String $ Map Tag Dynamic
                           :history $ comp-history (>> states :history)
                             decode-map-as
                               .unwrap-or
                                 get-in router $ [] :data :week
                                 {}
-                              :: 'Map 'Tag 'Dynamic
+                              Map Tag Dynamic
                             decode-map-as
                               .unwrap-or
                                 get-in router $ [] :data :tasks
                                 {}
-                              :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                              Map String $ Map Tag Dynamic
                           :notes $ comp-notes-page (>> states :notes)
                             match (calcit.core/get router :data)
                               (:some value)
-                                decode-map-as value $ :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                                decode-map-as value $ Map String $ Map Tag Dynamic
                               (:none)
-                                decode-map-as nil $ :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                                decode-map-as nil $ Map String $ Map Tag Dynamic
                             decode-map-as
                               .unwrap-or
                                 get-in session $ [] :router :data
                                 {}
-                              :: 'Map 'Tag 'Number
+                              Map Tag Number
                           :profile $ comp-profile
                             match (calcit.core/get store :user)
                               (:some value)
-                                decode-map-as value $ :: 'Map 'Tag 'Dynamic
+                                decode-map-as value $ Map Tag Dynamic
                               (:none)
-                                decode-map-as nil $ :: 'Map 'Tag 'Dynamic
+                                decode-map-as nil $ Map Tag Dynamic
                             match (calcit.core/get router :data)
                               (:some value)
-                                decode-map-as value $ :: 'Map 'Number 'String
+                                decode-map-as value $ Map Number String
                               (:none)
-                                decode-map-as nil $ :: 'Map 'Number 'String
+                                decode-map-as nil $ Map Number String
                           _ $ <> $ str "|404 page:" router
                         comp-login $ >> states :login
-                      comp-status-color $ decode-map-as (get store :color) (:: 'Option 'String)
-                      when dev? $ comp-inspect |Store store $ {} (:bottom 0) (:left 0) (:z-index 9999)
+                      comp-status-color $ decode-map-as (get store :color) (Option String)
+                      if dev?
+                        Option :some $ comp-inspect |Store store $ {} (:bottom 0) (:left 0) (:z-index 9999)
+                        Option :none
                       comp-messages
                         match (calcit.core/get session :messages)
                           (:some value)
-                            decode-map-as value $ :: 'Map 'String 'Dynamic
+                            decode-map-as value $ Map String Dynamic
                           (:none)
-                            decode-map-as nil $ :: 'Map 'String 'Dynamic
+                            decode-map-as nil $ Map String Dynamic
                         {}
                         fn (info d!)
                           match
                             schema/decode-operation $ :: :session/remove-message info
                             (:ok op) (d! op)
                             (:err _) &unit
-                      when dev? $ comp-reel
-                        match (calcit.core/get store :reel-length)
-                          (:some value) (decode-map-as value 'Number)
-                          (:none) (decode-map-as nil 'Number)
-                        {}
+                      if dev?
+                        Option :some $ comp-reel
+                          match (calcit.core/get store :reel-length)
+                            (:some value) (decode-map-as value 'Number)
+                            (:none) (decode-map-as nil 'Number)
+                          {}
+                        Option :none
               if (enum? store)
                 match store
                   (:initial) (comp-offline :initial)
@@ -714,7 +759,7 @@
                   logged-in-error $ try (decode-map-as 7 'Bool)
                     fn (message) message
                   count-error $ try
-                    decode-map-as (Option :some |bad-count) (:: 'Option 'Number)
+                    decode-map-as (Option :some |bad-count) (Option Number)
                     fn (message) message
                   name-error $ try (decode-map-as 7 'Tag)
                     fn (message) message
@@ -752,10 +797,10 @@
         'comp-status-color $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-status-color (color)
             div $ {} (:class-name css-status-color)
-              :style $ {} $ :background-color
-                match color
-                  (:some value) value
-                  (:none) nil
+              :style $ match color
+                (:some value)
+                  {} $ :background-color value
+                (:none) ({})
           :examples $ []
           :schema $ quote $ Fn (Option String) (-> respo.schema/Component)
         'css-container $ %{} 'CodeEntry (:doc |)
@@ -844,7 +889,7 @@
                     :color $ hsl 0 0 80
                     :font-size 12
                     :display :inline-block
-                =< 4 nil
+                respo.comp.space/space-x 4
                 span
                   {} $ :style $ merge-styles ui/flex
                     {} $ :line-height |24px
@@ -885,21 +930,13 @@
                 assert= :comp-done-task $ :name $ comp-done-task string-branch task
                 assert= :comp-done-task $ :name $ comp-done-task number-branch task
                 assert= ([] :root :panel)
-                  match (calcit.core/get tag-branch :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get tag-branch :cursor
                 assert= ([] :root |task-1)
-                  match (calcit.core/get string-branch :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get string-branch :cursor
                 assert= ([] :root 7)
-                  match (calcit.core/get number-branch :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get number-branch :cursor
                 assert= ([] :root)
-                  match (calcit.core/get root :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get root :cursor
               :tags $ #{} :js
             %{} 'TestEntry (:name |click-preserves-state-and-mixed-cursor)
               :code $ quote $ let
@@ -925,11 +962,13 @@
                       _ $ raise |Expected-state-operation
                     swap! calls inc
                     , &unit
-                click ({}) dispatch!
+                click
+                    fn ()
+                      hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                      respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                  , dispatch!
                 assert= 1 @calls
-                assert= false $ match (calcit.core/get state :show-menu?)
-                  (:some value) value
-                  (:none) nil
+                assert= false $ .unwrap $ calcit.core/get state :show-menu?
               :tags $ #{} :js :task-state-contract
             %{} 'TestEntry (:name |rejects-invalid-state-containers)
               :code $ quote $ let
@@ -988,11 +1027,13 @@
                       _ $ raise |Unexpected-menu-operation
                     swap! calls inc
                     , &unit
-                click ({}) dispatch!
+                click
+                    fn ()
+                      hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                      respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                  , dispatch!
                 assert= 1 @calls
-                assert= true $ match (calcit.core/get state :show-menu?)
-                  (:some value) value
-                  (:none) nil
+                assert= true $ .unwrap $ calcit.core/get state :show-menu?
               :tags $ #{} :js :menu-contract
             %{} 'TestEntry (:name |selection-dispatches-action-and-closes)
               :code $ quote $ let
@@ -1033,11 +1074,13 @@
                       _ $ raise |Unexpected-menu-operation
                     swap! calls inc
                     , &unit
-                click ({}) dispatch!
+                click
+                    fn ()
+                      hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                      respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                  , dispatch!
                 assert= 2 @calls
-                assert= true $ match (calcit.core/get state :show-menu?)
-                  (:some value) value
-                  (:none) nil
+                assert= true $ .unwrap $ calcit.core/get state :show-menu?
               :tags $ #{} :js :menu-contract
             %{} 'TestEntry (:name |preserves-absent-nil-and-false-state-default)
               :code $ quote $ let
@@ -1092,7 +1135,7 @@
                               {} (:year y) (:week w)
                                 :start $ :start bounds
                                 :end $ :end bounds
-                      =< 8 nil
+                      respo.comp.space/space-x 8
                       comp-icon :arrow-right
                         {} (:font-size 16)
                           :color $ hsl 200 80 80
@@ -1134,9 +1177,9 @@
                                     span
                                       {} $ :class-name css/font-fancy
                                       <> $ :weekday labels
-                                      =< 12 nil
+                                      respo.comp.space/space-x 12
                                       <> $ :month-day labels
-                                =< nil 4
+                                respo.comp.space/space-y 4
                                 list-> ({})
                                   -> task-list (sort-finished-tasks)
                                     map $ fn (task)
@@ -1302,7 +1345,7 @@
                     get-in states $ [] :data
                     (:ok value) (or value initial-state)
                     (:err _e) initial-state
-                  :: 'Map 'Tag 'String
+                  Map Tag String
                 credentials $ decode-map-as
                   .filter-kv state $ fn (key value)
                     or (= key :username) (= key :password)
@@ -1317,33 +1360,29 @@
                         :value $ :username credentials
                         :style ui/input
                         :on-input $ fn (e d!)
-                          hint-fn $ Fn (Map Tag Dynamic)
+                          hint-fn $ Fn respo.schema/RespoEvent
                             Fn app.schema/Op $ -> Unit
                             -> Unit
                           d! $ :: :states cursor $ assoc state :username
-                            match (calcit.core/get e :value)
-                              (:some value) (str value)
-                              (:none) (str nil)
-                    =< nil 8
+                            str $ :value e
+                    respo.comp.space/space-y 8
                     div ({})
                       input $ {} (:placeholder |Password)
                         :value $ :password credentials
                         :style ui/input
                         :on-input $ fn (e d!)
-                          hint-fn $ Fn (Map Tag Dynamic)
+                          hint-fn $ Fn respo.schema/RespoEvent
                             Fn app.schema/Op $ -> Unit
                             -> Unit
                           d! $ :: :states cursor $ assoc state :password
-                            match (calcit.core/get e :value)
-                              (:some value) (str value)
-                              (:none) (str nil)
-                  =< nil 8
+                            str $ :value e
+                  respo.comp.space/space-y 8
                   div
                     {} $ :style $ {} (:text-align :right)
                     span $ {} (:inner-text "|Sign up")
                       :style $ merge style/link
                       :on-click $ on-submit (:username credentials) (:password credentials) true
-                    =< 8 nil
+                    respo.comp.space/space-x 8
                     span $ {} (:inner-text "|Log in")
                       :style $ merge style/link
                       :on-click $ on-submit (:username credentials) (:password credentials) false
@@ -1466,7 +1505,7 @@
                     element $ child content 2
                     , 0
                   check-input! $ fn (input event field expected)
-                    hint-fn $ Fn respo.schema/Element (Map Tag Dynamic) Tag String $ -> Unit
+                    hint-fn $ Fn respo.schema/Element respo.schema/RespoEvent Tag String $ -> Unit
                     let
                         handler $ .unwrap $ js-nullish->option
                           .unwrap $ .get (:event input) :input
@@ -1482,37 +1521,81 @@
                           , &unit
                       handler event dispatch!
                       assert= 1 @calls
-                check-input! username ({}) :username $ str nil
                 check-input! username
-                  {} $ :value nil
+                  (fn () (hint-fn (Fn (-> respo.schema/RespoEvent) (:features :js-ffi))) (respo.util.format/event->edn (js-cast (new js/Event |click) 'respo.dom/DomEvent)))
                   , :username $ str nil
                 check-input! username
-                  {} $ :value false
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :value nil
+                  , :username $ str nil
+                check-input! username
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :value false
                   , :username $ str false
                 check-input! username
-                  {} $ :value 0
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :value 0
                   , :username $ str 0
                 check-input! username
-                  {} $ :value |
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :value |
                   , :username $ str |
                 check-input! username
-                  {} $ :value |changed
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :value |changed
                   , :username $ str |changed
-                check-input! password ({}) :password $ str nil
                 check-input! password
-                  {} $ :value nil
+                  (fn () (hint-fn (Fn (-> respo.schema/RespoEvent) (:features :js-ffi))) (respo.util.format/event->edn (js-cast (new js/Event |click) 'respo.dom/DomEvent)))
                   , :password $ str nil
                 check-input! password
-                  {} $ :value false
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :value nil
+                  , :password $ str nil
+                check-input! password
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :value false
                   , :password $ str false
                 check-input! password
-                  {} $ :value 0
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :value 0
                   , :password $ str 0
                 check-input! password
-                  {} $ :value |
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :value |
                   , :password $ str |
                 check-input! password
-                  {} $ :value |changed
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :value |changed
                   , :password $ str |changed
                 assert= |existing-user $ .unwrap $ get state :username
                 assert= |existing-password $ .unwrap $ get state :password
@@ -1583,26 +1666,26 @@
     'app.comp.navigation $ %{} 'FileEntry
       :defs $ {}
         'DateLabels $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct DateLabels (:weekday 'String) (:month-day 'String) (:week 'Number)
+          :code $ quote $ defstruct DateLabels (:weekday String) (:month-day String) (:week Number)
           :examples $ []
           :schema $ quote StructDef
         'DayjsHost $ %{} 'CodeEntry (:doc |)
           :code $ quote $ deftrait DayjsHost
-            .month $ quote $ Fn app.comp.navigation/DayjsHost (-> Number)
-            .year $ quote $ Fn app.comp.navigation/DayjsHost (-> Number)
-            .week $ quote $ Fn app.comp.navigation/DayjsHost (-> Number)
-            .with-year $ quote $ Fn app.comp.navigation/DayjsHost Number (-> app.comp.navigation/DayjsHost)
-            .with-week $ quote $ Fn app.comp.navigation/DayjsHost Number (-> app.comp.navigation/DayjsHost)
-            .start-of $ quote $ Fn app.comp.navigation/DayjsHost String (-> app.comp.navigation/DayjsHost)
-            .end-of $ quote $ Fn app.comp.navigation/DayjsHost String (-> app.comp.navigation/DayjsHost)
-            .format $ quote $ Fn app.comp.navigation/DayjsHost String (-> String)
-            .valid? $ quote $ Fn app.comp.navigation/DayjsHost (-> Bool)
+            .month $ Fn app.comp.navigation/DayjsHost $ -> Number
+            .year $ Fn app.comp.navigation/DayjsHost $ -> Number
+            .week $ Fn app.comp.navigation/DayjsHost $ -> Number
+            .with-year $ Fn app.comp.navigation/DayjsHost Number $ -> app.comp.navigation/DayjsHost
+            .with-week $ Fn app.comp.navigation/DayjsHost Number $ -> app.comp.navigation/DayjsHost
+            .start-of $ Fn app.comp.navigation/DayjsHost String $ -> app.comp.navigation/DayjsHost
+            .end-of $ Fn app.comp.navigation/DayjsHost String $ -> app.comp.navigation/DayjsHost
+            .format $ Fn app.comp.navigation/DayjsHost String $ -> String
+            .valid? $ Fn app.comp.navigation/DayjsHost $ -> Bool
           :examples $ []
           :ffi $ {} (:backend :js) (:kind :external-object) (:target :browser)
             :names $ {} (:end-of |endOf) (:start-of |startOf) (:valid? |isValid) (:with-week |week) (:with-year |year)
           :schema $ quote Trait
         'WeekBounds $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct WeekBounds (:start 'String) (:end 'String)
+          :code $ quote $ defstruct WeekBounds (:start String) (:end String)
           :examples $ []
           :schema $ quote StructDef
         'comp-navigation $ %{} 'CodeEntry (:doc |)
@@ -1617,9 +1700,9 @@
                   render-entry |Timegrass
                     fn () $ {} $ :name :home
                     = page :home
-                  =< 16 nil
+                  respo.comp.space/space-x 16
                   render-entry |Finished current-history-route $ = page :history
-                  =< 16 nil
+                  respo.comp.space/space-x 16
                   render-entry |Notes current-notes-route $ = page :notes
                 div
                   {}
@@ -1628,7 +1711,7 @@
                     :on-click $ fn (e d!)
                       d! $ schema/route-operation $ {} (:name :profile)
                   <> $ if logged-in? |Me |Guest
-                  =< 8 nil
+                  respo.comp.space/space-x 8
                   <> $ member-count-text count-members
           :examples $ []
           :schema $ quote $ Fn Bool (Option Number) Tag (-> respo.schema/Component)
@@ -1748,7 +1831,7 @@
                 :on-click $ fn (e d!)
                   d! $ schema/route-operation $ get-route
                 :tab-index 0
-              <> title nil
+              <> title
           :examples $ []
           :schema $ quote $ Fn String
             Fn $ -> Dynamic
@@ -1788,10 +1871,9 @@
           :code $ quote $ defcomp comp-note (states note)
             let
                 edit-plugin $ use-prompt (>> states :edit)
-                  {} (:text "|Update note:") (:multiline? true)
-                    :initial $ match (calcit.core/get note :text)
-                      (:some value) value
-                      (:none) nil
+                  schema/assoc-legacy-optional
+                    {} (:text "|Update note:") (:multiline? true)
+                    , :initial $ get note :text
                 remove-plugin $ use-confirm (>> states :remove)
                   {} $ :text "|Sure to delete note?"
                 note-time $ match
@@ -1812,7 +1894,7 @@
                     {} (:font-family ui/font-fancy)
                       :color $ hsl 0 0 70
                       :font-size 12
-                  =< 8 nil
+                  respo.comp.space/space-x 8
                   div
                     {} $ :class-name css/row-middle
                     comp-icon :edit
@@ -1822,6 +1904,7 @@
                           Fn app.schema/Op $ -> Unit
                           -> Unit
                         .show edit-plugin d! $ fn (result)
+                          hint-fn $ Fn String $ -> Unit
                           d! $ :: :note/edit $ schema/NoteEdit :id
                             match (calcit.core/get note :id)
                               (:some value) (decode-map-as value 'String)
@@ -1829,17 +1912,19 @@
                             , :text (decode-map-as result 'String)
                           , &unit
                         , &unit
-                    =< 8 nil
+                    respo.comp.space/space-x 8
                     comp-icon :delete
                       &{} :font-size 16 :cursor :pointer :color $ hsl 10 80 60
                       fn (e d!)
                         hint-fn $ Fn Dynamic
-                          Fn Enum $ -> Unit
+                          Fn AnyEnum (-> Unit) (:open :reflect)
                           -> Unit
-                        .show remove-plugin d! $ fn () $ d!
-                          :: :note/remove $ match (calcit.core/get note :id)
+                        .show remove-plugin d! $ fn ()
+                          hint-fn $ Fn $ -> Unit
+                          d! $ :: :note/remove $ match (calcit.core/get note :id)
                             (:some value) (decode-map-as value 'String)
                             (:none) (decode-map-as nil 'String)
+                          , &unit
                 <> $ match (calcit.core/get note :text)
                   (:some value) (decode-map-as value 'String)
                   (:none) (decode-map-as nil 'String)
@@ -1863,21 +1948,13 @@
                 assert= :comp-note $ :name $ comp-note string-branch note
                 assert= :comp-note $ :name $ comp-note number-branch note
                 assert= ([] :root :panel)
-                  match (calcit.core/get tag-branch :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get tag-branch :cursor
                 assert= ([] :root |note-1)
-                  match (calcit.core/get string-branch :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get string-branch :cursor
                 assert= ([] :root 7)
-                  match (calcit.core/get number-branch :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get number-branch :cursor
                 assert= ([] :root)
-                  match (calcit.core/get root :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get root :cursor
               :tags $ #{} :js
             %{} 'TestEntry (:name |preserves-timestamp-decoder-errors)
               :code $ quote $ let
@@ -1918,7 +1995,7 @@
                   states $ {} $ :cursor ([])
                   base $ decode-map-as
                     {} (:id |note) (:time 1735689600000)
-                    :: 'Map 'Tag 'Dynamic
+                    Map Tag Dynamic
                   timestamp-error $ match (decode-timestamp nil)
                     (:err message) message
                     (:ok _) (raise |Expected-timestamp-error)
@@ -1968,7 +2045,7 @@
                         :color $ hsl 0 0 50
                         :font-family ui/font-fancy
                         :font-size 16
-                      =< 16 nil
+                      respo.comp.space/space-x 16
                       comp-icon :plus
                         &{} :font-size 16 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
@@ -1976,6 +2053,7 @@
                             Fn app.schema/Op $ -> Unit
                             -> Unit
                           .show add-plugin d! $ fn (result)
+                            hint-fn $ Fn String $ -> Unit
                             d! $ :: :note/add result
                             , &unit
                           , &unit
@@ -1993,7 +2071,7 @@
                                 :month 11
                               {} (:year year)
                                 :month $ dec month
-                      =< 8 nil
+                      respo.comp.space/space-x 8
                       comp-icon :arrow-right
                         {} (:font-size 16)
                           :color $ hsl 200 80 80
@@ -2006,7 +2084,7 @@
                                 :month 0
                               {} (:year year)
                                 :month $ inc month
-                      =< 8 nil
+                      respo.comp.space/space-x 8
                       <>
                         str (inc month) "|th month of " year |.
                         {} (:font-family ui/font-fancy)
@@ -2041,7 +2119,7 @@
                                   {} (:class-name css/font-fancy)
                                     :style $ {} (:font-size 14) (:font-weight 500)
                                   <> $ :weekday $ app.comp.navigation/date-labels (str year |- date)
-                                  =< 12 nil
+                                  respo.comp.space/space-x 12
                                   <> $ str date
                                 list->
                                   {} $ :class-name css/column
@@ -2059,7 +2137,7 @@
                                     map $ fn (k)
                                       [] k $ comp-note (>> states k)
                                         .unwrap $ calcit.core/get notes k
-                  =< nil 160
+                  respo.comp.space/space-y 160
                 .render add-plugin
           :examples $ []
           :schema $ quote $ Fn (Map StateKey Dynamic)
@@ -2136,7 +2214,7 @@
             span $ {} $ :on-keydown on-event
           :examples $ []
           :schema $ quote $ Fn
-            Fn (Map Tag Dynamic)
+            Fn respo.schema/RespoEvent
               Fn app.schema/Op $ -> Unit
               -> Unit
             -> respo.schema/Component
@@ -2144,10 +2222,16 @@
             :code $ quote $ let
                 calls $ ref 0
                 dispatches $ ref 0
-                event $ {} (:key-code 13) (:shift? true)
+                event $ &struct:assoc
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :key-code 13
+                  , :shift? true
                 op $ schema/Op :user/log-in $ [] |type-test-user |type-test-password
                 handler $ fn (e d!)
-                  hint-fn $ Fn (Map Tag Dynamic)
+                  hint-fn $ Fn respo.schema/RespoEvent
                     Fn app.schema/Op $ -> Unit
                     -> Unit
                   assert= event e
@@ -2223,24 +2307,25 @@
                             Fn app.schema/Op $ -> Unit
                             -> Unit
                           .show create-plugin d! $ fn (result)
-                            d! $ :: :task/create-working $ decode-map-as result 'String
+                            hint-fn $ Fn String $ -> Unit
+                            d! $ :: :task/create-working result
                             , &unit
                           , &unit
                       assert-type (Option :none)
-                        quote $ Option $ Fn (Map Tag Dynamic)
+                        Option $ Fn respo.schema/RespoEvent
                           Fn app.schema/Op $ -> Unit
                           -> Unit
                     comp-global-keydown $ fn (e d!)
+                      hint-fn $ Fn respo.schema/RespoEvent
+                        Fn app.schema/Op $ -> Unit
+                        -> Unit
                       when
                         and
-                          match (calcit.core/get e :meta?)
-                            (:some value) (if value true false)
-                            (:none) false
-                          match (calcit.core/get e :key)
-                            (:some value) (= |i value)
-                            (:none) false
+                          if (:meta? e) true false
+                          = |i $ :key e
                         .show create-plugin d! $ fn (result)
-                          d! $ :: :task/create-working $ decode-map-as result 'String
+                          hint-fn $ Fn String $ -> Unit
+                          d! $ :: :task/create-working result
                           , &unit
                       , &unit
                     div
@@ -2248,33 +2333,30 @@
                         :class-name $ str-spaced css/row-middle css/font-fancy
                         :style $ {} $ :color (hsl 0 0 60)
                       <> $ :weekday today-labels
-                      =< 8 nil
+                      respo.comp.space/space-x 8
                       <> $ str (:week today-labels) "|th week"
-                      =< 16 nil
+                      respo.comp.space/space-x 16
                       <> today
                   if (empty? working-tasks) (comp-no-tasks)
                     list-> ({})
                       -> working-tasks (&map:to-list)
                         &list:sort-by $ fn (pair)
-                          task-sort-key $ decode-map-as
-                            .unwrap $ last pair
-                            :: 'Map 'Tag 'Dynamic
+                          let[] (_ task) pair $ task-sort-key task
                         &list:map-pair $ fn (k task)
                           let
-                              task-data $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
+                              task-data $ decode-map-as task $ Map Tag Dynamic
                             [] k $ comp-task
                               >> states $ match (calcit.core/get task-data :id)
                                 (:some value) (decode-map-as value 'String)
                                 (:none) (decode-map-as nil 'String)
                               , task-data :working
-                  when
+                  if
                     not $ empty? pending-tasks
-                    div ({})
+                    Option :some $ div ({})
                       comp-title |Later
-                        assert-type (Option :none)
-                          quote $ Option respo.schema/Component
+                        assert-type (Option :none) (Option respo.schema/Component)
                         Option :some $ fn (e d!)
-                          hint-fn $ Fn (Map Tag Dynamic)
+                          hint-fn $ Fn respo.schema/RespoEvent
                             Fn app.schema/Op $ -> Unit
                             -> Unit
                           d! $ :: :states cursor $ update state :show-later? not
@@ -2286,12 +2368,10 @@
                         list-> ({})
                           -> pending-tasks (&map:to-list)
                             &list:sort-by $ fn (pair)
-                              task-sort-key $ decode-map-as
-                                .unwrap $ last pair
-                                :: 'Map 'Tag 'Dynamic
+                              let[] (_ task) pair $ task-sort-key task
                             &list:map-pair $ fn (k task)
                               let
-                                  task-data $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
+                                  task-data $ decode-map-as task $ Map Tag Dynamic
                                 [] k $ comp-task
                                   >> states $ match (calcit.core/get task-data :id)
                                     (:some value) (decode-map-as value 'String)
@@ -2306,6 +2386,7 @@
                           <>
                             str (count pending-tasks) "| future tasks. Click to show."
                             {} (:font-family ui/font-fancy) (:font-weight 300) (:cursor :pointer)
+                    Option :none
                   .render create-plugin
           :examples $ []
           :schema $ quote $ Fn (Map StateKey Dynamic) String
@@ -2354,11 +2435,13 @@
                     , &unit
                 assert= 1 $ count $ :children working
                 assert= 1 $ count $ :children pending
-                click ({}) dispatch!
+                click
+                    fn ()
+                      hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                      respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                  , dispatch!
                 assert= 1 @calls
-                assert= true $ match (calcit.core/get state :show-later?)
-                  (:some value) value
-                  (:none) nil
+                assert= true $ .unwrap $ calcit.core/get state :show-later?
               :tags $ #{} :js :overview-state-contract
             %{} 'TestEntry (:name |rejects-invalid-overview-state)
               :code $ quote $ assert= true
@@ -2457,7 +2540,7 @@
                     swap! calls inc
                     , &unit
                   check-event! $ fn (event expected)
-                    hint-fn $ Fn (Map Tag Dynamic) Number $ -> Unit
+                    hint-fn $ Fn respo.schema/RespoEvent Number $ -> Unit
                     reset! calls 0
                     assert= &unit $ keydown event dispatch!
                     assert= expected @calls
@@ -2465,46 +2548,124 @@
                   reject-dispatch! $ fn (op)
                     hint-fn $ Fn app.schema/Op $ -> Unit
                     raise |Keyboard-dispatch-error
-                check-event! ({}) 0
                 check-event!
-                  {} $ :key |i
+                    fn ()
+                      hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                      respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
                   , 0
                 check-event!
-                  {} (:meta? nil) (:key |i)
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :key |i
                   , 0
                 check-event!
-                  {} (:meta? false) (:key |i)
+                  &struct:assoc
+                    &struct:assoc
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , :meta? nil
+                    , :key |i
                   , 0
                 check-event!
-                  {} $ :meta? true
+                  &struct:assoc
+                    &struct:assoc
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , :meta? false
+                    , :key |i
                   , 0
                 check-event!
-                  {} (:meta? true) (:key nil)
+                  &struct:assoc
+                      fn ()
+                        hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                        respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                    , :meta? true
                   , 0
                 check-event!
-                  {} (:meta? true) (:key false)
+                  &struct:assoc
+                    &struct:assoc
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , :meta? true
+                    , :key nil
                   , 0
                 check-event!
-                  {} (:meta? true) (:key 0)
+                  &struct:assoc
+                    &struct:assoc
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , :meta? true
+                    , :key nil
                   , 0
                 check-event!
-                  {} (:meta? true) (:key |)
+                  &struct:assoc
+                    &struct:assoc
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , :meta? true
+                    , :key nil
                   , 0
                 check-event!
-                  {} (:meta? true) (:key |other)
+                  &struct:assoc
+                    &struct:assoc
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , :meta? true
+                    , :key |
                   , 0
                 check-event!
-                  {} (:meta? true) (:key |i)
+                  &struct:assoc
+                    &struct:assoc
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , :meta? true
+                    , :key |other
+                  , 0
+                check-event!
+                  &struct:assoc
+                    &struct:assoc
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , :meta? true
+                    , :key |i
                   , 1
                 check-event!
-                  {} (:meta? 0) (:key |i)
+                  &struct:assoc
+                    &struct:assoc
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , :meta? $ if 0 true false
+                    , :key |i
                   , 1
                 check-event!
-                  {} (:meta? |) (:key |i)
+                  &struct:assoc
+                    &struct:assoc
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , :meta? $ if | true false
+                    , :key |i
                   , 1
                 assert= |Keyboard-dispatch-error $ try
                   keydown
-                    {} (:meta? true) (:key |i)
+                    &struct:assoc
+                      &struct:assoc
+                          fn ()
+                            hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                            respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                        , :meta? true
+                      , :key |i
                     , reject-dispatch!
                   fn (message) message
               :tags $ #{} :js :option-condition-contract
@@ -2570,7 +2731,7 @@
                     , &unit
                   fn (item d!)
                     hint-fn $ Fn Dynamic
-                      Fn Enum $ -> Unit
+                      Fn AnyEnum (-> Unit) (:open :reflect)
                       -> Unit
                     if (nil? item)
                       d! $ :: :states cursor $ assoc state :menu? false
@@ -2585,6 +2746,7 @@
                             :edit $ do
                               d! $ :: :states cursor new-state
                               .show update-plugin d! $ fn (text)
+                                hint-fn $ Fn String $ -> Unit
                                 d! $ :: :task/update-working $ schema/TaskEdit :id task-id :text (decode-map-as text 'String)
                                 , &unit
                             :copy $ do
@@ -2593,6 +2755,7 @@
                             :remove $ do
                               d! $ :: :states cursor new-state
                               .show delete-plugin d! $ fn ()
+                                hint-fn $ Fn $ -> Unit
                                 d! $ :: :task/remove-working task-id
                                 , &unit
                               , &unit
@@ -2629,21 +2792,13 @@
                 assert= :comp-task $ :name $ comp-task string-branch task :working
                 assert= :comp-task $ :name $ comp-task number-branch task :working
                 assert= ([] :root :panel)
-                  match (calcit.core/get tag-branch :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get tag-branch :cursor
                 assert= ([] :root |task-1)
-                  match (calcit.core/get string-branch :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get string-branch :cursor
                 assert= ([] :root 7)
-                  match (calcit.core/get number-branch :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get number-branch :cursor
                 assert= ([] :root)
-                  match (calcit.core/get root :cursor)
-                    (:some value) value
-                    (:none) nil
+                  .unwrap $ calcit.core/get root :cursor
               :tags $ #{} :js
             %{} 'TestEntry (:name |click-preserves-state-and-mixed-cursor)
               :code $ quote $ let
@@ -2669,11 +2824,13 @@
                       _ $ raise |Expected-state-operation
                     swap! calls inc
                     , &unit
-                click ({}) dispatch!
+                click
+                    fn ()
+                      hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                      respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                  , dispatch!
                 assert= 1 @calls
-                assert= false $ match (calcit.core/get state :menu?)
-                  (:some value) value
-                  (:none) nil
+                assert= false $ .unwrap $ calcit.core/get state :menu?
               :tags $ #{} :js :task-state-contract
             %{} 'TestEntry (:name |rejects-invalid-state-containers)
               :code $ quote $ let
@@ -2734,11 +2891,13 @@
                       _ $ raise |Unexpected-menu-operation
                     swap! calls inc
                     , &unit
-                click ({}) dispatch!
+                click
+                    fn ()
+                      hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                      respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                  , dispatch!
                 assert= 1 @calls
-                assert= true $ match (calcit.core/get state :menu?)
-                  (:some value) value
-                  (:none) nil
+                assert= true $ .unwrap $ calcit.core/get state :menu?
               :tags $ #{} :js :menu-contract
             %{} 'TestEntry (:name |selection-dispatches-action-and-closes)
               :code $ quote $ let
@@ -2781,11 +2940,13 @@
                       _ $ raise |Unexpected-menu-operation
                     swap! calls inc
                     , &unit
-                click ({}) dispatch!
+                click
+                    fn ()
+                      hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                      respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                  , dispatch!
                 assert= 2 @calls
-                assert= true $ match (calcit.core/get state :menu?)
-                  (:some value) value
-                  (:none) nil
+                assert= true $ .unwrap $ calcit.core/get state :menu?
               :tags $ #{} :js :menu-contract
             %{} 'TestEntry (:name |preserves-absent-nil-and-false-state-default)
               :code $ quote $ let
@@ -2808,23 +2969,23 @@
           :code $ quote $ defcomp comp-title (title child on-click)
             div
               {} (:class-name css-title)
-                :style $ if (option:some? on-click)
+                :style $ if (.some? on-click)
                   {} $ :cursor :pointer
+                  {}
                 :on-click $ fn (e d!)
-                  hint-fn $ Fn (Map Tag Dynamic)
+                  hint-fn $ Fn respo.schema/RespoEvent
                     Fn app.schema/Op $ -> Unit
                     -> Unit
-                  when (option:some? on-click)
-                    (option:unwrap on-click) e d!
+                  match on-click
+                    (:some handler) (handler e d!)
+                    (:none) &unit
                   , &unit
               <> title
-              =< 16 nil
-              match child
-                (:some content) content
-                (:none) nil
+              respo.comp.space/space-x 16
+              , child
           :examples $ []
-          :schema $ quote $ Fn String (calcit.core/Option respo.schema/Component)
-            calcit.core/Option $ Fn (Map Tag Dynamic)
+          :schema $ quote $ Fn String (Option respo.schema/Component)
+            Option $ Fn respo.schema/RespoEvent
               Fn app.schema/Op $ -> Unit
               -> Unit
             -> respo.schema/Component
@@ -2856,20 +3017,13 @@
                   evaluations $ ref 0
                   calls $ ref 0
                   handler $ fn (e d!)
-                    hint-fn $ {}
-                      :return $ quote Unit
-                      :args $ []
-                        :: (quote Map) (quote Tag) (quote Dynamic)
-                        :: (quote Fn)
-                          {}
-                            :return $ quote Unit
-                            :args $ [] $ quote app.schema/Op
+                    hint-fn $ Fn respo.schema/RespoEvent
+                      Fn app.schema/Op $ -> Unit
+                      -> Unit
                     reset! calls $ inc @calls
                     , &unit
                   dispatch! $ fn (op)
-                    hint-fn $ {}
-                      :args $ [] $ quote app.schema/Op
-                      :return $ quote Unit
+                    hint-fn $ Fn app.schema/Op $ -> Unit
                     , &unit
                 let
                     component $ comp-title |Title (Option :none)
@@ -2886,9 +3040,17 @@
                   let
                       click $ .unwrap $ js-nullish->option
                         .unwrap $ .get (:event tree) :click
-                    click ({}) dispatch!
+                    click
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , dispatch!
                     assert= 1 @calls
-                    click ({}) dispatch!
+                    click
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , dispatch!
                     assert= 2 @calls
                     assert= 1 @evaluations
               :tags $ #{} :js :title-contract
@@ -2917,9 +3079,7 @@
                     reset! evaluations $ inc @evaluations
                     , false
                   dispatch! $ fn (op)
-                    hint-fn $ {}
-                      :args $ [] $ quote app.schema/Op
-                      :return $ quote Unit
+                    hint-fn $ Fn app.schema/Op $ -> Unit
                     raise |Unexpected-dispatch
                 assert= true $ nil? old-nil
                 assert= false old-false
@@ -2935,7 +3095,11 @@
                   let
                       click $ .unwrap $ js-nullish->option
                         .unwrap $ .get (:event tree) :click
-                    click ({}) dispatch!
+                    click
+                        fn ()
+                          hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                          respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
+                      , dispatch!
                   assert= 0 $ .len $ :style tree
                   assert= 2 @evaluations
               :tags $ #{} :js :title-contract
@@ -2966,7 +3130,7 @@
           :code $ quote $ defn task-menu-action (item)
             decode-map-as (&enum:nth item 1) 'Tag
           :examples $ []
-          :schema $ quote $ Fn Enum (-> Tag)
+          :schema $ quote $ Fn AnyEnum (-> Tag) (:open :decode)
           :tests $ []
             %{} 'TestEntry (:name |decodes-task-menu-actions)
               :code $ quote $ do
@@ -3091,15 +3255,17 @@
                   <> $ match (calcit.core/get user :name)
                     (:some value) (str "|Hello! " value)
                     (:none) (str "|Hello! " nil)
-                =< nil 16
+                respo.comp.space/space-y 16
                 div
                   {} $ :class-name css/row
                   <> |Members:
-                  =< 8 nil
+                  respo.comp.space/space-x 8
                   list->
                     {} $ :class-name css/row
-                    .to-list $ member-labels members css-member-label
-                =< nil 48
+                    &list:map-pair
+                      .to-list $ member-labels members css-member-label
+                      fn (key label) ([] key label)
+                respo.comp.space/space-y 48
                 div ({})
                   button
                     {} (:class-name css/button)
@@ -3109,7 +3275,7 @@
                           , |?time= $ js-ffi.shared/now-ms
                         , &unit
                     <> |Refresh
-                  =< 16 nil
+                  respo.comp.space/space-x 16
                   button
                     {} (:class-name css/button)
                       :style $ {} (:color :red) (:border-color :red)
@@ -3131,7 +3297,7 @@
                   hint-fn $ Fn respo.schema/Element Number $ -> respo.schema/RenderNode
                   .unwrap $ :node $ .unwrap
                     nth (:children parent) index
-                members $ decode-map-as ({}) (:: 'Map 'Number 'String)
+                members $ decode-map-as ({}) (Map Number String)
                 check-user! $ fn (user expected)
                   hint-fn $ Fn (Map Tag Dynamic) String $ -> Unit
                   let
@@ -3225,7 +3391,7 @@
     'app.config $ %{} 'FileEntry
       :defs $ {}
         'SiteConfig $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct SiteConfig (:port 'Number) (:title 'String) (:icon 'String) (:dev-ui 'String) (:release-ui 'String) (:cdn-url 'String) (:theme 'String) (:storage-key 'String) (:storage-file 'String)
+          :code $ quote $ defstruct SiteConfig (:port Number) (:title String) (:icon String) (:dev-ui String) (:release-ui String) (:cdn-url String) (:theme String) (:storage-key String) (:storage-file String)
           :examples $ []
           :schema $ quote StructDef
         'dev? $ %{} 'CodeEntry (:doc |)
@@ -3250,129 +3416,127 @@
       :defs $ {}
         'ClientMessage $ %{} 'CodeEntry
           :doc "|Typed browser-to-server synchronization and business envelope."
-          :code $ quote $ defenum ClientMessage (:sync/active 'Number) (:sync/heartbeat 'Number) (:sync/idle 'Number) (:sync/resume 'Number) (:sync/ack 'Number) (:dispatch 'app.schema/Op)
+          :code $ quote $ defenum ClientMessage (:sync/active Number) (:sync/heartbeat Number) (:sync/idle Number) (:sync/resume Number) (:sync/ack Number) (:dispatch app.schema/Op)
           :examples $ []
-          :schema $ quote Enum
+          :schema $ quote EnumDef
         'DatabaseRecord $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct DatabaseRecord (:today 'String)
-            :users $ quote $ Map String app.schema/UserRecord
-            :sessions $ quote $ Map Number app.schema/SessionRecord
+          :code $ quote $ defstruct DatabaseRecord (:today String)
+            :users $ Map String app.schema/UserRecord
+            :sessions $ Map Number app.schema/SessionRecord
           :examples $ []
           :schema $ quote StructDef
         'FinishedTaskView $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct FinishedTaskView (:id 'String) (:text 'String) (:finished-time 'Number)
+          :code $ quote $ defstruct FinishedTaskView (:id String) (:text String) (:finished-time Number)
           :examples $ []
           :schema $ quote StructDef
         'HistoryRoute $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct HistoryRoute (:year 'Number) (:week 'Number) (:start 'String) (:end 'String)
+          :code $ quote $ defstruct HistoryRoute (:year Number) (:week Number) (:start String) (:end String)
           :examples $ []
           :schema $ quote StructDef
         'HistoryRouteView $ %{} 'CodeEntry
           :doc "|历史页面的必需年份/周序视图；只校验 UI 使用的 year/week，不把服务端的 start/end 要求带入页面。"
-          :code $ quote $ defstruct HistoryRouteView (:year 'Number) (:week 'Number)
+          :code $ quote $ defstruct HistoryRouteView (:year Number) (:week Number)
           :examples $ []
           :schema $ quote StructDef
         'LegacyDatabaseView $ %{} 'CodeEntry
           :doc "|旧 Map 数据通过 decode-database 后的必需字段视图；复用既有 users 解码边界，不改变存储格式或额外元数据。"
-          :code $ quote $ defstruct LegacyDatabaseView (:today 'String)
-            :users $ quote $ Map String Dynamic
+          :code $ quote $ defstruct LegacyDatabaseView (:today String)
+            :users $ Map String Dynamic
           :examples $ []
           :schema $ quote StructDef
         'LoginState $ %{} 'CodeEntry (:doc "|登录组件的必需字段视图；原始 state Map 继续保留额外字段并用于更新。")
-          :code $ quote $ defstruct LoginState (:username 'String) (:password 'String)
+          :code $ quote $ defstruct LoginState (:username String) (:password String)
           :examples $ []
           :schema $ quote StructDef
         'MessageDecodeError $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum MessageDecodeError (:invalid 'String)
+          :code $ quote $ defenum MessageDecodeError (:invalid String)
           :examples $ []
-          :schema $ quote Enum
+          :schema $ quote EnumDef
         'NoteEdit $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct NoteEdit (:id 'String) (:text 'String)
+          :code $ quote $ defstruct NoteEdit (:id String) (:text String)
           :examples $ []
           :schema $ quote StructDef
         'NoteRecord $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct NoteRecord (:id 'String) (:text 'String) (:time 'Number)
-            :updated-time $ quote $ Option Number
+          :code $ quote $ defstruct NoteRecord (:id String) (:text String) (:time Number)
+            :updated-time $ Option Number
           :examples $ []
           :schema $ quote StructDef
         'NotesRoute $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct NotesRoute (:year 'Number) (:month 'Number)
+          :code $ quote $ defstruct NotesRoute (:year Number) (:month Number)
           :examples $ []
           :schema $ quote StructDef
         'NotificationRecord $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct NotificationRecord (:id 'String) (:text 'String)
+          :code $ quote $ defstruct NotificationRecord (:id String) (:text String)
           :examples $ []
           :schema $ quote StructDef
         'Op $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum Op (:today 'String) (:session/connect) (:session/disconnect) (:session/remove-message 'String)
-            :user/log-in $ quote $ List String
-            :user/sign-up $ quote $ List String
+          :code $ quote $ defenum Op (:today String) (:session/connect) (:session/disconnect) (:session/remove-message String)
+            :user/log-in $ List String
+            :user/sign-up $ List String
             :user/log-out
-            :router/change 'app.schema/Route
-            :task/create-working 'String
-            :task/remove-working 'String
-            :task/finish-working 'String
-            :task/update-working 'app.schema/TaskEdit
-            :task/touch-working 'String
-            :task/put-back 'String
-            :task/pend 'String
-            :note/add 'String
-            :note/edit 'app.schema/NoteEdit
-            :note/remove 'String
+            :router/change app.schema/Route
+            :task/create-working String
+            :task/remove-working String
+            :task/finish-working String
+            :task/update-working app.schema/TaskEdit
+            :task/touch-working String
+            :task/put-back String
+            :task/pend String
+            :note/add String
+            :note/edit app.schema/NoteEdit
+            :note/remove String
             :effect/persist
             :effect/ping
             :effect/pong
             :effect/connect
-            :states
-              quote $ List Dynamic
-              , 'Dynamic
+            :states (List Dynamic) Dynamic
           :examples $ []
-          :schema $ quote Enum
+          :schema $ quote EnumDef
         'Route $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum Route (:home) (:profile) (:history 'app.schema/HistoryRoute) (:notes 'app.schema/NotesRoute)
+          :code $ quote $ defenum Route (:home) (:profile) (:history app.schema/HistoryRoute) (:notes app.schema/NotesRoute)
           :examples $ []
           :schema $ quote EnumDef
         'ServerMessage $ %{} 'CodeEntry
           :doc "|Typed server snapshot, patch, and heartbeat envelope."
-          :code $ quote $ defenum ServerMessage (:snapshot 'Number 'Map)
-            :patch 'Number 'Number $ quote $ List recollect.schema/change-op
+          :code $ quote $ defenum ServerMessage (:snapshot Number Map)
+            :patch Number Number $ List recollect.schema/change-op
             :effect/pong
           :examples $ []
-          :schema $ quote Enum
+          :schema $ quote EnumDef
         'SessionRecord $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct SessionRecord (:id 'Number)
-            :user-id $ quote $ Option String
-            :nickname $ quote $ Option String
-            :router 'app.schema/Route
-            :messages $ quote $ Map String app.schema/NotificationRecord
+          :code $ quote $ defstruct SessionRecord (:id Number)
+            :user-id $ Option String
+            :nickname $ Option String
+            :router app.schema/Route
+            :messages $ Map String app.schema/NotificationRecord
           :examples $ []
           :schema $ quote StructDef
         'TaskEdit $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct TaskEdit (:id 'String) (:text 'String)
+          :code $ quote $ defstruct TaskEdit (:id String) (:text String)
           :examples $ []
           :schema $ quote StructDef
         'TaskRecord $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct TaskRecord (:id 'String) (:text 'String) (:detail 'String) (:pending? 'Bool)
-            :created-time $ quote $ Option Number
-            :touched-time $ quote $ Option Number
-            :finished-time $ quote $ Option Number
-            :archived-time $ quote $ Option Number
+          :code $ quote $ defstruct TaskRecord (:id String) (:text String) (:detail String) (:pending? Bool)
+            :created-time $ Option Number
+            :touched-time $ Option Number
+            :finished-time $ Option Number
+            :archived-time $ Option Number
           :examples $ []
           :schema $ quote StructDef
         'UserRecord $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct UserRecord (:id 'String) (:name 'String)
-            :nickname $ quote $ Option String
-            :avatar $ quote $ Option String
-            :password $ quote $ Option String
-            :tasks 'app.schema/UserTasks
-            :notes $ quote $ Map String app.schema/NoteRecord
+          :code $ quote $ defstruct UserRecord (:id String) (:name String)
+            :nickname $ Option String
+            :avatar $ Option String
+            :password $ Option String
+            :tasks app.schema/UserTasks
+            :notes $ Map String app.schema/NoteRecord
           :examples $ []
           :schema $ quote StructDef
         'UserTasks $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct UserTasks
-            :working $ quote $ Map String app.schema/TaskRecord
-            :pending $ quote $ Map String app.schema/TaskRecord
-            :finished $ quote $ Map String app.schema/TaskRecord
+            :working $ Map String app.schema/TaskRecord
+            :pending $ Map String app.schema/TaskRecord
+            :finished $ Map String app.schema/TaskRecord
           :examples $ []
           :schema $ quote StructDef
         'add-session-message $ %{} 'CodeEntry (:doc |)
@@ -3382,6 +3546,15 @@
               struct-with session-record $ :messages $ assoc (:messages session-record) id (NotificationRecord :id id :text text)
           :examples $ []
           :schema $ quote $ Fn app.schema/DatabaseRecord Number String String (-> app.schema/DatabaseRecord)
+        'assoc-legacy-optional $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defn assoc-legacy-optional (data key field)
+            match field
+              (:some value) (assoc data key value)
+              (:none) (assoc data key nil)
+          :examples $ []
+          :schema $ quote $ Fn (Map Tag Dynamic) Tag (Option T)
+            -> $ Map Tag Dynamic
+            :generics T
         'complain $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def complain
             {} (:id nil) (:text |) (:time nil)
@@ -3495,12 +3668,12 @@
                       match users
                         (:some value) value
                         (:none) ({})
-                      :: 'Map 'String 'Dynamic
+                      Map String Dynamic
                     (:ok users-map)
                       match (validate-stored-users users-map)
                         (:ok _)
                           Result :ok $ assoc
-                            merge database $ decode-map-as raw $ :: 'Map 'Tag 'Dynamic
+                            merge database $ decode-map-as raw $ Map Tag Dynamic
                             , :sessions $ {}
                         (:err message) (Result :err message)
                     (:err detail)
@@ -3516,15 +3689,9 @@
                   decode-database $ {}
                   (:ok db)
                     and
-                      = |2018-08-07 $ match (calcit.core/get db :today)
-                        (:some value) value
-                        (:none) nil
-                      map? $ match (calcit.core/get db :users)
-                        (:some value) value
-                        (:none) nil
-                      empty? $ match (calcit.core/get db :sessions)
-                        (:some value) value
-                        (:none) nil
+                      = |2018-08-07 $ .unwrap $ calcit.core/get db :today
+                      map? $ .unwrap $ calcit.core/get db :users
+                      empty? $ .unwrap $ calcit.core/get db :sessions
                   (:err _) false
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-malformed-fields)
@@ -3547,25 +3714,13 @@
                       {} (:id |u1) (:name |Alice)
                   (:ok db)
                     and
-                      = |2026-09-25 $ match (calcit.core/get db :today)
-                        (:some value) value
-                        (:none) nil
-                      empty? $ match (calcit.core/get db :sessions)
-                        (:some value) value
-                        (:none) nil
-                      = |Alice $ match
-                        calcit.core/get
-                          match
-                            calcit.core/get
-                              match (calcit.core/get db :users)
-                                (:some value) value
-                                (:none) nil
-                              , |u1
-                            (:some value) value
-                            (:none) nil
-                          , :name
-                        (:some value) value
-                        (:none) nil
+                      = |2026-09-25 $ .unwrap $ calcit.core/get db :today
+                      empty? $ .unwrap $ calcit.core/get db :sessions
+                      = |Alice $ .unwrap $ calcit.core/get
+                        .unwrap $ calcit.core/get
+                          .unwrap $ calcit.core/get db :users
+                          , |u1
+                        , :name
                   (:err _) false
               :tags $ #{} :server
             %{} 'TestEntry (:name |loads-legacy-edn-user-with-nested-nil)
@@ -3587,23 +3742,13 @@
                     decode-database $ parse-cirru-edn persisted
                     (:ok db)
                       let
-                          users $ match (calcit.core/get db :users)
-                            (:some value) value
-                            (:none) nil
-                          user $ match (calcit.core/get users |u1)
-                            (:some value) value
-                            (:none) nil
+                          users $ .unwrap $ calcit.core/get db :users
+                          user $ .unwrap $ calcit.core/get users |u1
                         and
-                          = |2026-09-25 $ match (calcit.core/get db :today)
-                            (:some value) value
-                            (:none) nil
-                          empty? $ match (calcit.core/get db :sessions)
-                            (:some value) value
-                            (:none) nil
+                          = |2026-09-25 $ .unwrap $ calcit.core/get db :today
+                          empty? $ .unwrap $ calcit.core/get db :sessions
                           map? user
-                          = |Alice $ match (calcit.core/get user :name)
-                            (:some value) value
-                            (:none) nil
+                          = |Alice $ .unwrap $ calcit.core/get user :name
                     (:err _) false
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-nested-user-error-on-load)
@@ -3761,7 +3906,7 @@
                       = |n1 $ :id note
                       let
                           expected-none $ Option :none
-                        assert-type expected-none $ quote $ Option Number
+                        assert-type expected-none $ Option Number
                         = expected-none $ :updated-time note
                   (:err _) false
               :tags $ #{} :server
@@ -3803,7 +3948,7 @@
                         invalid-message $ str "|Invalid session/remove-message operation: " message
                 (:user/log-in value)
                   match
-                    try-decode-map-as value $ :: 'List 'String
+                    try-decode-map-as value $ List String
                     (:ok credentials)
                       if
                         = 2 $ count credentials
@@ -3813,7 +3958,7 @@
                       invalid-message $ str "|Invalid user/log-in operation: " message
                 (:user/sign-up value)
                   match
-                    try-decode-map-as value $ :: 'List 'String
+                    try-decode-map-as value $ List String
                     (:ok credentials)
                       if
                         = 2 $ count credentials
@@ -3903,7 +4048,7 @@
                   Result :ok $ Op :effect/connect
                 (:states cursor state)
                   match
-                    try-decode-map-as cursor $ :: 'List 'Dynamic
+                    try-decode-map-as cursor $ List Dynamic
                     (:ok checked-cursor)
                       Result :ok $ Op :states checked-cursor state
                     (:err message)
@@ -4299,7 +4444,7 @@
                   if
                     and (number? base-revision) (number? revision)
                     match
-                      try-decode-map-as changes $ :: 'List 'recollect.schema/change-op
+                      try-decode-map-as changes $ List recollect.schema/change-op
                       (:ok decoded-list)
                         Result :ok $ ServerMessage :patch base-revision revision decoded-list
                       (:err reason)
@@ -4386,11 +4531,11 @@
                       = |x $ :id task
                       let
                           expected-none $ Option :none
-                        assert-type expected-none $ quote $ Option Number
+                        assert-type expected-none $ Option Number
                         = expected-none $ :created-time task
                       let
                           expected-none $ Option :none
-                        assert-type expected-none $ quote $ Option Number
+                        assert-type expected-none $ Option Number
                         = expected-none $ :archived-time task
                   (:err _) false
               :tags $ #{} :server
@@ -4409,19 +4554,19 @@
                     and
                       let
                           expected-none $ Option :none
-                        assert-type expected-none $ quote $ Option Number
+                        assert-type expected-none $ Option Number
                         = expected-none $ :created-time task
                       let
                           expected-none $ Option :none
-                        assert-type expected-none $ quote $ Option Number
+                        assert-type expected-none $ Option Number
                         = expected-none $ :touched-time task
                       let
                           expected-none $ Option :none
-                        assert-type expected-none $ quote $ Option Number
+                        assert-type expected-none $ Option Number
                         = expected-none $ :finished-time task
                       let
                           expected-none $ Option :none
-                        assert-type expected-none $ quote $ Option Number
+                        assert-type expected-none $ Option Number
                         = expected-none $ :archived-time task
                   (:err _) false
               :tags $ #{} :server
@@ -4481,11 +4626,11 @@
                       = |u1 $ :id user
                       let
                           expected-none $ Option :none
-                        assert-type expected-none $ quote $ Option String
+                        assert-type expected-none $ Option String
                         = expected-none $ :password user
                       let
                           expected-none $ Option :none
-                        assert-type expected-none $ quote $ Option String
+                        assert-type expected-none $ Option String
                         = expected-none $ :nickname user
                       empty? $ :notes user
                       empty? $ :working $ :tasks user
@@ -4503,13 +4648,11 @@
                   (:ok user)
                     let
                         expected-none $ Option :none
-                      assert-type expected-none $ quote $ Option Number
-                      = expected-none $ :created-time $ match
+                      assert-type expected-none $ Option Number
+                      = expected-none $ :created-time $ .unwrap
                         calcit.core/get
                           :working $ :tasks user
                           , |t1
-                        (:some value) value
-                        (:none) nil
                   (:err _) false
               :tags $ #{} :server
             %{} 'TestEntry (:name |migrates-nested-legacy-note)
@@ -4521,11 +4664,9 @@
                   (:ok user)
                     let
                         expected-none $ Option :none
-                      assert-type expected-none $ quote $ Option Number
-                      = expected-none $ :updated-time $ match
+                      assert-type expected-none $ Option Number
+                      = expected-none $ :updated-time $ .unwrap
                         calcit.core/get (:notes user) |n1
-                        (:some value) value
-                        (:none) nil
                   (:err _) false
               :tags $ #{} :server
             %{} 'TestEntry (:name |rejects-bad-nested-task-with-path)
@@ -4568,7 +4709,7 @@
           :tests $ [] $ %{} 'TestEntry (:name |preserves-error-payload)
             :code $ quote $ let
                 result $ invalid-message |invalid-envelope
-              assert-type result $ quote $ Result Number MessageDecodeError
+              assert-type result $ Result Number MessageDecodeError
               match result
                 (:ok _) (raise |Expected-decode-error)
                 (:err error)
@@ -4587,7 +4728,7 @@
                     users $ :users decoded-legacy
                     decoded $ let
                         seed $ Result :ok $ {}
-                      assert-type seed $ quote $ Result (Map String app.schema/UserRecord) String
+                      assert-type seed $ Result (Map String app.schema/UserRecord) String
                       fold (map-entries users) seed $ fn (acc entry)
                         match acc
                           (:err message) (Result :err message)
@@ -4648,9 +4789,9 @@
         'normalize-note-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-note-map (raw)
             if (map? raw)
-              .map raw $ fn (pair)
-                [] (&list:nth pair 0)
-                  normalize-note-record $ &list:nth pair 1
+              &map:fold-kv raw ({})
+                fn (acc key value)
+                  assoc acc key $ normalize-note-record value
               , raw
           :examples $ []
           :schema $ quote $ Fn Dynamic (-> Dynamic)
@@ -4667,9 +4808,9 @@
         'normalize-task-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-task-map (raw)
             if (map? raw)
-              .map raw $ fn (pair)
-                [] (&list:nth pair 0)
-                  normalize-task-record $ &list:nth pair 1
+              &map:fold-kv raw ({})
+                fn (acc key value)
+                  assoc acc key $ normalize-task-record value
               , raw
           :examples $ []
           :schema $ quote $ Fn Dynamic (-> Dynamic)
@@ -4706,9 +4847,9 @@
         'normalize-user-tasks $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-user-tasks (raw)
             if (map? raw)
-              .map raw $ fn (pair)
-                [] (&list:nth pair 0)
-                  normalize-task-map $ &list:nth pair 1
+              &map:fold-kv raw ({})
+                fn (acc key value)
+                  assoc acc key $ normalize-task-map value
               , raw
           :examples $ []
           :schema $ quote $ Fn Dynamic (-> Dynamic)
@@ -4719,13 +4860,12 @@
           :schema $ quote Dynamic
         'note-to-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn note-to-map (note)
-            {}
-              :id $ :id note
-              :text $ :text note
-              :time $ :time note
-              :updated-time $ match (:updated-time note)
-                (:some t) t
-                (:none) nil
+            assoc-legacy-optional
+              {}
+                :id $ :id note
+                :text $ :text note
+                :time $ :time note
+              , :updated-time $ :updated-time note
           :examples $ []
           :schema $ quote $ Fn app.schema/NoteRecord
             -> $ Map Tag Dynamic
@@ -4738,56 +4878,69 @@
           :doc "|Legacy Map-only wire-path adapter. An empty path returns the value unchanged; missing keys and non-Map intermediates return nil, while false, zero, empty text and nil keys remain valid values/keys. Do not replace this with the throwing get-in walker or an eager concrete decoder. Callers decode at their actual typed consumer."
           :code $ quote $ defn read-path (base path)
             match (destruct-list path)
-              (:none) base
+              (:none) (Option :some base)
               (:some field tail)
                 if (map? base)
-                  match (calcit.core/get base field)
+                  match (get base field)
                     (:some value) (recur value tail)
-                    (:none) nil
-                  , nil
+                    (:none) (Option :none)
+                  Option :none
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List Dynamic) (-> Dynamic)
+          :schema $ quote $ Fn Dynamic (List Dynamic)
+            -> $ Option Dynamic
           :tests $ []
             %{} 'TestEntry (:name |handles-non-map-boundaries)
               :code $ quote $ do
-                assert= 1 $ read-path
-                  {} $ :a $ {} (:b 1)
-                  [] :a :b
-                assert= nil $ read-path
-                  {} $ :a |not-a-map
-                  [] :a :b
-                assert= |leaf $ read-path |leaf $ []
+                assert= (Option :some 1)
+                  read-path
+                    {} $ :a $ {} (:b 1)
+                    [] :a :b
+                assert= (Option :none)
+                  read-path
+                    {} $ :a |not-a-map
+                    [] :a :b
+                assert= (Option :some |leaf)
+                  read-path |leaf $ []
               :tags $ #{} :server
             %{} 'TestEntry (:name |mixed-keys-and-falsey-leaves)
               :code $ quote $ do
-                assert= false $ read-path
-                  {} $ :sessions $ {}
-                    7 $ {} $ |visible false
-                  [] :sessions 7 |visible
-                assert= nil $ read-path
-                  {} $ :sessions $ {}
-                    7 $ {} $ |visible nil
-                  [] :sessions 7 |visible
-                assert= nil $ read-path ({}) ([] :missing)
-                assert= false $ read-path false $ []
+                assert= (Option :some false)
+                  read-path
+                    {} $ :sessions $ {}
+                      7 $ {} $ |visible false
+                    [] :sessions 7 |visible
+                assert= (Option :some nil)
+                  read-path
+                    {} $ :sessions $ {}
+                      7 $ {} $ |visible nil
+                    [] :sessions 7 |visible
+                assert= (Option :none)
+                  read-path ({}) ([] :missing)
+                assert= (Option :some false)
+                  read-path false $ []
               :tags $ #{} :server
             %{} 'TestEntry (:name |preserves-nil-key-and-nil-intermediate-contract)
               :code $ quote $ do
-                assert= |nil-key $ read-path
-                  {} $ :users $ {} (nil |nil-key)
-                  [] :users nil
-                assert= nil $ read-path
-                  {} $ :users nil
-                  [] :users nil
-                assert= false $ read-path
-                  {} $ :users $ {} (nil false)
-                  [] :users nil
-                assert= 0 $ read-path
-                  {} $ :users $ {} (nil 0)
-                  [] :users nil
-                assert= | $ read-path
-                  {} $ :users $ {} (nil |)
-                  [] :users nil
+                assert= (Option :some |nil-key)
+                  read-path
+                    {} $ :users $ {} (nil |nil-key)
+                    [] :users nil
+                assert= (Option :none)
+                  read-path
+                    {} $ :users nil
+                    [] :users nil
+                assert= (Option :some false)
+                  read-path
+                    {} $ :users $ {} (nil false)
+                    [] :users nil
+                assert= (Option :some 0)
+                  read-path
+                    {} $ :users $ {} (nil 0)
+                    [] :users nil
+                assert= (Option :some |)
+                  read-path
+                    {} $ :users $ {} (nil |)
+                    [] :users nil
               :tags $ #{} :option-wire-contract :server
         'route-operation $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn route-operation (data)
@@ -4831,18 +4984,16 @@
           :schema $ quote Dynamic
         'session-to-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn session-to-map (session)
-            {}
-              :id $ :id session
-              :user-id $ match (:user-id session)
-                (:some v) v
-                (:none) nil
-              :nickname $ match (:nickname session)
-                (:some v) v
-                (:none) nil
-              :router $ route-to-map $ :router session
-              :messages $ filter-map-kv (:messages session)
-                fn (k v)
-                  MapEntryDecision :keep k $ &struct:to-map v
+            assoc-legacy-optional
+              assoc-legacy-optional
+                {}
+                  :id $ :id session
+                  :router $ route-to-map $ :router session
+                  :messages $ filter-map-kv (:messages session)
+                    fn (k v)
+                      MapEntryDecision :keep k $ &struct:to-map v
+                , :user-id $ :user-id session
+              , :nickname $ :nickname session
           :examples $ []
           :schema $ quote $ Fn app.schema/SessionRecord
             -> $ Map Tag Dynamic
@@ -4853,23 +5004,19 @@
           :schema $ quote Dynamic
         'task-to-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn task-to-map (task)
-            {}
-              :id $ :id task
-              :text $ :text task
-              :detail $ :detail task
-              :pending? $ :pending? task
-              :created-time $ match (:created-time task)
-                (:some t) t
-                (:none) nil
-              :touched-time $ match (:touched-time task)
-                (:some t) t
-                (:none) nil
-              :finished-time $ match (:finished-time task)
-                (:some t) t
-                (:none) nil
-              :archived-time $ match (:archived-time task)
-                (:some t) t
-                (:none) nil
+            assoc-legacy-optional
+              assoc-legacy-optional
+                assoc-legacy-optional
+                  assoc-legacy-optional
+                    {}
+                      :id $ :id task
+                      :text $ :text task
+                      :detail $ :detail task
+                      :pending? $ :pending? task
+                    , :created-time $ :created-time task
+                  , :touched-time $ :touched-time task
+                , :finished-time $ :finished-time task
+              , :archived-time $ :archived-time task
           :examples $ []
           :schema $ quote $ Fn app.schema/TaskRecord
             -> $ Map Tag Dynamic
@@ -4934,33 +5081,30 @@
           :schema $ quote Dynamic
         'user-to-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn user-to-map (user)
-            {}
-              :id $ :id user
-              :name $ :name user
-              :nickname $ match (:nickname user)
-                (:some v) v
-                (:none) nil
-              :avatar $ match (:avatar user)
-                (:some v) v
-                (:none) nil
-              :password $ match (:password user)
-                (:some v) v
-                (:none) nil
-              :notes $ filter-map-kv (:notes user)
-                fn (k v)
-                  MapEntryDecision :keep k $ note-to-map v
-              :tasks $ let
-                  tasks $ :tasks user
-                {}
-                  :working $ filter-map-kv (:working tasks)
-                    fn (k v)
-                      MapEntryDecision :keep k $ task-to-map v
-                  :pending $ filter-map-kv (:pending tasks)
-                    fn (k v)
-                      MapEntryDecision :keep k $ task-to-map v
-                  :finished $ filter-map-kv (:finished tasks)
-                    fn (k v)
-                      MapEntryDecision :keep k $ task-to-map v
+            assoc-legacy-optional
+              assoc-legacy-optional
+                assoc-legacy-optional
+                  {}
+                    :id $ :id user
+                    :name $ :name user
+                    :notes $ filter-map-kv (:notes user)
+                      fn (k v)
+                        MapEntryDecision :keep k $ note-to-map v
+                    :tasks $ let
+                        tasks $ :tasks user
+                      {}
+                        :working $ filter-map-kv (:working tasks)
+                          fn (k v)
+                            MapEntryDecision :keep k $ task-to-map v
+                        :pending $ filter-map-kv (:pending tasks)
+                          fn (k v)
+                            MapEntryDecision :keep k $ task-to-map v
+                        :finished $ filter-map-kv (:finished tasks)
+                          fn (k v)
+                            MapEntryDecision :keep k $ task-to-map v
+                  , :nickname $ :nickname user
+                , :avatar $ :avatar user
+              , :password $ :password user
           :examples $ []
           :schema $ quote $ Fn app.schema/UserRecord
             -> $ Map Tag Dynamic
@@ -4968,7 +5112,7 @@
           :code $ quote $ defn validate-stored-users (users)
             let
                 seed $ Result :ok users
-              assert-type seed $ quote $ Result (Map String T) String
+              assert-type seed $ Result (Map String T) String
               foldl (-> users keys .to-list) seed $ fn (result user-id)
                 match result
                   (:err message) (Result :err message)
@@ -5124,15 +5268,15 @@
           :examples $ []
           :schema $ quote $ Ref Bool
         'ClientSyncState $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defstruct ClientSyncState (:status 'Tag) (:last-heartbeat 'Number) (:acked-rev 'Number) (:dirty-rev 'Number) (:in-flight? 'Bool) (:needs-snapshot? 'Bool) (:slow-client? 'Bool)
-            :sent-rev $ quote $ Option Number
-            :sent-store $ quote $ Option (Map Tag Dynamic)
-            :last-send-outcome $ quote $ Option Tag
+          :code $ quote $ defstruct ClientSyncState (:status Tag) (:last-heartbeat Number) (:acked-rev Number) (:dirty-rev Number) (:in-flight? Bool) (:needs-snapshot? Bool) (:slow-client? Bool)
+            :sent-rev $ Option Number
+            :sent-store $ Option $ Map Tag Dynamic
+            :last-send-outcome $ Option Tag
           :examples $ []
           :schema $ quote StructDef
         'SyncMetrics $ %{} 'CodeEntry
           :doc "|Process-lifetime synchronization counters with read-time client gauges."
-          :code $ quote $ defstruct SyncMetrics (:last-diff-latency-ms 'Number) (:last-patch-bytes 'Number) (:pending-clients 'Number) (:slow-clients 'Number) (:resync-count 'Number) (:patch-attempts 'Number) (:snapshot-attempts 'Number) (:last-revision 'Number)
+          :code $ quote $ defstruct SyncMetrics (:last-diff-latency-ms Number) (:last-patch-bytes Number) (:pending-clients Number) (:slow-clients Number) (:resync-count Number) (:patch-attempts Number) (:snapshot-attempts Number) (:last-revision Number)
           :examples $ []
           :schema $ quote StructDef
         'acknowledge-client! $ %{} 'CodeEntry (:doc |)
@@ -5295,7 +5439,7 @@
                 previous-states @*client-states
                 previous-dirty @*dirty-clients
                 previous-retry @*sync-retry-scheduled?
-                store $ decode-map-as ({}) (:: 'Map 'Tag 'Dynamic)
+                store $ decode-map-as ({}) (Map Tag Dynamic)
               reset! *client-states $ {}
               reset! *dirty-clients $ #{}
               reset! *sync-retry-scheduled? true
@@ -5832,7 +5976,9 @@
                 let
                     db $ schema/database-to-map $ :db reel
                     records $ :records reel
-                    session $ schema/read-path db $ [] :sessions sid
+                    session $ .unwrap-or
+                      schema/read-path db $ [] :sessions sid
+                      , schema/session
                     old-store-option $ get @*client-caches sid
                     new-store $ twig-container db session records
                     needs-snapshot? $ or (:needs-snapshot? state) (option:none? old-store-option)
@@ -5948,7 +6094,8 @@
           :doc "|Combines heterogeneous Respo style maps at the rendering boundary."
           :code $ quote $ defn merge-styles (x0 & xs) (reduce xs x0 &merge)
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic) & (Map Tag Dynamic)
+          :schema $ quote $ Fn (Map Tag Dynamic)
+            & $ Map Tag Dynamic
             -> $ Map Tag Dynamic
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.style
@@ -5969,76 +6116,76 @@
           :code $ quote $ defn twig-container (db session records)
             let
                 session-data $ if (map? session) session schema/session
-                logged-in? $ match (calcit.core/get session-data :user-id)
+                user-id $ calcit.core/get session-data :user-id
+                logged-in? $ match user-id
                   (:some value) (non-nil? value)
                   (:none) false
                 router-option $ calcit.core/get session-data :router
-                base-data $ {} (:logged-in? logged-in?) (:session session-data)
-                  :router $ match router-option
-                    (:some value) value
-                    (:none) nil
-                  :reel-length $ count records
-                user $ schema/read-path db $ [] :users
-                  match (calcit.core/get session-data :user-id)
-                    (:some value) value
-                    (:none) nil
+                base-data $ schema/assoc-legacy-optional
+                  {} (:logged-in? logged-in?) (:session session-data)
+                    :reel-length $ .len records
+                  , :router router-option
               merge base-data $ decode-map-as
                 if logged-in?
                   let
-                      user $ decode-map-as user $ :: 'Map 'Tag 'Dynamic
+                      user $ match
+                        schema/read-path db $ [] :users $ .unwrap user-id
+                        (:some value)
+                          decode-map-as value $ Map Tag Dynamic
+                        (:none)
+                          decode-map-as nil $ Map Tag Dynamic
                       router $ match router-option
                         (:some value) (decode-map-as value 'Map)
                         (:none) (decode-map-as nil 'Map)
-                    {}
-                      :user $ twig-user user
-                      :router $ assoc router :data $ match (calcit.core/get router :name)
-                        (:some selected-route-name)
-                          match selected-route-name
-                            :home $ {} $ :tasks
-                              schema/read-path user $ [] :tasks :working
-                            :history $ {}
-                              :week $ match (calcit.core/get router :data)
-                                (:some value) value
-                                (:none) nil
-                              :tasks $ twig-tasks-by-week
+                    schema/assoc-legacy-optional
+                      {}
+                        :user $ twig-user user
+                        :router $ assoc router :data $ match (calcit.core/get router :name)
+                          (:some selected-route-name)
+                            match selected-route-name
+                              :home $ schema/assoc-legacy-optional ({}) :tasks $ schema/read-path user ([] :tasks :working)
+                              :history $ schema/assoc-legacy-optional
+                                {} $ :tasks $ twig-tasks-by-week
+                                  match (calcit.core/get router :data)
+                                    (:some value) (decode-map-as value 'app.schema/HistoryRoute)
+                                    (:none) (decode-map-as nil 'app.schema/HistoryRoute)
+                                  match
+                                    schema/read-path user $ [] :tasks :finished
+                                    (:some value)
+                                      decode-map-as value $ Map String $ Map Tag Dynamic
+                                    (:none)
+                                      decode-map-as nil $ Map String $ Map Tag Dynamic
+                                , :week $ calcit.core/get router :data
+                              :notes $ twig-notes-by-month
                                 match (calcit.core/get router :data)
-                                  (:some value) (decode-map-as value 'app.schema/HistoryRoute)
-                                  (:none) (decode-map-as nil 'app.schema/HistoryRoute)
+                                  (:some value) (decode-map-as value 'app.schema/NotesRoute)
+                                  (:none) (decode-map-as nil 'app.schema/NotesRoute)
                                 decode-map-as
-                                  schema/read-path user $ [] :tasks :finished
-                                  :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                            :notes $ twig-notes-by-month
-                              match (calcit.core/get router :data)
-                                (:some value) (decode-map-as value 'app.schema/NotesRoute)
-                                (:none) (decode-map-as nil 'app.schema/NotesRoute)
-                              decode-map-as
-                                match (calcit.core/get user :notes)
-                                  (:some notes-value)
-                                    if (map? notes-value) notes-value $ {}
-                                  (:none) ({})
-                                :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                            :profile $ twig-members
-                              match (calcit.core/get db :sessions)
-                                (:some value)
-                                  decode-map-as value $ :: 'Map 'Dynamic $ :: 'Map 'Tag 'Dynamic
-                                (:none)
-                                  decode-map-as nil $ :: 'Map 'Dynamic $ :: 'Map 'Tag 'Dynamic
-                              match (calcit.core/get db :users)
-                                (:some value)
-                                  decode-map-as value $ :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                                (:none)
-                                  decode-map-as nil $ :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
-                            _ $ {}
-                        (:none) ({})
-                      :count $ count $ match (calcit.core/get db :sessions)
-                        (:some value) (decode-map-as value 'Map)
-                        (:none) (decode-map-as nil 'Map)
-                      :color $ rand-hex-color!
-                      :today $ match (calcit.core/get db :today)
-                        (:some value) value
-                        (:none) nil
+                                  match (calcit.core/get user :notes)
+                                    (:some notes-value)
+                                      if (map? notes-value) notes-value $ {}
+                                    (:none) ({})
+                                  Map String $ Map Tag Dynamic
+                              :profile $ twig-members
+                                match (calcit.core/get db :sessions)
+                                  (:some value)
+                                    decode-map-as value $ Map Dynamic $ Map Tag Dynamic
+                                  (:none)
+                                    decode-map-as nil $ Map Dynamic $ Map Tag Dynamic
+                                match (calcit.core/get db :users)
+                                  (:some value)
+                                    decode-map-as value $ Map String $ Map Tag Dynamic
+                                  (:none)
+                                    decode-map-as nil $ Map String $ Map Tag Dynamic
+                              _ $ {}
+                          (:none) ({})
+                        :count $ count $ match (calcit.core/get db :sessions)
+                          (:some value) (decode-map-as value 'Map)
+                          (:none) (decode-map-as nil 'Map)
+                        :color $ rand-hex-color!
+                      , :today $ get db :today
                   {}
-                :: 'Map 'Tag 'Dynamic
+                Map Tag Dynamic
           :examples $ []
           :schema $ quote $ Fn (Map Tag D) S (List R)
             -> $ Map Tag Dynamic
@@ -6046,7 +6193,7 @@
           :tests $ []
             %{} 'TestEntry (:name |defaults-missing-session)
               :code $ quote $ let
-                  init-db $ decode-map-as ({}) (:: 'Map 'Tag 'Dynamic)
+                  init-db $ decode-map-as ({}) (Map Tag Dynamic)
                   init-records $ []
                   result $ twig-container init-db nil init-records
                 assert= true $ map? result
@@ -6060,7 +6207,7 @@
                   db $ assoc-in schema/database ([] :users |u) user
                   session $ assoc schema/session :user-id |u
                   twig $ twig-container
-                    decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                    decode-map-as db $ Map Tag Dynamic
                     , session $ []
                   visible-user $ match (calcit.core/get twig :user)
                     (:some value) value
@@ -6079,9 +6226,9 @@
                   session $ assoc session0 :router $ {} (:name :notes)
                     :data $ {} (:year 2026) (:month 8)
                   twig $ twig-container
-                    decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                    decode-map-as db $ Map Tag Dynamic
                     , session $ []
-                  notes $ schema/read-path twig $ [] :router :data
+                  notes $ .unwrap $ schema/read-path twig ([] :router :data)
                 assert |legacy-notes-stays-map $ map? notes
                 assert |legacy-notes-is-empty $ empty? notes
               :tags $ #{} :server
@@ -6092,7 +6239,7 @@
                   route $ {} (:name :future-route) (:data |old-data) (|extension 42)
                   session $ assoc (assoc schema/session :user-id |u1) :router route
                   twig $ twig-container
-                    decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                    decode-map-as db $ Map Tag Dynamic
                     , session $ []
                 assert=
                   assoc route :data $ {}
@@ -6104,7 +6251,7 @@
               :code $ quote $ let
                   session $ assoc schema/session :router |opaque-router
                   twig $ twig-container
-                    decode-map-as schema/database $ :: 'Map 'Tag 'Dynamic
+                    decode-map-as schema/database $ Map Tag Dynamic
                     , session $ []
                 assert= |opaque-router $ match (calcit.core/get twig :router)
                   (:some value) value
@@ -6123,7 +6270,7 @@
                   failed? $ try
                     do
                       twig-container
-                        decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                        decode-map-as db $ Map Tag Dynamic
                         , session $ []
                       , false
                     fn (message) true
@@ -6141,11 +6288,11 @@
                     , :sessions sessions
                   session $ assoc (assoc schema/session :user-id |u1) :router $ {} (:name :profile) (:data nil)
                   twig $ twig-container
-                    decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                    decode-map-as db $ Map Tag Dynamic
                     , session $ []
                 assert=
                   {} (7 |Alice) (:guest "|访客") (|legacy |Alice)
-                  schema/read-path twig $ [] :router :data
+                  .unwrap $ schema/read-path twig $ [] :router :data
               :tags $ #{} :server
             %{} 'TestEntry (:name |profile-rejects-non-map-session)
               :code $ quote $ let
@@ -6157,7 +6304,7 @@
                   failed? $ try
                     do
                       twig-container
-                        decode-map-as db $ :: 'Map 'Tag 'Dynamic
+                        decode-map-as db $ Map Tag Dynamic
                         , session $ []
                       , false
                     fn (message) true
@@ -6167,7 +6314,7 @@
               :code $ quote $ let
                   base-user $ decode-map-as
                     {} (:id |u1) (:name |Alice)
-                    :: 'Map 'Tag 'Dynamic
+                    Map Tag Dynamic
                   session $ assoc (assoc schema/session :user-id |u1) :router $ {} (:name :notes)
                     :data $ {} (:year 2026) (:month 8)
                   check-user! $ fn (user)
@@ -6175,10 +6322,10 @@
                     let
                         db $ decode-map-as
                           assoc-in schema/database ([] :users |u1) user
-                          :: 'Map 'Tag 'Dynamic
+                          Map Tag Dynamic
                         twig $ twig-container db session $ []
                       assert= ({})
-                        schema/read-path twig $ [] :router :data
+                        .unwrap $ schema/read-path twig $ [] :router :data
                     , &unit
                 check-user! base-user
                 check-user! $ assoc base-user :notes nil
@@ -6190,8 +6337,8 @@
               :tags $ #{} :option-leaf-contract :server
             %{} 'TestEntry (:name |preserves-logged-out-router-wire)
               :code $ quote $ let
-                  db $ decode-map-as schema/database $ :: 'Map 'Tag 'Dynamic
-                  base $ decode-map-as ({}) (:: 'Map 'Tag 'Dynamic)
+                  db $ decode-map-as schema/database $ Map Tag Dynamic
+                  base $ decode-map-as ({}) (Map Tag Dynamic)
                   check-router! $ fn (session expected)
                     hint-fn $ Fn (Map Tag Dynamic) Dynamic $ -> Unit
                     let
@@ -6217,7 +6364,7 @@
               :code $ quote $ let
                   db $ decode-map-as
                     assoc-in schema/database ([] :users |u1) (assoc schema/user :id |u1)
-                    :: 'Map 'Tag 'Dynamic
+                    Map Tag Dynamic
                   session $ assoc schema/session :user-id |u1
                   check-router-error! $ fn (candidate raw)
                     hint-fn $ Fn (Map Tag Dynamic) Dynamic $ -> Unit
@@ -6247,7 +6394,7 @@
                   []
                 let
                     user-error $ try
-                      decode-map-as nil $ :: 'Map 'Tag 'Dynamic
+                      decode-map-as nil $ Map Tag Dynamic
                       fn (message) message
                   assert= user-error $ try
                     do
@@ -6298,7 +6445,7 @@
                       8 $ {} $ :user-id nil
                       9 $ {} $ :user-id |missing
                       10 $ {} $ :user-id |empty
-                    :: 'Map 'Number $ :: 'Map 'Tag 'Dynamic
+                    Map Number $ Map Tag Dynamic
                   string-sessions $ {} $ |guest
                     {} $ :user-id nil
                 assert=
@@ -6325,7 +6472,7 @@
                       | $ {} $ :name |Empty-id
                       |nil-name $ {} $ :name nil
                       |missing-name $ {}
-                    :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                    Map String $ Map Tag Dynamic
                   sessions $ decode-map-as
                     {}
                       1 $ {}
@@ -6340,7 +6487,7 @@
                       10 $ {} $ :user-id |unknown
                       11 $ {} $ :user-id true
                       12 $ {} $ :user-id :alice
-                    :: 'Map 'Number $ :: 'Map 'Tag 'Dynamic
+                    Map Number $ Map Tag Dynamic
                 assert=
                   {} (1 "|访客") (2 "|访客") (3 "|访客") (4 "|访客") (5 |Empty-id) (6 |Alice) (7 |) (8 "|访客") (9 "|访客") (10 "|访客") (11 "|访客") (12 "|访客")
                   twig-members sessions users
@@ -6362,7 +6509,7 @@
                           {} $ 7 $ {} (:user-id |alice)
                           decode-map-as
                             {} $ |alice $ {} (:name value)
-                            :: 'Map 'String $ :: 'Map 'Tag 'Dynamic
+                            Map String $ Map Tag Dynamic
                         fn (message) message
                     , &unit
                 check-name! false
@@ -6380,7 +6527,7 @@
               -> notes (identity)
                 &map:filter-kv $ fn (k task)
                   let
-                      fields $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
+                      fields $ decode-map-as task $ Map Tag Dynamic
                       time $ extract-time $ Date0 :date
                         match (calcit.core/get fields :time)
                           (:some value) (decode-map-as value 'Number)
@@ -6411,7 +6558,7 @@
               -> tasks (identity)
                 &map:filter-kv $ fn (k task)
                   let
-                      fields $ decode-map-as task $ :: 'Map 'Tag 'Dynamic
+                      fields $ decode-map-as task $ Map Tag Dynamic
                       t $ match (calcit.core/get fields :finished-time)
                         (:some value) (decode-map-as value 'Number)
                         (:none) (decode-map-as nil 'Number)
@@ -6529,11 +6676,16 @@
                     schema/Op :user/log-in $ [] |Alice |secret
                     , 7 |login 11
                   disconnected $ updater logged-in (schema/Op :session/disconnect) 7 |disconnect 12
-                assert= |edited $ schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :text
-                assert= 6 $ schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :touched-time
-                assert= |new-note $ schema/read-path legacy $ [] :users |u1 :notes |n1 :text
-                assert= |u1 $ schema/read-path (schema/database-to-map logged-in) ([] :sessions 7 :user-id)
-                assert= nil $ schema/read-path (schema/database-to-map removed) ([] :users |u1 :notes |n1)
+                assert= (Option :some |edited)
+                  schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :text
+                assert= (Option :some 6)
+                  schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :touched-time
+                assert= (Option :some |new-note)
+                  schema/read-path legacy $ [] :users |u1 :notes |n1 :text
+                assert= (Option :some |u1)
+                  schema/read-path (schema/database-to-map logged-in) ([] :sessions 7 :user-id)
+                assert= (Option :none)
+                  schema/read-path (schema/database-to-map removed) ([] :users |u1 :notes |n1)
                 assert= logged-out $ updater logged-out (schema/Op :task/create-working |forbidden) 7 |bad 12
                 assert= disconnected $ updater disconnected (schema/Op :note/add |late) 7 |bad 13
                 assert= disconnected $ updater disconnected
@@ -6554,10 +6706,13 @@
                     schema/Op :user/sign-up $ [] |Alice |secret
                     , 7 |duplicate 5
                   legacy $ schema/database-to-map duplicate
-                assert= nil $ schema/read-path legacy $ [] :sessions 7 :user-id
+                assert= (Option :some nil)
+                  schema/read-path legacy $ [] :sessions 7 :user-id
                 assert= 1 $ count $ :users duplicate
-                assert= "|Wrong password for Alice" $ schema/read-path legacy $ [] :sessions 7 :messages |wrong :text
-                assert= "|Name is taken: Alice" $ schema/read-path legacy $ [] :sessions 7 :messages |duplicate :text
+                assert= (Option :some "|Wrong password for Alice")
+                  schema/read-path legacy $ [] :sessions 7 :messages |wrong :text
+                assert= (Option :some "|Name is taken: Alice")
+                  schema/read-path legacy $ [] :sessions 7 :messages |duplicate :text
                 assert= signed $ updater signed (schema/Op :task/touch-working |absent) 7 |op 6
                 assert= signed $ updater signed (schema/Op :task/pend |absent) 7 |op 6
                 assert= signed $ updater signed (schema/Op :task/finish-working |absent) 7 |op 6
@@ -6762,9 +6917,11 @@
                 once $ pend db |t1 7 |op1 1
                 twice $ pend once |t1 7 |op2 2
                 legacy $ schema/database-to-map once
-              assert= true $ schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :pending?
+              assert= (Option :some true)
+                schema/read-path legacy $ [] :users |u1 :tasks :working |t1 :pending?
               assert= db twice
-              assert= true $ schema/read-path (schema/database-to-map twice) ([] :users |u1 :tasks :working |t2 :pending?)
+              assert= (Option :some true)
+                schema/read-path (schema/database-to-map twice) ([] :users |u1 :tasks :working |t2 :pending?)
             :tags $ #{} :server
         'put-back $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn put-back (db op-data sid op-id op-time)
@@ -6797,7 +6954,8 @@
                 db $ schema/test-database
                 updated $ schema/database-to-map $ remove-working db |t1 7 |op 1
                 original $ schema/database-to-map db
-              assert= nil $ schema/read-path updated $ [] :users |u1 :tasks :working |t1
+              assert= (Option :none)
+                schema/read-path updated $ [] :users |u1 :tasks :working |t1
               assert=
                 schema/read-path original $ [] :users |u1 :tasks :working |t2
                 schema/read-path updated $ [] :users |u1 :tasks :working |t2
