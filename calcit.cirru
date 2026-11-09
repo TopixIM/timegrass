@@ -183,7 +183,9 @@
                     {} $ :data |untouched
               reset! *states initial
               let
-                  returned $ dispatch! $ schema/Op :states cursor state
+                  returned $ dispatch! $ schema/Op :states
+                    decode-map-as cursor $ List app.schema/StateKey
+                    , state
                   updated @*states
                 reset! *states saved
                 assert= &unit returned
@@ -216,6 +218,12 @@
                     do (dispatch-render-operation! nil) false
                     fn (message) (starts-with? message "|Expected application operation enum")
                 assert= true rejected
+                assert= true $ try
+                  do
+                    dispatch-render-operation! $ :: :states ([] :panel true)
+                      {} $ :text |Invalid
+                    , false
+                  fn (message) (starts-with? message "|Invalid states cursor:")
                 assert= saved @*states
               :tags $ #{} :client :js
             %{} 'TestEntry
@@ -229,7 +237,9 @@
                       {} $ :data |untouched
                 reset! *states initial
                 let
-                    returned $ dispatch-render-operation! $ schema/Op :states cursor state
+                    returned $ dispatch-render-operation! $ schema/Op :states
+                      decode-map-as cursor $ List app.schema/StateKey
+                      , state
                     updated @*states
                   reset! *states saved
                   assert= &unit returned
@@ -3489,7 +3499,7 @@
             :effect/ping
             :effect/pong
             :effect/connect
-            :states (List Dynamic) Dynamic
+            :states (List app.schema/StateKey) Dynamic
           :examples $ []
           :schema $ quote EnumDef
         'Route $ %{} 'CodeEntry (:doc |)
@@ -3511,6 +3521,10 @@
             :messages $ Map String app.schema/NotificationRecord
           :examples $ []
           :schema $ quote StructDef
+        'StateKey $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defunion StateKey Tag String Number
+          :examples $ []
+          :schema $ quote UnionDef
         'TaskEdit $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct TaskEdit (:id String) (:text String)
           :examples $ []
@@ -4048,7 +4062,7 @@
                   Result :ok $ Op :effect/connect
                 (:states cursor state)
                   match
-                    try-decode-map-as cursor $ List Dynamic
+                    try-decode-map-as cursor $ List app.schema/StateKey
                     (:ok checked-cursor)
                       Result :ok $ Op :states checked-cursor state
                     (:err message)
@@ -4214,7 +4228,9 @@
               :code $ quote $ let
                   cursor $ [] :panel |task-1 7
                   state $ {} (:editing? true) (:text |Draft)
-                  operation $ Op :states cursor state
+                  operation $ Op :states
+                    decode-map-as cursor $ List app.schema/StateKey
+                    , state
                 assert= (Result :ok operation)
                   decode-operation $ :: :states cursor state
                 assert= (Result :ok operation)
