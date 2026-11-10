@@ -1926,8 +1926,8 @@
                     comp-icon :delete
                       &{} :font-size 16 :cursor :pointer :color $ hsl 10 80 60
                       fn (e d!)
-                        hint-fn $ Fn Dynamic
-                          Fn AnyEnum (-> Unit) (:open :reflect)
+                        hint-fn $ Fn respo.schema/RespoEvent
+                          Fn app.schema/Op $ -> Unit
                           -> Unit
                         .show remove-plugin d! $ fn ()
                           hint-fn $ Fn $ -> Unit
@@ -2741,7 +2741,7 @@
                     , &unit
                   fn (item d!)
                     hint-fn $ Fn Dynamic
-                      Fn AnyEnum (-> Unit) (:open :reflect)
+                      Fn app.schema/Op $ -> Unit
                       -> Unit
                     if (nil? item)
                       d! $ :: :states cursor $ assoc state :menu? false
