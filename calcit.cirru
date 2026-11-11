@@ -835,7 +835,7 @@
           :code $ quote $ def offline-style
             merge-styles ui/global ui/fullscreen ui/column-dispersive $ {} $ :background-color (:theme config/site)
           :examples $ []
-          :schema $ quote $ Map Tag Dynamic
+          :schema $ quote $ Map Tag respo-ui.schema/StyleValue
         'style-body $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def style-body
             {} $ :padding "|8px 16px"
@@ -1275,8 +1275,9 @@
                 format-timestamp (:finished-time task) |YYYY-MM-DD
           :examples $ []
           :schema $ quote $ Fn
-            Map String $ Map Tag Dynamic
+            Map String $ Map Tag V
             -> $ Map String $ List schema/FinishedTaskView
+            :generics V
           :tests $ []
             %{} 'TestEntry (:name |groups-validated-tasks-by-day)
               :code $ quote $ let
@@ -3153,7 +3154,7 @@
                   (:some value) (decode-map-as value 'Number)
                   (:none) (decode-map-as nil 'Number)
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic) (-> Number)
+          :schema $ quote $ Fn (Map Tag V) (-> Number) (:generics V)
           :tests $ []
             %{} 'TestEntry (:name |preserves-effective-timestamp)
               :code $ quote $ do
@@ -3838,8 +3839,9 @@
               select-keys raw $ [] :id :text :finished-time
               , FinishedTaskView
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic)
+          :schema $ quote $ Fn (Map Tag V)
             -> $ Result FinishedTaskView String
+            :generics V
           :tests $ []
             %{} 'TestEntry (:name |keeps-only-history-fields)
               :code $ quote $ assert= true
@@ -6111,9 +6113,9 @@
           :doc "|Combines heterogeneous Respo style maps at the rendering boundary."
           :code $ quote $ defn merge-styles (x0 & xs) (reduce xs x0 &merge)
           :examples $ []
-          :schema $ quote $ Fn (Map Tag Dynamic)
-            & $ Map Tag Dynamic
-            -> $ Map Tag Dynamic
+          :schema $ quote $ Fn (Map Tag respo-ui.schema/StyleValue)
+            & $ Map Tag respo-ui.schema/StyleValue
+            -> $ Map Tag respo-ui.schema/StyleValue
       :ns $ %{} 'NsEntry (:doc |)
         :code $ quote $ ns app.style
           :require
