@@ -372,7 +372,7 @@
                     (:none)
                       comp-container nil $ :store ready
               fn (op)
-                hint-fn $ Fn app.schema/Op $ -> Unit
+                hint-fn $ Fn schema/Op $ -> Unit
                 dispatch-render-operation! op
           :examples $ []
           :schema $ quote $ Fn (-> Unit)
@@ -940,11 +940,11 @@
                 assert= :comp-done-task $ :name $ comp-done-task string-branch task
                 assert= :comp-done-task $ :name $ comp-done-task number-branch task
                 assert= ([] :root :panel)
-                  .unwrap $ calcit.core/get tag-branch :cursor
+                  .unwrap $ &map:get tag-branch :cursor
                 assert= ([] :root |task-1)
-                  .unwrap $ calcit.core/get string-branch :cursor
+                  .unwrap $ &map:get string-branch :cursor
                 assert= ([] :root 7)
-                  .unwrap $ calcit.core/get number-branch :cursor
+                  .unwrap $ &map:get number-branch :cursor
                 assert= ([] :root)
                   .unwrap $ calcit.core/get root :cursor
               :tags $ #{} :js
@@ -964,7 +964,7 @@
                     .unwrap $ .get (:event tree) :click
                   calls $ ref 0
                   dispatch! $ fn (op)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     match op
                       (:states path payload)
                         do (assert= cursor path)
@@ -1029,7 +1029,7 @@
                     .unwrap $ .get (:event button) :click
                   calls $ ref 0
                   dispatch! $ fn (operation)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     match operation
                       (:states path payload)
                         do (assert= cursor path)
@@ -1075,7 +1075,7 @@
                     .unwrap $ .get (:event button) :click
                   calls $ ref 0
                   dispatch! $ fn (operation)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     match operation
                       (:states path payload)
                         do (assert= cursor path)
@@ -1271,7 +1271,7 @@
                   (:ok task) task
                   (:err message) (raise message)
               group-by $ fn (task)
-                hint-fn $ Fn app.schema/FinishedTaskView $ -> String
+                hint-fn $ Fn schema/FinishedTaskView $ -> String
                 format-timestamp (:finished-time task) |YYYY-MM-DD
           :examples $ []
           :schema $ quote $ Fn
@@ -1311,7 +1311,7 @@
         'sort-finished-tasks $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn sort-finished-tasks (tasks)
             &list:sort-by tasks $ fn (task)
-              hint-fn $ Fn app.schema/FinishedTaskView $ -> Number
+              hint-fn $ Fn schema/FinishedTaskView $ -> Number
               negate $ :finished-time task
           :examples $ []
           :schema $ quote $ Fn (List schema/FinishedTaskView)
@@ -1372,7 +1372,7 @@
                         :style ui/input
                         :on-input $ fn (e d!)
                           hint-fn $ Fn respo.schema/RespoEvent
-                            Fn app.schema/Op $ -> Unit
+                            Fn schema/Op $ -> Unit
                             -> Unit
                           d! $ :: :states cursor $ assoc state :username
                             str $ :value e
@@ -1383,7 +1383,7 @@
                         :style ui/input
                         :on-input $ fn (e d!)
                           hint-fn $ Fn respo.schema/RespoEvent
-                            Fn app.schema/Op $ -> Unit
+                            Fn schema/Op $ -> Unit
                             -> Unit
                           d! $ :: :states cursor $ assoc state :password
                             str $ :value e
@@ -1522,7 +1522,7 @@
                           .unwrap $ .get (:event input) :input
                         calls $ ref 0
                         dispatch! $ fn (operation)
-                          hint-fn $ Fn app.schema/Op $ -> Unit
+                          hint-fn $ Fn schema/Op $ -> Unit
                           match operation
                             (:states path payload)
                               do (assert= cursor path)
@@ -1620,7 +1620,7 @@
           :code $ quote $ defn on-submit (username password signup?)
             fn (e dispatch!)
               hint-fn $ Fn (Map Tag Dynamic)
-                Fn app.schema/Op $ -> Unit
+                Fn schema/Op $ -> Unit
                 -> Unit
               dispatch! $ if signup?
                 schema/Op :user/sign-up $ [] username password
@@ -1638,7 +1638,7 @@
                   calls $ ref 0
                   handler $ on-submit |type-test-user |type-test-password false
                   dispatch! $ fn (op)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     assert=
                       schema/Op :user/log-in $ [] |type-test-user |type-test-password
                       , op
@@ -1653,7 +1653,7 @@
                   calls $ ref 0
                   handler $ on-submit |type-test-user |type-test-password true
                   dispatch! $ fn (op)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     assert=
                       schema/Op :user/sign-up $ [] |type-test-user |type-test-password
                       , op
@@ -1899,7 +1899,7 @@
                       &{} :font-size 16 :curspr :pointer :color $ hsl 200 80 80
                       fn (e d!)
                         hint-fn $ Fn Dynamic
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         .show edit-plugin d! $ fn (result)
                           hint-fn $ Fn String $ -> Unit
@@ -1915,7 +1915,7 @@
                       &{} :font-size 16 :cursor :pointer :color $ hsl 10 80 60
                       fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
-                          Fn app.schema/Op $ -> Unit
+                          Fn schema/Op $ -> Unit
                           -> Unit
                         .show remove-plugin d! $ fn ()
                           hint-fn $ Fn $ -> Unit
@@ -1946,11 +1946,11 @@
                 assert= :comp-note $ :name $ comp-note string-branch note
                 assert= :comp-note $ :name $ comp-note number-branch note
                 assert= ([] :root :panel)
-                  .unwrap $ calcit.core/get tag-branch :cursor
+                  .unwrap $ &map:get tag-branch :cursor
                 assert= ([] :root |note-1)
-                  .unwrap $ calcit.core/get string-branch :cursor
+                  .unwrap $ &map:get string-branch :cursor
                 assert= ([] :root 7)
-                  .unwrap $ calcit.core/get number-branch :cursor
+                  .unwrap $ &map:get number-branch :cursor
                 assert= ([] :root)
                   .unwrap $ calcit.core/get root :cursor
               :tags $ #{} :js
@@ -2048,7 +2048,7 @@
                         &{} :font-size 16 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
                           hint-fn $ Fn Dynamic
-                            Fn app.schema/Op $ -> Unit
+                            Fn schema/Op $ -> Unit
                             -> Unit
                           .show add-plugin d! $ fn (result)
                             hint-fn $ Fn String $ -> Unit
@@ -2230,13 +2230,13 @@
                 op $ schema/Op :user/log-in $ [] |type-test-user |type-test-password
                 handler $ fn (e d!)
                   hint-fn $ Fn respo.schema/RespoEvent
-                    Fn app.schema/Op $ -> Unit
+                    Fn schema/Op $ -> Unit
                     -> Unit
                   assert= event e
                   reset! calls $ inc @calls
                   d! op
                 dispatch! $ fn (received)
-                  hint-fn $ Fn app.schema/Op $ -> Unit
+                  hint-fn $ Fn schema/Op $ -> Unit
                   assert= op received
                   reset! dispatches $ inc @dispatches
                   , &unit
@@ -2302,7 +2302,7 @@
                         &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
                           hint-fn $ Fn Dynamic
-                            Fn app.schema/Op $ -> Unit
+                            Fn schema/Op $ -> Unit
                             -> Unit
                           .show create-plugin d! $ fn (result)
                             hint-fn $ Fn String $ -> Unit
@@ -2310,11 +2310,11 @@
                             , &unit
                           , &unit
                       assert-type None $ Option $ Fn respo.schema/RespoEvent
-                        Fn app.schema/Op $ -> Unit
+                        Fn schema/Op $ -> Unit
                         -> Unit
                     comp-global-keydown $ fn (e d!)
                       hint-fn $ Fn respo.schema/RespoEvent
-                        Fn app.schema/Op $ -> Unit
+                        Fn schema/Op $ -> Unit
                         -> Unit
                       when
                         and
@@ -2354,7 +2354,7 @@
                         assert-type None $ Option respo.schema/Component
                         Some $ fn (e d!)
                           hint-fn $ Fn respo.schema/RespoEvent
-                            Fn app.schema/Op $ -> Unit
+                            Fn schema/Op $ -> Unit
                             -> Unit
                           d! $ :: :states cursor $ update state :show-later? not
                           , &unit
@@ -2422,7 +2422,7 @@
                     .unwrap $ .get (:event title-tree) :click
                   calls $ ref 0
                   dispatch! $ fn (op)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     match op
                       (:states path payload)
                         do (assert= cursor path)
@@ -2533,7 +2533,7 @@
                     .unwrap $ .get (:event tree) :keydown
                   calls $ ref 0
                   dispatch! $ fn (op)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     swap! calls inc
                     , &unit
                   check-event! $ fn (event expected)
@@ -2543,7 +2543,7 @@
                     assert= expected @calls
                     , &unit
                   reject-dispatch! $ fn (op)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     raise |Keyboard-dispatch-error
                 check-event!
                     fn ()
@@ -2728,7 +2728,7 @@
                     , &unit
                   fn (item d!)
                     hint-fn $ Fn Dynamic
-                      Fn app.schema/Op $ -> Unit
+                      Fn schema/Op $ -> Unit
                       -> Unit
                     if (nil? item)
                       d! $ :: :states cursor $ assoc state :menu? false
@@ -2789,11 +2789,11 @@
                 assert= :comp-task $ :name $ comp-task string-branch task :working
                 assert= :comp-task $ :name $ comp-task number-branch task :working
                 assert= ([] :root :panel)
-                  .unwrap $ calcit.core/get tag-branch :cursor
+                  .unwrap $ &map:get tag-branch :cursor
                 assert= ([] :root |task-1)
-                  .unwrap $ calcit.core/get string-branch :cursor
+                  .unwrap $ &map:get string-branch :cursor
                 assert= ([] :root 7)
-                  .unwrap $ calcit.core/get number-branch :cursor
+                  .unwrap $ &map:get number-branch :cursor
                 assert= ([] :root)
                   .unwrap $ calcit.core/get root :cursor
               :tags $ #{} :js
@@ -2813,7 +2813,7 @@
                     .unwrap $ .get (:event tree) :click
                   calls $ ref 0
                   dispatch! $ fn (op)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     match op
                       (:states path payload)
                         do (assert= cursor path)
@@ -2880,7 +2880,7 @@
                     .unwrap $ .get (:event button) :click
                   calls $ ref 0
                   dispatch! $ fn (operation)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     match operation
                       (:states path payload)
                         do (assert= cursor path)
@@ -2928,7 +2928,7 @@
                     .unwrap $ .get (:event button) :click
                   calls $ ref 0
                   dispatch! $ fn (operation)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     match operation
                       (:states path payload)
                         do (assert= cursor path)
@@ -2971,7 +2971,7 @@
                   {}
                 :on-click $ fn (e d!)
                   hint-fn $ Fn respo.schema/RespoEvent
-                    Fn app.schema/Op $ -> Unit
+                    Fn schema/Op $ -> Unit
                     -> Unit
                   match on-click
                     (:some handler) (handler e d!)
@@ -3015,12 +3015,12 @@
                   calls $ ref 0
                   handler $ fn (e d!)
                     hint-fn $ Fn respo.schema/RespoEvent
-                      Fn app.schema/Op $ -> Unit
+                      Fn schema/Op $ -> Unit
                       -> Unit
                     reset! calls $ inc @calls
                     , &unit
                   dispatch! $ fn (op)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     , &unit
                 let
                     component $ comp-title |Title None $ do
@@ -3075,7 +3075,7 @@
                     reset! evaluations $ inc @evaluations
                     , false
                   dispatch! $ fn (op)
-                    hint-fn $ Fn app.schema/Op $ -> Unit
+                    hint-fn $ Fn schema/Op $ -> Unit
                     raise |Unexpected-dispatch
                 assert= true $ nil? old-nil
                 assert= false old-false
@@ -3544,7 +3544,7 @@
         'add-session-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn add-session-message (db sid id text)
             update-session db sid $ fn (session-record)
-              hint-fn $ Fn app.schema/SessionRecord $ -> app.schema/SessionRecord
+              hint-fn $ Fn SessionRecord $ -> SessionRecord
               struct-with session-record $ :messages $ assoc (:messages session-record) id (NotificationRecord :id id :text text)
           :examples $ []
           :schema $ quote $ Fn DatabaseRecord Number String String (-> DatabaseRecord)
@@ -4733,7 +4733,7 @@
                     users $ :users decoded-legacy
                     decoded $ let
                         seed $ Result :ok $ {}
-                      assert-type seed $ Result (Map String app.schema/UserRecord) String
+                      assert-type seed $ Result (Map String UserRecord) String
                       fold (map-entries users) seed $ fn (acc entry)
                         match acc
                           (:err message) (Result :err message)
@@ -5236,7 +5236,7 @@
                       schema/load-database $ parse-cirru-edn raw-data
                       (:ok db) db
                       (:err reason) (raise reason)
-                    , 'app.schema/DatabaseRecord
+                    , schema/DatabaseRecord
                 println |[storage] |loading storage-file |bytes $ count raw-data
                 println |[storage] |loaded storage-file |users $ count $ :users loaded-db
                 , loaded-db
@@ -5696,7 +5696,7 @@
         'persist-db! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn persist-db! ()
             let
-                db $ assert-type (:db @*reel) 'app.schema/DatabaseRecord
+                db $ assert-type (:db @*reel) schema/DatabaseRecord
                 file-content $ format-cirru-edn $ schema/database-to-map
                   struct-with db $ :sessions $ {}
                 storage-path storage-file
@@ -5968,7 +5968,7 @@
             let
                 today $ format-time (current-date!) (Some |%Y-%m-%d)
                 reel @*reel
-                old-today $ :today $ assert-type (:db reel) 'app.schema/DatabaseRecord
+                old-today $ :today $ assert-type (:db reel) schema/DatabaseRecord
               when (not= today old-today)
                 dispatch! (schema/Op :today today) 0
             , &unit
@@ -6767,7 +6767,7 @@
                       schema/load-database $ {}
                       (:ok value) value
                       (:err message) (raise message)
-                    , 'app.schema/DatabaseRecord
+                    , schema/DatabaseRecord
                   updated $ set-today loaded |2026-09-27 7 |op 1
                 assert= |2026-09-27 $ :today updated
               :tags $ #{} :server
@@ -6779,14 +6779,14 @@
         'add-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn add-note (db op-data sid op-id op-time)
             schema/update-user db sid $ fn (user-record)
-              hint-fn $ Fn app.schema/UserRecord $ -> app.schema/UserRecord
+              hint-fn $ Fn schema/UserRecord $ -> schema/UserRecord
               struct-with user-record $ :notes $ assoc (:notes user-record) op-id (schema/NoteRecord :id op-id :text op-data :time op-time)
           :examples $ []
           :schema $ quote $ Fn schema/DatabaseRecord String Number String Number (-> schema/DatabaseRecord)
         'edit-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn edit-note (db op-data sid op-id op-time)
             schema/update-user db sid $ fn (user-record)
-              hint-fn $ Fn app.schema/UserRecord $ -> app.schema/UserRecord
+              hint-fn $ Fn schema/UserRecord $ -> schema/UserRecord
               match
                 get (:notes user-record) (:id op-data)
                 (:none) user-record
@@ -6798,7 +6798,7 @@
         'remove-note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-note (db op-data sid op-id op-time)
             schema/update-user db sid $ fn (user-record)
-              hint-fn $ Fn app.schema/UserRecord $ -> app.schema/UserRecord
+              hint-fn $ Fn schema/UserRecord $ -> schema/UserRecord
               struct-with user-record $ :notes $ .dissoc (:notes user-record) op-data
           :examples $ []
           :schema $ quote $ Fn schema/DatabaseRecord String Number String Number (-> schema/DatabaseRecord)
@@ -6810,7 +6810,7 @@
         %{} 'CodeEntry (:doc |)
           :code $ quote $ defn change (db op-data sid op-id op-time)
             schema/update-session db sid $ fn (session-record)
-              hint-fn $ Fn app.schema/SessionRecord $ -> app.schema/SessionRecord
+              hint-fn $ Fn schema/SessionRecord $ -> schema/SessionRecord
               struct-with session-record $ :router op-data
           :examples $ []
           :schema $ quote $ Fn schema/DatabaseRecord schema/Route Number String Number (-> schema/DatabaseRecord)
@@ -6855,7 +6855,7 @@
         'remove-message $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-message (db op-data sid op-id op-time)
             schema/update-session db sid $ fn (session-record)
-              hint-fn $ Fn app.schema/SessionRecord $ -> app.schema/SessionRecord
+              hint-fn $ Fn schema/SessionRecord $ -> schema/SessionRecord
               struct-with session-record $ :messages $ .dissoc (:messages session-record) op-data
           :examples $ []
           :schema $ quote $ Fn schema/DatabaseRecord String Number String Number (-> schema/DatabaseRecord)
@@ -6889,7 +6889,7 @@
         'create-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn create-working (db op-data sid op-id op-time)
             schema/update-user db sid $ fn (user-record)
-              hint-fn $ Fn app.schema/UserRecord $ -> app.schema/UserRecord
+              hint-fn $ Fn schema/UserRecord $ -> schema/UserRecord
               let
                   tasks $ :tasks user-record
                   task $ schema/TaskRecord :id op-id :text op-data :detail | :pending? false :created-time $ Some op-time
@@ -6900,7 +6900,7 @@
         'finish-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn finish-working (db op-data sid op-id op-time)
             schema/update-user db sid $ fn (user-record)
-              hint-fn $ Fn app.schema/UserRecord $ -> app.schema/UserRecord
+              hint-fn $ Fn schema/UserRecord $ -> schema/UserRecord
               let
                   tasks $ :tasks user-record
                 match
@@ -6916,7 +6916,7 @@
         'pend $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn pend (db op-data sid op-id op-time)
             schema/update-user db sid $ fn (user-record)
-              hint-fn $ Fn app.schema/UserRecord $ -> app.schema/UserRecord
+              hint-fn $ Fn schema/UserRecord $ -> schema/UserRecord
               let
                   tasks $ :tasks user-record
                   id op-data
@@ -6944,7 +6944,7 @@
         'put-back $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn put-back (db op-data sid op-id op-time)
             schema/update-user db sid $ fn (user-record)
-              hint-fn $ Fn app.schema/UserRecord $ -> app.schema/UserRecord
+              hint-fn $ Fn schema/UserRecord $ -> schema/UserRecord
               let
                   tasks $ :tasks user-record
                 match
@@ -6960,7 +6960,7 @@
         'remove-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn remove-working (db op-data sid op-id op-time)
             schema/update-user db sid $ fn (user-record)
-              hint-fn $ Fn app.schema/UserRecord $ -> app.schema/UserRecord
+              hint-fn $ Fn schema/UserRecord $ -> schema/UserRecord
               let
                   tasks $ :tasks user-record
                 struct-with user-record $ :tasks $ struct-with tasks
@@ -6980,7 +6980,7 @@
         'touch-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn touch-working (db op-data sid op-id op-time)
             schema/update-user db sid $ fn (user-record)
-              hint-fn $ Fn app.schema/UserRecord $ -> app.schema/UserRecord
+              hint-fn $ Fn schema/UserRecord $ -> schema/UserRecord
               let
                   tasks $ :tasks user-record
                   id op-data
@@ -6996,7 +6996,7 @@
         'update-working $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn update-working (db op-data sid op-id op-time)
             schema/update-user db sid $ fn (user-record)
-              hint-fn $ Fn app.schema/UserRecord $ -> app.schema/UserRecord
+              hint-fn $ Fn schema/UserRecord $ -> schema/UserRecord
               let
                   tasks $ :tasks user-record
                   id $ :id op-data
@@ -7030,7 +7030,7 @@
                   existing $ find
                     -> (:users db) (.distinct-values) (.to-list)
                     fn (user-record)
-                      hint-fn $ Fn app.schema/UserRecord $ -> Bool
+                      hint-fn $ Fn schema/UserRecord $ -> Bool
                       = username $ :name user-record
                 match existing
                   (:none)
@@ -7042,7 +7042,7 @@
                           = digest $ md5 password
                         (:none) false
                       schema/update-session db sid $ fn (session-record)
-                        hint-fn $ Fn app.schema/SessionRecord $ -> app.schema/SessionRecord
+                        hint-fn $ Fn schema/SessionRecord $ -> schema/SessionRecord
                         struct-with session-record $ :user-id $ Some (:id user-record)
                       schema/add-session-message db sid op-id $ str "|Wrong password for " username
               , db
@@ -7051,7 +7051,7 @@
         'log-out $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn log-out (db sid op-id op-time)
             schema/update-session db sid $ fn (session-record)
-              hint-fn $ Fn app.schema/SessionRecord $ -> app.schema/SessionRecord
+              hint-fn $ Fn schema/SessionRecord $ -> schema/SessionRecord
               struct-with session-record $ :user-id None
           :examples $ []
           :schema $ quote $ Fn schema/DatabaseRecord Number String Number (-> schema/DatabaseRecord)
@@ -7071,7 +7071,7 @@
                   existing $ find
                     -> (:users db) (.distinct-values) (.to-list)
                     fn (user-record)
-                      hint-fn $ Fn app.schema/UserRecord $ -> Bool
+                      hint-fn $ Fn schema/UserRecord $ -> Bool
                       = username $ :name user-record
                 match existing
                   (:some _)
@@ -7086,7 +7086,7 @@
                         with-user $ struct-with db $ :users
                           assoc (:users db) op-id user-record
                       schema/update-session with-user sid $ fn (session-record)
-                        hint-fn $ Fn app.schema/SessionRecord $ -> app.schema/SessionRecord
+                        hint-fn $ Fn schema/SessionRecord $ -> schema/SessionRecord
                         struct-with session-record $ :user-id $ Some op-id
               , db
           :examples $ []
