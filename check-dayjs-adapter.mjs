@@ -147,9 +147,11 @@ try {
   assert.equal(bounds.nthAt(0, tags.end), expectedWeek.endOf('week').format(date_time_format));
   assert.throws(() => week_bounds(Number.NaN, 37), /Invalid-dayjs-week/);
 
-  const currentBounds = current_history_route().get(tags.data);
-  assert.match(currentBounds.get(tags.start), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2} [+-]\d{4}$/);
-  assert.match(currentBounds.get(tags.end), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2} [+-]\d{4}$/);
+  const currentRoute = current_history_route();
+  assert.equal(core._$n_enum_$o_nth(currentRoute, 0).value, 'history');
+  const currentBounds = core._$n_enum_$o_nth(currentRoute, 1);
+  assert.match(currentBounds.nthAt(1, tags.start), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2} [+-]\d{4}$/);
+  assert.match(currentBounds.nthAt(0, tags.end), /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2} [+-]\d{4}$/);
 
   const expectedDate = dayjs('2026-09-14');
   const labels = date_labels('2026-09-14');
