@@ -6,7 +6,7 @@ Time flies and tasks grow like grass.
 
 ### 本轮迁移影响与验收范围
 
-升级后前端与原生服务使用配对的 Calcit 和 `@calcit/procs` 0.41.0。部署前请备份存档，
+升级后前端与原生服务使用配对的 Calcit 和 `@calcit/procs` 0.41.1。部署前请备份存档，
 并在服务器准备匹配的正式 native 模块。旧 Cirru EDN 存档和 WebSocket 消息继续沿用。
 客户端在补丁无效或缺少快照时请求重新同步，并保留原有 ACK 和恢复流程。
 
@@ -72,7 +72,7 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-当前使用正式 Calcit / `@calcit/procs` `0.41.0`、Cumulo Reel `0.3.2`、
+当前使用正式 Calcit / `@calcit/procs` `0.41.1`、Cumulo Reel `0.3.2`、
 Recollect `0.3.4`、WS-EDN `0.1.1` 和 WSS Git 模块 `0.2.44`。笔记保持纯文本显示。
 
 Actions 只承担现有构建、验证及资源上传，不探测服务器内部 CLI、进程、模块元数据或
