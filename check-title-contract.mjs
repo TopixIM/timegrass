@@ -276,7 +276,7 @@ try {
     assert.ifError(result.error);
     assert.equal(result.status, expectedStatus, `callback contract: ${JSON.stringify(argument)}\n${result.stdout}\n${result.stderr}`);
     if (expectedStatus !== 0) {
-      assert.match(result.stdout + result.stderr, /[Tt]ype mismatch|E_DYNAMIC_NOMINAL_ARGUMENT|W_FN_ARG_TYPE/);
+      assert.match(result.stdout + result.stderr, /[Tt]ype mismatch|E_DYNAMIC_NOMINAL_ARGUMENT|E_FN_ARG_TYPE_MISMATCH/);
       assert.match(result.stdout + result.stderr, /comp-title/);
     }
   }
