@@ -1612,8 +1612,8 @@
           :schema $ quote $ Map Tag String
         'on-submit $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-submit (username password signup?)
-            fn (e dispatch!)
-              hint-fn $ Fn (Map Tag Dynamic)
+            fn (_event dispatch!)
+              hint-fn $ Fn respo.schema/RespoEvent
                 Fn schema/Op $ -> Unit
                 -> Unit
               dispatch! $ if signup?
@@ -1623,7 +1623,7 @@
                 format-cirru-edn $ [] username password
           :examples $ []
           :schema $ quote $ Fn String String Bool
-            -> $ Fn (Map Tag Dynamic)
+            -> $ Fn respo.schema/RespoEvent
               Fn schema/Op $ -> Unit
               -> Unit
           :tests $ []
@@ -1631,6 +1631,10 @@
               :code $ quote $ let
                   calls $ ref 0
                   handler $ on-submit |type-test-user |type-test-password false
+                  event $
+                    fn ()
+                      hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                      respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
                   dispatch! $ fn (op)
                     hint-fn $ Fn schema/Op $ -> Unit
                     assert=
@@ -1639,13 +1643,17 @@
                     reset! calls $ inc @calls
                     , &unit
                 assert= 0 @calls
-                assert= &unit $ handler ({}) dispatch!
+                assert= &unit $ handler event dispatch!
                 assert= 1 @calls
               :tags $ #{} :js :login-contract
             %{} 'TestEntry (:name |signup-dispatch-once)
               :code $ quote $ let
                   calls $ ref 0
                   handler $ on-submit |type-test-user |type-test-password true
+                  event $
+                    fn ()
+                      hint-fn $ Fn (-> respo.schema/RespoEvent) (:features :js-ffi)
+                      respo.util.format/event->edn $ js-cast (new js/Event |click) 'respo.dom/DomEvent
                   dispatch! $ fn (op)
                     hint-fn $ Fn schema/Op $ -> Unit
                     assert=
@@ -1654,7 +1662,7 @@
                     reset! calls $ inc @calls
                     , &unit
                 assert= 0 @calls
-                assert= &unit $ handler ({}) dispatch!
+                assert= &unit $ handler event dispatch!
                 assert= 1 @calls
               :tags $ #{} :js :login-contract
       :ns $ %{} 'NsEntry (:doc |)
