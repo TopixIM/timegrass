@@ -115,7 +115,7 @@
                           console-error! $ str |Failed-to-apply-server-patch:_ $ patch-error-message patch-error
                       request-snapshot!
           :examples $ []
-          :schema $ quote $ Fn Number Number (List recollect.schema/change-op) (-> Unit)
+          :schema $ quote $ Fn Number Number (List recollect.schema/change-op) (-> Unit) (:features :state)
         'choose-recovery-action $ %{} 'CodeEntry
           :doc "|Choose whether a visible online page should reconnect or create a client."
           :code $ quote $ defn choose-recovery-action (connected? has-client? visible? online?)
@@ -157,7 +157,7 @@
                   :class-mapper $ {} (:ServerMessage schema/ServerMessage) (:change-op patch-schema/change-op)
               , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
         'dispatch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn dispatch! (op)
             match op
@@ -171,7 +171,7 @@
               _ $ ws-send! $ schema/ClientMessage :dispatch op
             , &unit
           :examples $ []
-          :schema $ quote $ Fn schema/Op (-> Unit)
+          :schema $ quote $ Fn schema/Op (-> Unit) (:features :io :state)
           :tests $ [] $ %{} 'TestEntry
             :name |state-update-preserves-mixed-cursor-and-returns-unit
             :code $ quote $ let
@@ -208,7 +208,7 @@
               raise "|Expected application operation enum"
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn Dynamic (-> Unit) (:features :io :js-ffi :state)
           :tests $ []
             %{} 'TestEntry
               :name |rejects-invalid-render-operation-without-state-change
@@ -302,7 +302,7 @@
             println "|App started!"
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
         'mount-target $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def mount-target
             (query-selector |.app) .unwrap
@@ -323,7 +323,7 @@
               (:err error)
                 js-ffi.shared/console-error! $ str-spaced "|Invalid server message:" error
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Unit)
+          :schema $ quote $ Fn Dynamic (-> Unit) (:features :state)
         'recover-connection! $ %{} 'CodeEntry
           :doc "|Apply the typed browser recovery policy to the retained ws-edn client."
           :code $ quote $ defn recover-connection! ()
@@ -347,7 +347,7 @@
                       do (assert-traits client WsClientOps) (client .reconnect)
                     (:none) &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! ()
             if (non-nil? client-errors)
@@ -355,7 +355,7 @@
               do (hud! |inactive nil) (remove-watch! *store :changes) (remove-watch! *states :changes) (clear-cache!) (render-app!) (add-watch! *store :changes render-on-state-change!) (add-watch! *states :changes render-on-state-change!) (ws-set-on-data! on-server-data) (println "|Code updated.")
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
         'render-app! $ %{} 'CodeEntry
           :doc "|Render the selected root-state value directly at the component boundary. A missing state still reaches the existing nil/offline behavior; do not eagerly unwrap or decode before comp-container chooses its branch."
           :code $ quote $ defn render-app! ()
@@ -375,23 +375,23 @@
                 hint-fn $ Fn schema/Op $ -> Unit
                 dispatch-render-operation! op
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
         'render-on-state-change! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-on-state-change! (value previous) (render-app!)
           :examples $ []
-          :schema $ quote $ Fn T T (-> Unit) (:generics T) (:features :js-ffi)
+          :schema $ quote $ Fn T T (-> Unit) (:generics T) (:features :io :js-ffi :state)
         'request-snapshot! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn request-snapshot! ()
             ws-send! $ schema/ClientMessage :sync/resume @*sync-revision
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :state)
         'send-activity! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn send-activity! ()
             if (activity/page-visible?)
               ws-send! $ schema/ClientMessage :sync/active @*sync-revision
               ws-send! $ schema/ClientMessage :sync/idle @*sync-revision
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :state)
         'simulate-login! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn simulate-login! ()
             match
@@ -405,7 +405,7 @@
               (:none) (println "|Found no storage.")
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
           :tests $ [] $ %{} 'TestEntry (:name |returns-unit-with-isolated-storage)
             :code $ quote $ assert= &unit (simulate-login!)
             :tags $ #{} :auto-login-contract :js
@@ -1136,30 +1136,24 @@
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ schema/route-operation $ {} (:name :history)
-                            :data $ let
-                                change-year? $ <= week 1
-                                y $ if change-year? (dec year) year
-                                w $ if change-year? 53 $ dec week
-                                bounds $ week-bounds y w
-                              {} (:year y) (:week w)
-                                :start $ :start bounds
-                                :end $ :end bounds
+                          d! $ schema/route-operation $ let
+                              change-year? $ <= week 1
+                              y $ if change-year? (dec year) year
+                              w $ if change-year? 53 $ dec week
+                              bounds $ week-bounds y w
+                            schema/Route :history $ schema/HistoryRoute :year y :week w :start (:start bounds) :end $ :end bounds
                       respo.comp.space/space-x 8
                       comp-icon :arrow-right
                         {} (:font-size 16)
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ schema/route-operation $ {} (:name :history)
-                            :data $ let
-                                change-year? $ >= week 53
-                                y $ if change-year? (inc year) year
-                                w $ if change-year? 1 $ inc week
-                                bounds $ week-bounds y w
-                              {} (:year y) (:week w)
-                                :start $ :start bounds
-                                :end $ :end bounds
+                          d! $ schema/route-operation $ let
+                              change-year? $ >= week 53
+                              y $ if change-year? (inc year) year
+                              w $ if change-year? 1 $ inc week
+                              bounds $ week-bounds y w
+                            schema/Route :history $ schema/HistoryRoute :year y :week w :start (:start bounds) :end $ :end bounds
                   if (empty? finished-tasks)
                     div
                       {} (:class-name css/center)
@@ -2062,26 +2056,20 @@
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ schema/route-operation $ {} (:name :notes)
-                            :data $ if (<= month 0)
-                              {}
-                                :year $ dec year
-                                :month 11
-                              {} (:year year)
-                                :month $ dec month
+                          d! $ schema/route-operation $ schema/Route :notes
+                            if (<= month 0)
+                              schema/NotesRoute :year (dec year) :month 11
+                              schema/NotesRoute :year year :month $ dec month
                       respo.comp.space/space-x 8
                       comp-icon :arrow-right
                         {} (:font-size 16)
                           :color $ hsl 200 80 80
                           :cursor :pointer
                         fn (e d!)
-                          d! $ schema/route-operation $ {} (:name :notes)
-                            :data $ if (>= month 11)
-                              {}
-                                :year $ inc year
-                                :month 0
-                              {} (:year year)
-                                :month $ inc month
+                          d! $ schema/route-operation $ schema/Route :notes
+                            if (>= month 11)
+                              schema/NotesRoute :year (inc year) :month 0
+                              schema/NotesRoute :year year :month $ inc month
                       respo.comp.space/space-x 8
                       <>
                         str (inc month) "|th month of " year |.
@@ -4951,7 +4939,7 @@
               (:err message)
                 raise $ str |Invalid-route: message
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Op)
+          :schema $ quote $ Fn Route (-> Op)
         'route-to-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn route-to-map (route)
             match route
@@ -5302,7 +5290,7 @@
                 (:none) &unit
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Number Number (-> Unit)
+          :schema $ quote $ Fn Number Number (-> Unit) (:features :io :state)
           :tests $ []
             %{} 'TestEntry (:name |ignores-negative-ack-without-pending-send)
               :code $ quote $ let
@@ -5393,7 +5381,7 @@
                   request-sync!
             , &unit
           :examples $ []
-          :schema $ quote $ Fn schema/Op Number (-> Unit)
+          :schema $ quote $ Fn schema/Op Number (-> Unit) (:features :io :state)
           :tests $ [] $ %{} 'TestEntry (:name |ping-to-absent-peer-returns-unit)
             :code $ quote $ assert= &unit
               dispatch! (schema/Op :effect/ping) 2147483000
@@ -5430,7 +5418,7 @@
               (:sync/ack revision) (acknowledge-client! sid revision)
               (:dispatch op) (dispatch! op sid)
           :examples $ []
-          :schema $ quote $ Fn schema/ClientMessage Number (-> Unit)
+          :schema $ quote $ Fn schema/ClientMessage Number (-> Unit) (:features :io :state)
         'handle-sync-send! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn handle-sync-send! (sid revision new-store outcome) (swap! *client-states set-client-send-state sid revision new-store outcome)
             match outcome
@@ -5441,7 +5429,7 @@
               (:closed) &unit
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Number Number (Map Tag Dynamic) WssSendOutcome (-> Unit)
+          :schema $ quote $ Fn Number Number (Map Tag Dynamic) WssSendOutcome (-> Unit) (:features :io :state)
           :tests $ [] $ %{} 'TestEntry (:name |all-outcomes-return-unit)
             :code $ quote $ let
                 previous-states @*client-states
@@ -5484,7 +5472,7 @@
                     = :active $ :status state
                     swap! *dirty-clients include sid
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :state)
         'main! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn main! ()
             println "|Running mode:" $ if config/dev? |dev |release
@@ -5502,7 +5490,7 @@
             set-interval! 600000 $ fn () $ persist-db!
             set-interval! 60000 $ fn () $ set-today!
           :examples $ []
-          :schema $ quote $ Fn (-> FfiTask)
+          :schema $ quote $ Fn (-> FfiTask) (:features :io :state)
         'mark-client-active! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn mark-client-active! (sid client-revision force-snapshot?)
             let
@@ -5522,7 +5510,7 @@
               when resumed? (swap! *client-caches dissoc sid) (swap! *dirty-clients include sid) (request-sync!)
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Number Number Bool (-> Unit)
+          :schema $ quote $ Fn Number Number Bool (-> Unit) (:features :io :state)
         'mark-client-idle! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn mark-client-idle! (sid client-revision)
             when
@@ -5536,7 +5524,7 @@
               swap! *dirty-clients exclude sid
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Number Number (-> Unit)
+          :schema $ quote $ Fn Number Number (-> Unit) (:features :state)
         'mark-clients-dirty! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn mark-clients-dirty! (revision)
             each (keys @*client-states)
@@ -5550,7 +5538,7 @@
                     = :active $ :status state
                     swap! *dirty-clients include sid
           :examples $ []
-          :schema $ quote $ Fn Number (-> Unit)
+          :schema $ quote $ Fn Number (-> Unit) (:features :state)
         'next-sync-ack-state $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn next-sync-ack-state (current revision)
             struct-with
@@ -5688,7 +5676,7 @@
         'on-exit! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn on-exit! () (persist-db!) (; println "|exit code is...") (quit! 0)
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
         'patch-operation-limit $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def patch-operation-limit 64
           :examples $ []
@@ -5707,7 +5695,7 @@
               println |[storage] |persisted storage-path |backup backup-path
               , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit) (:features :js-ffi)
+          :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)
         'read-sync-metrics $ %{} 'CodeEntry
           :doc "|Read synchronization counters plus current pending and slow-client gauges."
           :code $ quote $ defn read-sync-metrics ()
@@ -5719,7 +5707,7 @@
                   fn (sid state) (:slow-client? state)
               struct-with @*sync-metrics (:pending-clients pending-clients) (:slow-clients slow-clients)
           :examples $ []
-          :schema $ quote $ Fn (-> SyncMetrics)
+          :schema $ quote $ Fn (-> SyncMetrics) (:features :state)
           :tests $ []
             %{} 'TestEntry (:name |typed-metrics-gauges)
               :code $ quote $ let
@@ -5744,7 +5732,7 @@
               struct-with metrics $ :resync-count $ inc (:resync-count metrics)
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :state)
           :tests $ [] $ %{} 'TestEntry (:name |increments-only-resync-counter)
             :code $ quote $ let
                 previous @*sync-metrics
@@ -5761,7 +5749,7 @@
         'record-sync-send! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn record-sync-send! (message-kind revision diff-latency payload) (swap! *sync-metrics next-sync-metrics message-kind revision diff-latency payload) &unit
           :examples $ []
-          :schema $ quote $ Fn Tag Number Number String (-> Unit)
+          :schema $ quote $ Fn Tag Number Number String (-> Unit) (:features :state)
         'reload! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn reload! () (println "|Code updated..")
             if (not config/dev?) (raise "|reloading only happens in dev mode")
@@ -5770,7 +5758,7 @@
             invalidate-sync-caches!
             request-sync!
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
         'render-loop! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn render-loop! ()
             when
@@ -5780,14 +5768,14 @@
               mark-clients-dirty! @*sync-revision
             sync-clients! @*reader-reel
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
         'request-sync! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn request-sync! ()
             if @*sync-scheduled? &unit $ do (reset! *sync-scheduled? true)
               set-timeout! sync-coalesce-delay $ fn () (reset! *sync-scheduled? false) (render-loop!)
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
           :tests $ [] $ %{} 'TestEntry (:name |already-scheduled-returns-unit)
             :code $ quote $ let
                 previous @*sync-scheduled?
@@ -5809,7 +5797,7 @@
                 , &unit
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
           :tests $ [] $ %{} 'TestEntry (:name |already-scheduled-returns-unit)
             :code $ quote $ let
                 previous @*sync-retry-scheduled?
@@ -5853,7 +5841,7 @@
               (get-env |WSS_BIND_ADDRESS) .unwrap-or |0.0.0.0
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Number (-> Unit)
+          :schema $ quote $ Fn Number (-> Unit) (:features :io :state)
         'set-client-dirty-revision $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn set-client-dirty-revision (states sid revision)
             let
@@ -5973,7 +5961,7 @@
                 dispatch! (schema/Op :today today) 0
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (-> Unit)
+          :schema $ quote $ Fn (-> Unit) (:features :io :state)
         'storage-file $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def storage-file
             if (empty? calcit-dirname) (:storage-file config/site)
@@ -6019,7 +6007,7 @@
                       , &unit
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Number (ReelState schema/DatabaseRecord) Number (-> Unit)
+          :schema $ quote $ Fn Number (ReelState schema/DatabaseRecord) Number (-> Unit) (:features :io :state)
         'sync-clients! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn sync-clients! (reel)
             when
@@ -6033,7 +6021,7 @@
                     sync-client! sid reel revision
             , &unit
           :examples $ []
-          :schema $ quote $ Fn (ReelState schema/DatabaseRecord) (-> Unit)
+          :schema $ quote $ Fn (ReelState schema/DatabaseRecord) (-> Unit) (:features :io :state)
         'sync-coalesce-delay $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def sync-coalesce-delay 16
           :examples $ []
@@ -6054,7 +6042,7 @@
                 mark-client-active! sid client-revision true
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Number Number (-> Unit)
+          :schema $ quote $ Fn Number Number (-> Unit) (:features :io :state)
           :tests $ [] $ %{} 'TestEntry
             :name |active-heartbeat-returns-unit-and-preserves-peers
             :code $ quote $ let
@@ -6101,14 +6089,14 @@
           :code $ quote $ def button
             merge ui/button $ {} $ :background-color :white
           :examples $ []
-          :schema $ quote $ Map Tag Dynamic
+          :schema $ quote $ Map Tag respo-ui.schema/StyleValue
         'link $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def link
             {} (:text-decoration :underline) (:cursor :pointer)
               :color $ hsl 240 80 80
               :font-family ui/font-fancy
           :examples $ []
-          :schema $ quote $ Map Tag Dynamic
+          :schema $ quote $ Map Tag respo.schema/CssValue
         'merge-styles $ %{} 'CodeEntry
           :doc "|Combines heterogeneous Respo style maps at the rendering boundary."
           :code $ quote $ defn merge-styles (x0 & xs) (reduce xs x0 &merge)
@@ -6643,7 +6631,7 @@
           :code $ quote $ defn replay-updater (db op sid op-id op-time)
             updater db (decode-map-as op 'app.schema/Op) (decode-map-as sid 'Number) (decode-map-as op-id 'String) (decode-map-as op-time 'Number)
           :examples $ []
-          :schema $ quote $ Fn schema/DatabaseRecord Dynamic Dynamic Dynamic Dynamic (-> schema/DatabaseRecord)
+          :schema $ quote $ Fn schema/DatabaseRecord Dynamic Dynamic Dynamic Dynamic (-> schema/DatabaseRecord) (:features :io)
           :tests $ [] $ %{} 'TestEntry (:name |replay-today)
             :code $ quote $ let
                 op $ schema/Op :today |2026-10-12
@@ -6672,7 +6660,7 @@
               (:note/remove op-data) (note/remove-note db op-data sid op-id op-time)
               _ $ do (eprintln "|Unknown op:" op) db
           :examples $ []
-          :schema $ quote $ Fn schema/DatabaseRecord schema/Op Number String Number (-> schema/DatabaseRecord)
+          :schema $ quote $ Fn schema/DatabaseRecord schema/Op Number String Number (-> schema/DatabaseRecord) (:features :io)
           :tests $ []
             %{} 'TestEntry (:name |typed-business-lifecycle)
               :code $ quote $ let
