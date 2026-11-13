@@ -208,7 +208,7 @@
               raise "|Expected application operation enum"
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Unit) (:features :io :js-ffi :state)
+          :schema $ quote $ Fn Input (-> Unit) (:generics Input) (:features :io :js-ffi :state)
           :tests $ []
             %{} 'TestEntry
               :name |rejects-invalid-render-operation-without-state-change
