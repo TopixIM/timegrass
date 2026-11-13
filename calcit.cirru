@@ -4298,8 +4298,9 @@
                   _ $ Result :err |Unknown-route
               decode-route-map raw
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Input
             -> $ Result Route String
+            :generics Input
           :tests $ [] $ %{} 'TestEntry (:name |validates-route-shapes)
             :code $ quote $ do
               assert=
@@ -4368,8 +4369,9 @@
                   (:none) (Result :err |Unknown-route)
                 Result :err |Expected-route-map
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Input
             -> $ Result Route String
+            :generics Input
           :tests $ []
             %{} 'TestEntry (:name |preserves-absent-route-payload-errors)
               :code $ quote $ do
