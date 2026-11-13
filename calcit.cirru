@@ -79,7 +79,7 @@
           :schema $ quote Trait
         'ReadyProjection $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct ReadyProjection
-            :store $ Map Dynamic Dynamic
+            :store $ Map Tag Dynamic
           :examples $ []
           :schema $ quote StructDef
         'ack-sync! $ %{} 'CodeEntry (:doc |)
@@ -96,7 +96,7 @@
                   validate-server-patch (:store ready) @*sync-revision base-revision changes
                   (:ok next-store)
                     match
-                      try-decode-map-as next-store $ Map Dynamic Dynamic
+                      try-decode-map-as next-store $ Map Tag Dynamic
                       (:ok decoded-store)
                         do
                           reset! *store $ ReadyProjection :store decoded-store
@@ -3492,7 +3492,8 @@
           :schema $ quote EnumDef
         'ServerMessage $ %{} 'CodeEntry
           :doc "|Typed server snapshot, patch, and heartbeat envelope."
-          :code $ quote $ defenum ServerMessage (:snapshot Number Map)
+          :code $ quote $ defenum ServerMessage
+            :snapshot Number $ Map Tag Dynamic
             :patch Number Number $ List recollect.schema/change-op
             :effect/pong
           :examples $ []
@@ -4435,7 +4436,8 @@
                 (:snapshot revision store)
                   if
                     and (number? revision) (map? store)
-                    match (try-decode-map-as store 'Map)
+                    match
+                      try-decode-map-as store $ Map Tag Dynamic
                       (:ok decoded-store)
                         Result :ok $ ServerMessage :snapshot revision decoded-store
                       (:err reason)
@@ -4484,9 +4486,12 @@
                 decode-server-message $ ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
               :tags $ #{} :client
             %{} 'TestEntry (:name |decodes-snapshot-map)
-              :code $ quote $ assert=
-                Result :ok $ ServerMessage :snapshot 2 $ {} (:a 1)
-                decode-server-message $ ServerMessage :snapshot 2 $ {} (:a 1)
+              :code $ quote $ do
+                assert=
+                  Result :ok $ ServerMessage :snapshot 2 $ {} (:a 1)
+                  decode-server-message $ ServerMessage :snapshot 2 $ {} (:a 1)
+                assert= true $ result:err? $ decode-server-message
+                  :: :snapshot 2 $ {} $ |unexpected 1
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-non-nominal-change)
               :code $ quote $ assert= true
