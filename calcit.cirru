@@ -2214,6 +2214,10 @@
             app.comp.navigation :refer $ format-timestamp decode-timestamp
     'app.comp.overview $ %{} 'FileEntry
       :defs $ {}
+        'TaskMenuAction $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defenum TaskMenuAction (:done) (:edit) (:copy) (:remove) (:pend) (:touch) (:unknown)
+          :examples $ []
+          :schema $ quote EnumDef
         'comp-global-keydown $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-global-keydown (on-event)
             span $ {} $ :on-keydown on-event
@@ -2744,32 +2748,39 @@
                             new-state $ assoc state :menu? false
                             result $ task-menu-action item
                           match result
-                            :done $ do
-                              d! $ :: :task/finish-working task-id
-                              d! $ :: :states cursor new-state
-                            :edit $ do
-                              d! $ :: :states cursor new-state
-                              .show update-plugin d! $ fn (text)
-                                hint-fn $ Fn String $ -> Unit
-                                d! $ :: :task/update-working $ schema/TaskEdit :id task-id :text (decode-map-as text 'String)
+                            (:done)
+                              do
+                                d! $ :: :task/finish-working task-id
+                                d! $ :: :states cursor new-state
+                            (:edit)
+                              do
+                                d! $ :: :states cursor new-state
+                                .show update-plugin d! $ fn (text)
+                                  hint-fn $ Fn String $ -> Unit
+                                  d! $ :: :task/update-working $ schema/TaskEdit :id task-id :text (decode-map-as text 'String)
+                                  , &unit
+                            (:copy)
+                              do
+                                copy! $ :text decoded-task
+                                d! $ :: :states cursor new-state
+                            (:remove)
+                              do
+                                d! $ :: :states cursor new-state
+                                .show delete-plugin d! $ fn ()
+                                  hint-fn $ Fn $ -> Unit
+                                  d! $ :: :task/remove-working task-id
+                                  , &unit
                                 , &unit
-                            :copy $ do
-                              copy! $ :text decoded-task
+                            (:pend)
+                              do
+                                d! $ :: :task/pend task-id
+                                d! $ :: :states cursor new-state
+                            (:touch)
+                              do
+                                d! $ :: :task/touch-working task-id
+                                d! $ :: :states cursor new-state
+                            (:unknown)
                               d! $ :: :states cursor new-state
-                            :remove $ do
-                              d! $ :: :states cursor new-state
-                              .show delete-plugin d! $ fn ()
-                                hint-fn $ Fn $ -> Unit
-                                d! $ :: :task/remove-working task-id
-                                , &unit
-                              , &unit
-                            :pend $ do
-                              d! $ :: :task/pend task-id
-                              d! $ :: :states cursor new-state
-                            :touch $ do
-                              d! $ :: :task/touch-working task-id
-                              d! $ :: :states cursor new-state
-                            _ $ d! $ :: :states cursor new-state
                           , &unit
                         raise "|Menu selection must be an item enum"
                     , &unit
@@ -3131,14 +3142,26 @@
           :schema $ quote String
         'task-menu-action $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn task-menu-action (item)
-            decode-map-as (&enum:nth item 1) 'Tag
+            match
+              decode-map-as (&enum:nth item 1) 'Tag
+              :done $ TaskMenuAction :done
+              :edit $ TaskMenuAction :edit
+              :copy $ TaskMenuAction :copy
+              :remove $ TaskMenuAction :remove
+              :pend $ TaskMenuAction :pend
+              :touch $ TaskMenuAction :touch
+              _ $ TaskMenuAction :unknown
           :examples $ []
-          :schema $ quote $ Fn AnyEnum (-> Tag) (:open :decode)
+          :schema $ quote $ Fn AnyEnum (-> TaskMenuAction) (:open :decode)
           :tests $ []
             %{} 'TestEntry (:name |decodes-task-menu-actions)
               :code $ quote $ do
-                assert |remove-action-should-be-decoded $ &= :remove $ task-menu-action (:: :item :remove |Remove)
-                assert |done-action-should-be-decoded $ &= :done $ task-menu-action (:: :item :done |Done)
+                assert= (TaskMenuAction :remove)
+                  task-menu-action $ :: :item :remove |Remove
+                assert= (TaskMenuAction :done)
+                  task-menu-action $ :: :item :done |Done
+                assert= (TaskMenuAction :unknown)
+                  task-menu-action $ :: :item :other |Other
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-non-tag-action)
               :code $ quote $ assert= true
