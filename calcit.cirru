@@ -38,7 +38,7 @@
           :examples $ []
           :schema $ quote $ Ref (Option ws-edn.client/WsClient)
         'ClientPatchError $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defenum ClientPatchError (:revision-mismatch Number Number) (:invalid-patch recollect.patch/PatchError)
+          :code $ quote $ defenum ClientPatchError (:revision-mismatch Number Number) (:invalid-patch recollect.patch/PatchError) (:invalid-projection String)
           :examples $ []
           :schema $ quote EnumDef
         'ClientProjection $ %{} 'CodeEntry (:doc |)
@@ -79,7 +79,7 @@
           :schema $ quote Trait
         'ReadyProjection $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defstruct ReadyProjection
-            :store $ Map Dynamic Dynamic
+            :store $ Map Tag Dynamic
           :examples $ []
           :schema $ quote StructDef
         'ack-sync! $ %{} 'CodeEntry (:doc |)
@@ -94,18 +94,11 @@
               (ReadyProjection ready)
                 match
                   validate-server-patch (:store ready) @*sync-revision base-revision changes
-                  (:ok next-store)
-                    match
-                      try-decode-map-as next-store $ Map Dynamic Dynamic
-                      (:ok decoded-store)
-                        do
-                          reset! *store $ ReadyProjection :store decoded-store
-                          reset! *sync-revision revision
-                          ack-sync! revision
-                      (:err error)
-                        do
-                          console-error! $ str "|Invalid patched projection: " error
-                          request-snapshot!
+                  (:ok decoded-store)
+                    do
+                      reset! *store $ ReadyProjection :store decoded-store
+                      reset! *sync-revision revision
+                      ack-sync! revision
                   (:err error)
                     do
                       match error
@@ -113,6 +106,8 @@
                           console-warn! $ str |Sync-revision-mismatch-expected= expected |,-actual= actual
                         (:invalid-patch patch-error)
                           console-error! $ str |Failed-to-apply-server-patch:_ $ patch-error-message patch-error
+                        (:invalid-projection reason)
+                          console-error! $ str "|Invalid patched projection: " reason
                       request-snapshot!
           :examples $ []
           :schema $ quote $ Fn Number Number (List recollect.schema/change-op) (-> Unit) (:features :state)
@@ -208,7 +203,7 @@
               raise "|Expected application operation enum"
             , &unit
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Unit) (:features :io :js-ffi :state)
+          :schema $ quote $ Fn Input (-> Unit) (:generics Input) (:features :io :js-ffi :state)
           :tests $ []
             %{} 'TestEntry
               :name |rejects-invalid-render-operation-without-state-change
@@ -417,13 +412,18 @@
                 patch-batch:apply-to
                   assert-traits (patch-batch changes) PatchBatchOps
                   , store
-                (:ok next-store) (Result :ok next-store)
+                (:ok next-store)
+                  match
+                    try-decode-map-as next-store $ Map Tag Dynamic
+                    (:ok decoded-store) (Result :ok decoded-store)
+                    (:err reason)
+                      Result :err $ ClientPatchError :invalid-projection reason
                 (:err error)
                   Result :err $ ClientPatchError :invalid-patch error
               Result :err $ ClientPatchError :revision-mismatch base-revision local-revision
           :examples $ []
-          :schema $ quote $ Fn Dynamic Number Number (List recollect.schema/change-op)
-            -> $ Result Dynamic ClientPatchError
+          :schema $ quote $ Fn (Map Tag Dynamic) Number Number (List recollect.schema/change-op)
+            -> $ Result (Map Tag Dynamic) ClientPatchError
           :tests $ []
             %{} 'TestEntry (:name |accepts-valid-revisioned-patch)
               :code $ quote $ let
@@ -432,6 +432,17 @@
                 assert=
                   Result :ok $ {} $ :value 2
                   validate-server-patch store 7 7 changes
+              :tags $ #{} :client
+            %{} 'TestEntry (:name |rejects-invalid-patched-projection)
+              :code $ quote $ let
+                  store $ {} $ :value 1
+                  changes $ [] $ %:: patch-schema/change-op :replace 42
+                match (validate-server-patch store 7 7 changes)
+                  (:err error)
+                    match error
+                      (:invalid-projection _) &unit
+                      _ $ raise |Expected-invalid-projection
+                  (:ok _) (raise |Expected-invalid-projection)
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-revision-mismatch)
               :code $ quote $ let
@@ -3492,7 +3503,8 @@
           :schema $ quote EnumDef
         'ServerMessage $ %{} 'CodeEntry
           :doc "|Typed server snapshot, patch, and heartbeat envelope."
-          :code $ quote $ defenum ServerMessage (:snapshot Number Map)
+          :code $ quote $ defenum ServerMessage
+            :snapshot Number $ Map Tag Dynamic
             :patch Number Number $ List recollect.schema/change-op
             :effect/pong
           :examples $ []
@@ -4435,7 +4447,8 @@
                 (:snapshot revision store)
                   if
                     and (number? revision) (map? store)
-                    match (try-decode-map-as store 'Map)
+                    match
+                      try-decode-map-as store $ Map Tag Dynamic
                       (:ok decoded-store)
                         Result :ok $ ServerMessage :snapshot revision decoded-store
                       (:err reason)
@@ -4484,9 +4497,12 @@
                 decode-server-message $ ServerMessage :patch 3 4 $ [] (%:: recollect.schema/change-op :replace 1)
               :tags $ #{} :client
             %{} 'TestEntry (:name |decodes-snapshot-map)
-              :code $ quote $ assert=
-                Result :ok $ ServerMessage :snapshot 2 $ {} (:a 1)
-                decode-server-message $ ServerMessage :snapshot 2 $ {} (:a 1)
+              :code $ quote $ do
+                assert=
+                  Result :ok $ ServerMessage :snapshot 2 $ {} (:a 1)
+                  decode-server-message $ ServerMessage :snapshot 2 $ {} (:a 1)
+                assert= true $ result:err? $ decode-server-message
+                  :: :snapshot 2 $ {} $ |unexpected 1
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-non-nominal-change)
               :code $ quote $ assert= true
