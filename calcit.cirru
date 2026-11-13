@@ -318,7 +318,7 @@
               (:err error)
                 js-ffi.shared/console-error! $ str-spaced "|Invalid server message:" error
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Unit) (:features :state)
+          :schema $ quote $ Fn Input (-> Unit) (:generics Input) (:features :state)
         'recover-connection! $ %{} 'CodeEntry
           :doc "|Apply the typed browser recovery policy to the retained ws-edn client."
           :code $ quote $ defn recover-connection! ()
@@ -3628,8 +3628,9 @@
                     Result :ok $ ClientMessage :dispatch typed-op
                   (:err error) (Result :err error)
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Input
             -> $ Result ClientMessage MessageDecodeError
+            :generics Input
           :tests $ []
             %{} 'TestEntry (:name |decodes-sync-control)
               :code $ quote $ assert=
@@ -4066,8 +4067,9 @@
                       invalid-message $ str "|Invalid states cursor: " message
                 _ $ invalid-message $ str "|Unknown application operation: " op
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Input
             -> $ Result Op MessageDecodeError
+            :generics Input
           :tests $ []
             %{} 'TestEntry (:name |accepts-today-string)
               :code $ quote $ assert=
@@ -4468,8 +4470,9 @@
                   Result :ok $ ServerMessage :effect/pong
                 _ $ invalid-message $ str "|Unknown server message: " message
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Input
             -> $ Result ServerMessage MessageDecodeError
+            :generics Input
           :tests $ []
             %{} 'TestEntry (:name |decodes-pong)
               :code $ quote $ assert=
