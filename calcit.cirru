@@ -2746,7 +2746,7 @@
                       if (enum? item)
                         let
                             new-state $ assoc state :menu? false
-                            result $ task-menu-action item
+                            result $ task-menu-action $ &enum:nth item 1
                           match result
                             (:done)
                               do
@@ -3141,9 +3141,8 @@
           :examples $ []
           :schema $ quote String
         'task-menu-action $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn task-menu-action (item)
-            match
-              decode-map-as (&enum:nth item 1) 'Tag
+          :code $ quote $ defn task-menu-action (action)
+            match (decode-map-as action 'Tag)
               :done $ TaskMenuAction :done
               :edit $ TaskMenuAction :edit
               :copy $ TaskMenuAction :copy
@@ -3152,23 +3151,18 @@
               :touch $ TaskMenuAction :touch
               _ $ TaskMenuAction :unknown
           :examples $ []
-          :schema $ quote $ Fn AnyEnum (-> TaskMenuAction) (:open :decode)
+          :schema $ quote $ Fn Input (-> TaskMenuAction) (:generics Input)
           :tests $ []
             %{} 'TestEntry (:name |decodes-task-menu-actions)
               :code $ quote $ do
-                assert= (TaskMenuAction :remove)
-                  task-menu-action $ :: :item :remove |Remove
-                assert= (TaskMenuAction :done)
-                  task-menu-action $ :: :item :done |Done
-                assert= (TaskMenuAction :unknown)
-                  task-menu-action $ :: :item :other |Other
+                assert= (TaskMenuAction :remove) (task-menu-action :remove)
+                assert= (TaskMenuAction :done) (task-menu-action :done)
+                assert= (TaskMenuAction :unknown) (task-menu-action :other)
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-non-tag-action)
               :code $ quote $ assert= true
                 try
-                  do
-                    task-menu-action $ :: :item 1 |Invalid
-                    , false
+                  do (task-menu-action 1) false
                   fn (message) (starts-with? message "|decode-map-as failed")
               :tags $ #{} :client
         'task-sort-key $ %{} 'CodeEntry (:doc |)
