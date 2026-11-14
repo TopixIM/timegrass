@@ -5401,10 +5401,7 @@
                       assert= accepted-states duplicate-states
               :tags $ #{} :server
         'current-date! $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn current-date! ()
-            unsafe-coerce
-              %{} Date0 $ :date $ &call-dylib-edn (get-dylib-path |/dylibs/libcalcit_std) |now_bang
-              , 'calcit.std.date/Date0
+          :code $ quote $ defn current-date! () (get-time!)
           :examples $ []
           :schema $ quote $ Fn (-> Date0) (:features :js-ffi)
         'dispatch! $ %{} 'CodeEntry (:doc |)
@@ -6127,8 +6124,7 @@
             calcit.std.fs :refer $ path-exists? check-write-file!
             calcit.std.time :refer $ set-interval! set-timeout!
             calcit.std.path :refer $ join-path
-            calcit.std.date :refer $ extract-time Date0 format-time get-timestamp
-            calcit.std.util :refer $ get-dylib-path
+            calcit.std.date :refer $ extract-time Date0 format-time get-timestamp get-time!
     'app.style $ %{} 'FileEntry
       :defs $ {}
         'button $ %{} 'CodeEntry (:doc |)
@@ -6158,12 +6154,16 @@
     'app.twig.container $ %{} 'FileEntry
       :defs $ {}
         'parse-date $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn parse-date (time format)
-            unsafe-coerce
-              %{} Date0 $ :date $ &call-dylib-edn (get-dylib-path |/dylibs/libcalcit_std) |parse_time time format
-              , 'calcit.std.date/Date0
+          :code $ quote $ defn parse-date (time format) (parse-time time format)
           :examples $ []
           :schema $ quote $ Fn String String (-> Date0) (:features :js-ffi)
+          :tests $ [] $ %{} 'TestEntry (:name |parses-offset-and-rejects-invalid-input)
+            :code $ quote $ do
+              assert= 1417176009000 $ get-timestamp $ parse-date "|2014-11-28 21:00:09 +09:00" "|%Y-%m-%d %H:%M:%S %z"
+              assert= true $ try
+                do (parse-date |invalid "|%Y-%m-%d %H:%M:%S %z") false
+                fn (_error) true
+            :tags $ #{} :server
         'twig-container $ %{} 'CodeEntry
           :doc "|Project the existing client wire Map. Retain the router Option until its consumer: logged-out wire fields preserve opaque values and explicit nil, while logged-in routing decodes Map after the user boundary. The legacy today/week fields and nil-capable user-key path remain wire/path adapters, not typed business defaults; client consumers validate them separately."
           :code $ quote $ defn twig-container (db session records)
@@ -6651,8 +6651,7 @@
             app.twig.user :refer $ twig-user
             calcit.std.rand :refer $ rand-hex-color!
             app.schema :as schema
-            calcit.std.date :refer $ Date0 extract-time from-ywd from-ymd format-time get-timestamp
-            calcit.std.util :refer $ get-dylib-path
+            calcit.std.date :refer $ Date0 extract-time from-ywd from-ymd format-time get-timestamp parse-time
     'app.twig.user $ %{} 'FileEntry
       :defs $ {} $ 'twig-user
         %{} 'CodeEntry (:doc |)
