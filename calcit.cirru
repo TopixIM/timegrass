@@ -4833,7 +4833,7 @@
                   assoc acc key $ normalize-note-record value
               , raw
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Dynamic)
+          :schema $ quote $ Fn Input (-> Dynamic) (:generics Input)
         'normalize-note-record $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-note-record (raw)
             if (map? raw)
@@ -4843,7 +4843,7 @@
                 (:none) (.dissoc raw :updated-time)
               , raw
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Dynamic)
+          :schema $ quote $ Fn Input (-> Dynamic) (:generics Input)
         'normalize-task-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-task-map (raw)
             if (map? raw)
@@ -4852,7 +4852,7 @@
                   assoc acc key $ normalize-task-record value
               , raw
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Dynamic)
+          :schema $ quote $ Fn Input (-> Dynamic) (:generics Input)
         'normalize-task-record $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn normalize-task-record (raw)
             if (map? raw)
@@ -4863,7 +4863,7 @@
                   (:none) (.dissoc entry field)
               , raw
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Dynamic)
+          :schema $ quote $ Fn Input (-> Dynamic) (:generics Input)
           :tests $ []
             %{} 'TestEntry (:name |preserves-present-values-and-removes-legacy-nil)
               :code $ quote $ let
@@ -4891,7 +4891,7 @@
                   assoc acc key $ normalize-task-map value
               , raw
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Dynamic)
+          :schema $ quote $ Fn Input (-> Dynamic) (:generics Input)
         'note $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def note
             {} (:id nil) (:time nil) (:updated-time nil) (:text nil)
