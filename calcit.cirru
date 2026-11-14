@@ -4891,7 +4891,7 @@
           :code $ quote $ def note
             {} (:id nil) (:time nil) (:updated-time nil) (:text nil)
           :examples $ []
-          :schema $ quote Dynamic
+          :schema $ quote $ Map Tag Nil
         'note-to-map $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn note-to-map (note)
             assoc-legacy-optional
