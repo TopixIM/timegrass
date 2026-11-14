@@ -3582,11 +3582,6 @@
           :schema $ quote $ Fn (Map Tag Dynamic) Tag (Option T)
             -> $ Map Tag Dynamic
             :generics T
-        'complain $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def complain
-            {} (:id nil) (:text |) (:time nil)
-          :examples $ []
-          :schema $ quote Dynamic
         'database $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def database
             {}
@@ -4908,11 +4903,6 @@
           :examples $ []
           :schema $ quote $ Fn NoteRecord
             -> $ Map Tag Dynamic
-        'notification $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def notification
-            {} (:id nil) (:kind nil) (:text nil)
-          :examples $ []
-          :schema $ quote Dynamic
         'read-path $ %{} 'CodeEntry
           :doc "|Legacy Map-only wire-path adapter. An empty path returns the value unchanged; missing keys and non-Map intermediates return nil, while false, zero, empty text and nil keys remain valid values/keys. Do not replace this with the throwing get-in walker or an eager concrete decoder. Callers decode at their actual typed consumer."
           :code $ quote $ defn read-path (base path)
@@ -5004,13 +4994,6 @@
           :examples $ []
           :schema $ quote $ Fn Route
             -> $ Map Tag Dynamic
-        'router $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ def router
-            {} (:name nil) (:title nil)
-              :data $ {}
-              :router nil
-          :examples $ []
-          :schema $ quote Dynamic
         'session $ %{} 'CodeEntry (:doc |)
           :code $ quote $ def session
             {} (:user-id nil) (:id nil) (:nickname nil)
