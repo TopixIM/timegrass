@@ -318,7 +318,7 @@
               (:err error)
                 js-ffi.shared/console-error! $ str-spaced "|Invalid server message:" error
           :examples $ []
-          :schema $ quote $ Fn Dynamic (-> Unit) (:features :state)
+          :schema $ quote $ Fn Input (-> Unit) (:generics Input) (:features :state)
         'recover-connection! $ %{} 'CodeEntry
           :doc "|Apply the typed browser recovery policy to the retained ws-edn client."
           :code $ quote $ defn recover-connection! ()
@@ -2214,6 +2214,10 @@
             app.comp.navigation :refer $ format-timestamp decode-timestamp
     'app.comp.overview $ %{} 'FileEntry
       :defs $ {}
+        'TaskMenuAction $ %{} 'CodeEntry (:doc |)
+          :code $ quote $ defenum TaskMenuAction (:done) (:edit) (:copy) (:remove) (:pend) (:touch) (:unknown)
+          :examples $ []
+          :schema $ quote EnumDef
         'comp-global-keydown $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defcomp comp-global-keydown (on-event)
             span $ {} $ :on-keydown on-event
@@ -2742,34 +2746,41 @@
                       if (enum? item)
                         let
                             new-state $ assoc state :menu? false
-                            result $ task-menu-action item
+                            result $ task-menu-action $ &enum:nth item 1
                           match result
-                            :done $ do
-                              d! $ :: :task/finish-working task-id
-                              d! $ :: :states cursor new-state
-                            :edit $ do
-                              d! $ :: :states cursor new-state
-                              .show update-plugin d! $ fn (text)
-                                hint-fn $ Fn String $ -> Unit
-                                d! $ :: :task/update-working $ schema/TaskEdit :id task-id :text (decode-map-as text 'String)
+                            (:done)
+                              do
+                                d! $ :: :task/finish-working task-id
+                                d! $ :: :states cursor new-state
+                            (:edit)
+                              do
+                                d! $ :: :states cursor new-state
+                                .show update-plugin d! $ fn (text)
+                                  hint-fn $ Fn String $ -> Unit
+                                  d! $ :: :task/update-working $ schema/TaskEdit :id task-id :text (decode-map-as text 'String)
+                                  , &unit
+                            (:copy)
+                              do
+                                copy! $ :text decoded-task
+                                d! $ :: :states cursor new-state
+                            (:remove)
+                              do
+                                d! $ :: :states cursor new-state
+                                .show delete-plugin d! $ fn ()
+                                  hint-fn $ Fn $ -> Unit
+                                  d! $ :: :task/remove-working task-id
+                                  , &unit
                                 , &unit
-                            :copy $ do
-                              copy! $ :text decoded-task
+                            (:pend)
+                              do
+                                d! $ :: :task/pend task-id
+                                d! $ :: :states cursor new-state
+                            (:touch)
+                              do
+                                d! $ :: :task/touch-working task-id
+                                d! $ :: :states cursor new-state
+                            (:unknown)
                               d! $ :: :states cursor new-state
-                            :remove $ do
-                              d! $ :: :states cursor new-state
-                              .show delete-plugin d! $ fn ()
-                                hint-fn $ Fn $ -> Unit
-                                d! $ :: :task/remove-working task-id
-                                , &unit
-                              , &unit
-                            :pend $ do
-                              d! $ :: :task/pend task-id
-                              d! $ :: :states cursor new-state
-                            :touch $ do
-                              d! $ :: :task/touch-working task-id
-                              d! $ :: :states cursor new-state
-                            _ $ d! $ :: :states cursor new-state
                           , &unit
                         raise "|Menu selection must be an item enum"
                     , &unit
@@ -3130,22 +3141,28 @@
           :examples $ []
           :schema $ quote String
         'task-menu-action $ %{} 'CodeEntry (:doc |)
-          :code $ quote $ defn task-menu-action (item)
-            decode-map-as (&enum:nth item 1) 'Tag
+          :code $ quote $ defn task-menu-action (action)
+            match (decode-map-as action 'Tag)
+              :done $ TaskMenuAction :done
+              :edit $ TaskMenuAction :edit
+              :copy $ TaskMenuAction :copy
+              :remove $ TaskMenuAction :remove
+              :pend $ TaskMenuAction :pend
+              :touch $ TaskMenuAction :touch
+              _ $ TaskMenuAction :unknown
           :examples $ []
-          :schema $ quote $ Fn AnyEnum (-> Tag) (:open :decode)
+          :schema $ quote $ Fn Input (-> TaskMenuAction) (:generics Input)
           :tests $ []
             %{} 'TestEntry (:name |decodes-task-menu-actions)
               :code $ quote $ do
-                assert |remove-action-should-be-decoded $ &= :remove $ task-menu-action (:: :item :remove |Remove)
-                assert |done-action-should-be-decoded $ &= :done $ task-menu-action (:: :item :done |Done)
+                assert= (TaskMenuAction :remove) (task-menu-action :remove)
+                assert= (TaskMenuAction :done) (task-menu-action :done)
+                assert= (TaskMenuAction :unknown) (task-menu-action :other)
               :tags $ #{} :client
             %{} 'TestEntry (:name |rejects-non-tag-action)
               :code $ quote $ assert= true
                 try
-                  do
-                    task-menu-action $ :: :item 1 |Invalid
-                    , false
+                  do (task-menu-action 1) false
                   fn (message) (starts-with? message "|decode-map-as failed")
               :tags $ #{} :client
         'task-sort-key $ %{} 'CodeEntry (:doc |)
@@ -3628,8 +3645,9 @@
                     Result :ok $ ClientMessage :dispatch typed-op
                   (:err error) (Result :err error)
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Input
             -> $ Result ClientMessage MessageDecodeError
+            :generics Input
           :tests $ []
             %{} 'TestEntry (:name |decodes-sync-control)
               :code $ quote $ assert=
@@ -4066,8 +4084,9 @@
                       invalid-message $ str "|Invalid states cursor: " message
                 _ $ invalid-message $ str "|Unknown application operation: " op
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Input
             -> $ Result Op MessageDecodeError
+            :generics Input
           :tests $ []
             %{} 'TestEntry (:name |accepts-today-string)
               :code $ quote $ assert=
@@ -4296,8 +4315,9 @@
                   _ $ Result :err |Unknown-route
               decode-route-map raw
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Input
             -> $ Result Route String
+            :generics Input
           :tests $ [] $ %{} 'TestEntry (:name |validates-route-shapes)
             :code $ quote $ do
               assert=
@@ -4366,8 +4386,9 @@
                   (:none) (Result :err |Unknown-route)
                 Result :err |Expected-route-map
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Input
             -> $ Result Route String
+            :generics Input
           :tests $ []
             %{} 'TestEntry (:name |preserves-absent-route-payload-errors)
               :code $ quote $ do
@@ -4468,8 +4489,9 @@
                   Result :ok $ ServerMessage :effect/pong
                 _ $ invalid-message $ str "|Unknown server message: " message
           :examples $ []
-          :schema $ quote $ Fn Dynamic
+          :schema $ quote $ Fn Input
             -> $ Result ServerMessage MessageDecodeError
+            :generics Input
           :tests $ []
             %{} 'TestEntry (:name |decodes-pong)
               :code $ quote $ assert=
