@@ -4925,8 +4925,9 @@
                     (:none) None
                   , None
           :examples $ []
-          :schema $ quote $ Fn Dynamic (List Dynamic)
+          :schema $ quote $ Fn Dynamic (List K)
             -> $ Option Dynamic
+            :generics K
           :tests $ []
             %{} 'TestEntry (:name |handles-non-map-boundaries)
               :code $ quote $ do
