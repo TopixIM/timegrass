@@ -2277,12 +2277,12 @@
           :code $ quote $ defcomp comp-overview (states today tasks) (decode-map-as states 'Map)
             let
                 working-tasks $ .filter-kv tasks $ fn (key task)
-                  hint-fn $ Fn String (Map Tag Dynamic) (-> Bool)
+                  hint-fn $ Fn String (Map Tag TaskValue) (-> Bool)
                   not $ match (calcit.core/get task :pending?)
                     (:some value) (decode-map-as value 'Bool)
                     (:none) (decode-map-as nil 'Bool)
                 pending-tasks $ .filter-kv tasks $ fn (key task)
-                  hint-fn $ Fn String (Map Tag Dynamic) (-> Bool)
+                  hint-fn $ Fn String (Map Tag TaskValue) (-> Bool)
                   match (calcit.core/get task :pending?)
                     (:some value) (decode-map-as value 'Bool)
                     (:none) (decode-map-as nil 'Bool)
@@ -2398,9 +2398,9 @@
                   .render create-plugin
           :examples $ []
           :schema $ quote $ Fn (Map StateKey Dynamic) String
-            Map String $ Map Tag Dynamic
+            Map String $ Map Tag TaskValue
             -> respo.schema/Component
-            :generics StateKey
+            :generics StateKey TaskValue
           :tests $ []
             %{} 'TestEntry (:name |keeps-working-and-pending-and-toggle-state)
               :code $ quote $ let
@@ -2787,7 +2787,7 @@
                 .render update-plugin
                 .render delete-plugin
           :examples $ []
-          :schema $ quote $ Fn (Map StateKey Dynamic) (Map Tag Dynamic) Tag (-> respo.schema/Component) (:generics StateKey)
+          :schema $ quote $ Fn (Map StateKey Dynamic) (Map Tag TaskValue) Tag (-> respo.schema/Component) (:generics StateKey TaskValue)
           :tests $ []
             %{} 'TestEntry (:name |accepts-tag-string-number-state-branches)
               :code $ quote $ let
