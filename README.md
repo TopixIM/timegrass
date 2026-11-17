@@ -6,13 +6,15 @@ Time flies and tasks grow like grass.
 
 ### 本轮迁移影响与验收范围
 
-升级后前端与原生服务使用配对的 Calcit 和 `@calcit/procs` 0.42.1。部署前请备份存档，
+升级后前端与原生服务使用配对的 Calcit 和 `@calcit/procs` 0.43.0。部署前请备份存档，
 并在服务器准备匹配的正式 native 模块。旧 Cirru EDN 存档和 WebSocket 消息继续沿用。
 客户端在补丁无效或缺少快照时请求重新同步，并保留原有 ACK 和恢复流程。
 
 客户端投影用 union 区分未连接状态和已载入的 Map。路径查询在内部保留字段缺失和显式
 `nil` 的区别，序列化时继续按旧约定输出字段。登录输入和快捷键读取 Respo 具名事件，
 热更新继续通过 HUD 展示错误。
+
+正式依赖图显式包含 Reel 0.11.3，以满足 Alerts 0.14.6 的默认入口；模块入口问题见 [Alerts #157](https://github.com/Respo/alerts.calcit/issues/157)。现有 JS 合同回归为 0.43 补齐回放函数的效果声明及按入口生成的模块，断言不变。
 
 ### 前端 COS 与 CDN 部署
 

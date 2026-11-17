@@ -86,7 +86,7 @@
           :code $ quote $ defn ack-sync! (revision)
             ws-send! $ schema/ClientMessage :sync/ack revision
           :examples $ []
-          :schema $ quote $ Fn Number (-> Unit)
+          :schema $ quote $ Fn Number (-> Unit) (:features :state)
         'apply-server-patch! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn apply-server-patch! (base-revision revision changes)
             match @*store
@@ -596,7 +596,7 @@
                   _ $ render-loaded
                 render-loaded
           :examples $ []
-          :schema $ quote $ Fn Dynamic Dynamic (-> respo.schema/Component)
+          :schema $ quote $ Fn Dynamic Dynamic (-> respo.schema/Component) (:features :io :state)
           :tests $ []
             %{} 'TestEntry (:name |offline-skips-store-boundary)
               :code $ quote $ let
@@ -1942,7 +1942,7 @@
                 .render edit-plugin
                 .render remove-plugin
           :examples $ []
-          :schema $ quote $ Fn (Map StateKey Dynamic) (Map Tag Dynamic) (-> respo.schema/Component) (:generics StateKey)
+          :schema $ quote $ Fn (Map StateKey Dynamic) (Map Tag Dynamic) (-> respo.schema/Component) (:generics StateKey) (:features :io :state)
           :tests $ []
             %{} 'TestEntry (:name |accepts-tag-string-number-state-branches)
               :code $ quote $ let
@@ -2150,6 +2150,7 @@
             Map Tag Number
             -> respo.schema/Component
             :generics StateKey
+            :features :io :state
           :tests $ []
             %{} 'TestEntry
               :name |required-route-fields-preserve-zero-and-extra-fields
@@ -2401,6 +2402,7 @@
             Map String $ Map Tag TaskValue
             -> respo.schema/Component
             :generics StateKey TaskValue
+            :features :io :state
           :tests $ []
             %{} 'TestEntry (:name |keeps-working-and-pending-and-toggle-state)
               :code $ quote $ let
@@ -2787,7 +2789,7 @@
                 .render update-plugin
                 .render delete-plugin
           :examples $ []
-          :schema $ quote $ Fn (Map StateKey Dynamic) (Map Tag TaskValue) Tag (-> respo.schema/Component) (:generics StateKey TaskValue)
+          :schema $ quote $ Fn (Map StateKey Dynamic) (Map Tag TaskValue) Tag (-> respo.schema/Component) (:generics StateKey TaskValue) (:features :io :state)
           :tests $ []
             %{} 'TestEntry (:name |accepts-tag-string-number-state-branches)
               :code $ quote $ let
