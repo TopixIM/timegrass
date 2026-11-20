@@ -7,7 +7,7 @@ Time flies and tasks grow like grass.
 ### 本轮迁移影响与验收范围
 
 升级后前端与原生服务使用配对的 Calcit 和 `@calcit/procs` 0.44.0。部署前请备份存档，
-并在服务器准备匹配的正式 native 模块。旧 Cirru EDN 存档和 WebSocket 消息继续沿用。
+并在服务器准备匹配的正式 native 模块，包括标准库 0.2.58。旧 Cirru EDN 存档和 WebSocket 消息继续沿用。
 客户端在补丁无效或缺少快照时请求重新同步，并保留原有 ACK 和恢复流程。
 
 客户端投影用 union 区分未连接状态和已载入的 Map。路径查询在内部保留字段缺失和显式
