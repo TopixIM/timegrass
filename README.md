@@ -6,7 +6,7 @@ Time flies and tasks grow like grass.
 
 ### 本轮迁移影响与验收范围
 
-升级后前端与原生服务使用配对的 Calcit 和 `@calcit/procs` 0.43.0。部署前请备份存档，
+升级后前端与原生服务使用配对的 Calcit 和 `@calcit/procs` 0.44.0。部署前请备份存档，
 并在服务器准备匹配的正式 native 模块。旧 Cirru EDN 存档和 WebSocket 消息继续沿用。
 客户端在补丁无效或缺少快照时请求重新同步，并保留原有 ACK 和恢复流程。
 
@@ -14,7 +14,7 @@ Time flies and tasks grow like grass.
 `nil` 的区别，序列化时继续按旧约定输出字段。登录输入和快捷键读取 Respo 具名事件，
 热更新继续通过 HUD 展示错误。
 
-正式依赖图显式包含 Reel 0.11.3，以满足 Alerts 0.14.6 的默认入口；模块入口问题见 [Alerts #157](https://github.com/Respo/alerts.calcit/issues/157)。现有 JS 合同回归为 0.43 补齐回放函数的效果声明及按入口生成的模块，断言不变。
+正式依赖图显式包含 Reel 0.11.4，以满足 Alerts 0.14.7 的默认入口；模块入口问题见 [Alerts #157](https://github.com/Respo/alerts.calcit/issues/157)。现有 JS 合同回归为 0.43 补齐回放函数的效果声明及按入口生成的模块，断言不变。
 
 ### 前端 COS 与 CDN 部署
 
@@ -74,8 +74,8 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-当前使用正式 Calcit / `@calcit/procs` `0.42.1`、Cumulo Reel `0.3.2`、
-Recollect `0.3.4`、WS-EDN `0.1.1` 和 WSS Git 模块 `0.2.44`。笔记保持纯文本显示。
+当前使用正式 Calcit / `@calcit/procs` `0.44.0`、Cumulo Reel `0.3.7`、
+Recollect `0.3.9`、WS-EDN `0.2.5` 和 WSS Git 模块 `0.2.45`。笔记保持纯文本显示。
 
 Actions 只承担现有构建、验证及资源上传，不探测服务器内部 CLI、进程、模块元数据或
 加载的 WSS 身份，也不承担安装或重启。生产升级由管理员独立安排，不能把本地/CI
