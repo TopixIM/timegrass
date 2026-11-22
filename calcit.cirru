@@ -131,11 +131,14 @@
         'connect! $ %{} 'CodeEntry (:doc |)
           :code $ quote $ defn connect! ()
             let
-                url-obj $ unsafe-coerce (url-parse js/location.href true) 'app.client/ParsedUrlHost
+                location $ js-ffi.browser/location-host
+                url-obj $ unsafe-coerce
+                  url-parse (location :href) true
+                  , 'app.client/ParsedUrlHost
                 query $ .-query url-obj
                 host-value $ .-host query
                 port-value $ .-port query
-                host $ if (js-present? host-value) (unsafe-coerce host-value String) (unsafe-coerce js/location.hostname String)
+                host $ if (js-present? host-value) (unsafe-coerce host-value String) (location :hostname)
                 port $ if (js-present? port-value) (unsafe-coerce port-value String)
                   str $ :port config/site
                 ws-url $ if config/dev? (str |ws:// host |: port) |wss://timegrass.topix.im/ws
