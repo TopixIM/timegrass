@@ -1911,7 +1911,7 @@
                     comp-icon :edit
                       &{} :font-size 16 :curspr :pointer :color $ hsl 200 80 80
                       fn (e d!)
-                        hint-fn $ Fn Dynamic
+                        hint-fn $ Fn respo.schema/RespoEvent
                           Fn schema/Op $ -> Unit
                           -> Unit
                         .show edit-plugin d! $ fn (result)
@@ -2060,7 +2060,7 @@
                       comp-icon :plus
                         &{} :font-size 16 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
-                          hint-fn $ Fn Dynamic
+                          hint-fn $ Fn respo.schema/RespoEvent
                             Fn schema/Op $ -> Unit
                             -> Unit
                           .show add-plugin d! $ fn (result)
@@ -2313,7 +2313,7 @@
                       Some $ comp-icon :plus
                         &{} :font-size 14 :color (hsl 200 80 80) :cursor :pointer
                         fn (e d!)
-                          hint-fn $ Fn Dynamic
+                          hint-fn $ Fn respo.schema/RespoEvent
                             Fn schema/Op $ -> Unit
                             -> Unit
                           .show create-plugin d! $ fn (result)
