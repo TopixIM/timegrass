@@ -139,17 +139,16 @@
                 port $ if (js-present? port-value) (unsafe-coerce port-value String)
                   str $ :port config/site
                 ws-url $ if config/dev? (str |ws:// host |: port) |wss://timegrass.topix.im/ws
+                opened $ fn (event) (js/console.info |[connection] |open ws-url) (reset! *connected? true) (request-snapshot!) (send-activity!) (simulate-login!) &unit
+                closed $ fn (event) (reset! *connected? false)
+                  reset! *store $ OfflineProjection :offline
+                  js/console.error |[connection] |closed ws-url
+                  , &unit
               js/console.info |[connection] |opening ws-url
               reset! *store $ OfflineProjection :initial
-              reset! *ws-client $ Some $ ws-connect! ws-url
-                {}
-                  :on-open $ fn (event) (js/console.info |[connection] |open ws-url) (reset! *connected? true) (request-snapshot!) (send-activity!) (simulate-login!)
-                  :on-close $ fn (event) (reset! *connected? false)
-                    reset! *store $ OfflineProjection :offline
-                    js/console.error |[connection] |closed ws-url
-                  :on-data on-server-data
-                  :heartbeat-timeout-ms 75000
-                  :class-mapper $ {} (:ServerMessage schema/ServerMessage) (:change-op patch-schema/change-op)
+              reset! *ws-client $ Some $ ws-edn.client/ws-connect-typed! ws-url
+                ws-edn.client/ClientConfig :retry-base-ms None :retry-max-ms None :retry-jitter None :heartbeat-timeout-ms (Some 75000) :class-mapper $ {} (:ServerMessage schema/ServerMessage) (:change-op patch-schema/change-op)
+                ws-edn.client/ClientCallbacks :on-open (Some opened) :on-close (Some closed) :on-error None :on-data $ Some on-server-data
               , &unit
           :examples $ []
           :schema $ quote $ Fn (-> Unit) (:features :io :js-ffi :state)

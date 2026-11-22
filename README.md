@@ -74,8 +74,8 @@ Keep the Calcit CLI and `@calcit/procs` runtime on the same version. The local
 development command starts Vite with `--force` so stale optimized dependencies
 cannot retain a previous runtime after an upgrade.
 
-当前使用正式 Calcit / `@calcit/procs` `0.44.0`、Cumulo Reel `0.3.7`、
-Recollect `0.3.9`、WS-EDN `0.2.5` 和 WSS Git 模块 `0.2.45`。笔记保持纯文本显示。
+当前使用正式 Calcit / `@calcit/procs` `0.44.0`、Cumulo Reel `0.3.9`、
+Recollect `0.3.10`、WS-EDN `0.2.7` 和 WSS Git 模块 `0.2.46`。笔记保持纯文本显示。
 
 Actions 只承担现有构建、验证及资源上传，不探测服务器内部 CLI、进程、模块元数据或
 加载的 WSS 身份，也不承担安装或重启。生产升级由管理员独立安排，不能把本地/CI
