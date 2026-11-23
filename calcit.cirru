@@ -2351,14 +2351,12 @@
                       -> working-tasks (&map:to-list)
                         &list:sort-by $ fn (pair)
                           let[] (_ task) pair $ task-sort-key task
-                        &list:map-pair $ fn (k task)
-                          let
-                              task-data $ decode-map-as task $ Map Tag Dynamic
-                            [] k $ comp-task
-                              >> states $ match (calcit.core/get task-data :id)
-                                (:some value) (decode-map-as value 'String)
-                                (:none) (decode-map-as nil 'String)
-                              , task-data :working
+                        &list:map $ fn (pair)
+                          let[] (k task) pair $ [] k $ comp-task
+                            >> states $ match (calcit.core/get task :id)
+                              (:some value) (decode-map-as value 'String)
+                              (:none) (decode-map-as nil 'String)
+                            , task :working
                   if
                     not $ empty? pending-tasks
                     Some $ div ({})
@@ -2378,14 +2376,12 @@
                           -> pending-tasks (&map:to-list)
                             &list:sort-by $ fn (pair)
                               let[] (_ task) pair $ task-sort-key task
-                            &list:map-pair $ fn (k task)
-                              let
-                                  task-data $ decode-map-as task $ Map Tag Dynamic
-                                [] k $ comp-task
-                                  >> states $ match (calcit.core/get task-data :id)
-                                    (:some value) (decode-map-as value 'String)
-                                    (:none) (decode-map-as nil 'String)
-                                  , task-data :pending
+                            &list:map $ fn (pair)
+                              let[] (k task) pair $ [] k $ comp-task
+                                >> states $ match (calcit.core/get task :id)
+                                  (:some value) (decode-map-as value 'String)
+                                  (:none) (decode-map-as nil 'String)
+                                , task :pending
                         div
                           {}
                             :style $ {} $ :font-size 16
