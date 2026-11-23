@@ -3,6 +3,10 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { copyFile, mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { createServer } from 'vite';
+import dayjs from 'dayjs';
+import weekOfYear from 'dayjs/plugin/weekOfYear.js';
+
+dayjs.extend(weekOfYear);
 
 const binary = process.env.CALCIT_BIN ?? 'calcit';
 const run = (...args) => execFileSync(binary, args, { encoding: 'utf8', timeout: 60000 });
@@ -32,6 +36,9 @@ try {
   const sortData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.overview/task-sort-key', '--format', 'json')).data;
   const sortTests = sortData.tests.filter(test => test.tags.includes('task-sort-contract'));
   assert.equal(sortTests.length, 4, 'Replay timestamp selection, full errors, lazy fallback and ordering');
+  const overviewData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.overview/comp-overview', '--format', 'json')).data;
+  const overviewTests = overviewData.tests.filter(test => test.tags.includes('overview-state-contract'));
+  assert.equal(overviewTests.length, 3, 'Replay working and pending task state contracts');
   const loginData = JSON.parse(run(snapshot, 'query', 'def', 'app.comp.login/on-submit', '--format', 'json')).data;
   const loginTests = loginData.tests.filter(test => test.tags.includes('login-contract'));
   assert.equal(loginTests.length, 2, 'Replay both attached login/signup contracts');
@@ -82,7 +89,7 @@ try {
     ['edit', 'schema', 'app.comp.notes-page/replay-route-tests!', '--input-format', 'cirru', '--code',
       "quote $ Fn (-> Unit) (:features :io :js-ffi :state)"],
     ['edit', 'def', 'app.comp.overview/replay-title-tests!', '--input-format', 'json-ast', '--code',
-      JSON.stringify(['defn', 'replay-title-tests!', [], ...tests.map(test => test.code), ...sortTests.map(test => test.code), ...keydownTests.map(test => test.code), ['app.comp.login/replay-login-tests!'], ['app.comp.notes-page/replay-route-tests!'], ['app.comp.container/replay-container-tests!'], '&unit'])],
+      JSON.stringify(['defn', 'replay-title-tests!', [], ...tests.map(test => test.code), ...sortTests.map(test => test.code), ...overviewTests.map(test => test.code), ...keydownTests.map(test => test.code), ['app.comp.login/replay-login-tests!'], ['app.comp.notes-page/replay-route-tests!'], ['app.comp.container/replay-container-tests!'], '&unit'])],
     ['edit', 'schema', 'app.comp.overview/replay-title-tests!', '--input-format', 'cirru', '--code',
       "quote $ Fn (-> Unit) (:features :io :js-ffi :state)"],
   ];
