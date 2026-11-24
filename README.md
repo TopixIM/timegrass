@@ -14,7 +14,7 @@ Time flies and tasks grow like grass.
 `nil` 的区别，序列化时继续按旧约定输出字段。登录输入和快捷键读取 Respo 具名事件，
 热更新继续通过 HUD 展示错误。
 
-正式依赖图显式包含 Reel 0.11.5，以满足 Alerts 0.14.8 的默认入口；模块入口问题见 [Alerts #157](https://github.com/Respo/alerts.calcit/issues/157)。现有 JS 合同回归为 0.43 补齐回放函数的效果声明及按入口生成的模块，断言不变。
+正式依赖图显式包含 Reel 0.11.7，以满足 Alerts 0.14.11 的默认入口；模块入口问题见 [Alerts #157](https://github.com/Respo/alerts.calcit/issues/157)。现有 JS 合同回归为 0.43 补齐回放函数的效果声明及按入口生成的模块，断言不变。
 
 ### 前端 COS 与 CDN 部署
 
