@@ -1909,7 +1909,7 @@
                   div
                     {} $ :class-name css/row-middle
                     comp-icon :edit
-                      &{} :font-size 16 :curspr :pointer :color $ hsl 200 80 80
+                      &{} :font-size 16 :cursor :pointer :color $ hsl 200 80 80
                       fn (e d!)
                         hint-fn $ Fn respo.schema/RespoEvent
                           Fn schema/Op $ -> Unit
